@@ -132,7 +132,11 @@ def _facts(body: ChatIn, step: home.StepOut) -> str:
     else:
         lines.append("Pruebas hechas: ninguna todavía.")
     lines += [
-        f"Siguiente paso: {step.action_label}, el {_long_date(step.on)}.",
+        (
+            f"Siguiente paso: {step.action_label}. Próximo aviso: {_long_date(step.on)}."
+            if step.finished
+            else f"Siguiente paso: {step.action_label}, el {_long_date(step.on)}."
+        ),
         f"Mensaje que la aplicación le ha dado al paciente: «{step.patient_message}»",
         f"Material del kit: {step.kit.strips_used} de {step.kit.strips_total} tiras usadas y "
         f"{step.kit.tubes_used} de {step.kit.tubes_total} tubos usados.",
@@ -150,7 +154,12 @@ def _guided(body: ChatIn, step: home.StepOut) -> str:
     q = _plain(body.messages[-1].content)
     a = step.assessment
     status = _STATUS_PLAIN.get(a.status, "")
-    nxt = f"Tu siguiente paso es el {_long_date(step.on)}: {step.action_label.lower()}."
+    if step.action == "fin_normal":
+        nxt = f"No tienes pruebas pendientes. Te avisaremos para repetirla el {_long_date(step.on)}."
+    elif step.action == "centro":
+        nxt = "No tienes más pruebas pendientes en casa: tu centro de salud te llamará."
+    else:
+        nxt = f"Tu siguiente paso es el {_long_date(step.on)}: {step.action_label.lower()}."
 
     def has(*words: str) -> bool:
         return any(re.search(rf"\b{w}", q) for w in words)
@@ -222,8 +231,8 @@ def _ask_claude(body: ChatIn, facts: str) -> tuple[str, str] | None:
     except anthropic.AnthropicError as exc:  # p. ej. no hay ninguna credencial configurada
         log.info("Asistente en modo guiado: %s", exc)
         return None
-    except TypeError as exc:  # versión del SDK que no conoce algún parámetro
-        log.warning("Asistente en modo guiado: SDK incompatible (%s).", exc)
+    except TypeError as exc:  # sin ninguna credencial, o un SDK que no conoce algún parámetro
+        log.info("Asistente en modo guiado: %s", exc)
         return None
 
     if response.stop_reason == "refusal":

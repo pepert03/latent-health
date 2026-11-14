@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import math
 import random
 import re
 import time
@@ -81,12 +82,35 @@ def null_fields(value, name: str = "") -> set[str]:
     return set()
 
 
+def probabilities(value, name: str = "") -> list[tuple[str, float]]:
+    """Todos los valores de una respuesta que son probabilidades, con el nombre de su campo."""
+    if isinstance(value, dict):
+        whole = name in ("kdigo_g", "kdigo_risk", "finding_by_test", "next_sample_resolves")
+        found = []
+        for key, item in value.items():
+            if isinstance(item, (dict, list)):
+                found += probabilities(item, key)
+            elif item is not None and not isinstance(item, (str, bool)):
+                if whole or key.startswith("p_") or key in ("p", "score", "score_low", "score_high"):
+                    found.append((f"{name}.{key}" if name else key, item))
+        return found
+    if isinstance(value, list):
+        if name in ("mass", "probs"):
+            return [(name, item) for item in value]
+        return [pair for item in value for pair in probabilities(item, name)]
+    return []
+
+
 def post(api: TestClient, route: str, body: dict, status: int = 200):
     response = api.post(f"/api/model/{route}", json=body)
     assert response.status_code == status, response.text
     data = strict_json(response.text)
     if status == 200:
         assert null_fields(data) <= NULLABLE
+        # Fracciones entre 0 y 1, sin el error de redondeo del modelo (1.0000000000000002, -2e-16
+        # o -0.0), que en pantalla sale como «-0 %».
+        for name, p in probabilities(data):
+            assert 0.0 <= p <= 1.0 and math.copysign(1.0, p) > 0, f"{name} = {p!r} no es una probabilidad entre 0 y 1"
     return data
 
 
@@ -148,15 +172,17 @@ def check_albuminuria(got: dict, expected, samples: list) -> None:
     ordered = sorted(samples, key=lambda s: s.date)
     assert len(got["samples"]) == len(ordered)
     for echo, sample in zip(got["samples"], ordered):
-        assert set(echo) == {"kind", "date", "label", "value_mg_g", "sample_type"}
+        assert set(echo) == {"kind", "date", "label", "value_mg_g", "sample_type", "censored"}
         assert echo["date"] == sample.date.isoformat()
         assert echo["sample_type"] == sample.sample_type
         if isinstance(sample, StripSample):
             assert (echo["kind"], echo["label"]) == ("tira", sample.spec.name)
             same(echo["value_mg_g"], sample.nominal_uacr)
+            assert echo["censored"] is False
         else:
             assert (echo["kind"], echo["label"]) == ("laboratorio", SAMPLE_LABELS[sample.sample_type])
             same(echo["value_mg_g"], sample.uacr)
+            assert echo["censored"] is bool(sample.censored)
 
 
 # --------------------------------------------------------------------------------------
@@ -316,6 +342,8 @@ def test_strip_reader_and_sample_order(api):
         "muestra aleatoria",
     ]
     assert [s["value_mg_g"] for s in got["samples"]] == [30.0, 160.0, 58.0, 30.0]
+    # La última es un «menor que 30»: su valor es el límite de detección, no una medida.
+    assert [s["censored"] for s in got["samples"]] == [False, False, False, True]
     assert [p["date"] for p in got["trajectory"]] == [s["date"] for s in got["samples"]]
     # El orden en que llegan las muestras no importa.
     assert post(api, "albuminuria", {**body, "samples": CON_TIRAS[::-1]}) == got
@@ -955,6 +983,88 @@ EXTREME_PATIENTS = {
 @pytest.mark.parametrize("name", EXTREME_PATIENTS)
 def test_extreme_patients_never_break(api, name):
     check_kdigo_map(post(api, "assess", EXTREME_PATIENTS[name]))
+
+
+# Entradas que se pueden teclear en la web y con las que el modelo, al sumar masas en coma flotante,
+# devuelve 1.0000000000000002 o -2.2e-16: la barra de A1 enseñaba «-0 %».
+ALL_HIGH = [lab((date(2026, 11, 16) - timedelta(days=i)).isoformat(), 3000.0, "random") for i in range(6)]
+ALL_A3 = [lab((date(2026, 11, 16) - timedelta(days=i)).isoformat(), 12000.0) for i in range(6)]
+ROUNDING_CASES = [
+    (
+        "albuminuria",
+        {"patient": {"age": 58, "female": True, "diabetes": False, "egfr": 88}, "samples": ALL_HIGH, "as_of": "2026-11-16"},
+    ),
+    ("albuminuria", {"patient": BASE, "samples": ALL_A3, "as_of": "2026-11-16"}),
+    ("assess", {"age": 58, "female": True, "measured": {"egfr": 88}, "urine_samples": ALL_HIGH, "as_of": "2026-11-16"}),
+    ("assess", {"age": 62, "female": False, "diabetes": True, "urine_samples": ALL_A3, "as_of": "2026-11-16"}),
+    (
+        "assess",
+        {
+            "age": 100,
+            "female": True,
+            "dbp": 88.6,
+            "diabetes": True,
+            "prediabetes": True,
+            "diabetes_pills": True,
+            "coronary": True,
+            "measured": {"hba1c": 20, "glucose": 841.58, "non_hdl": 367.27},
+            "urine_samples": [
+                strip("2026-03-29", 150, 200, reader="ojo", sample_type="random"),
+                strip("2025-11-23", 30, 300, reader="ojo"),
+            ],
+            "as_of": "2026-11-14",
+        },
+    ),
+    (
+        "egfr-trend",
+        {
+            "age": 66,
+            "female": False,
+            "measurements": [{"date": "2031-12-16", "egfr": 5}, {"date": "2025-01-01", "egfr": 63}],
+            "treatments": [{"date": "2024-04-16", "kind": "ieca_ara2"}, {"date": "2025-05-14", "kind": "isglt2"}],
+        },
+    ),
+]
+
+
+@pytest.mark.parametrize(("route", "body"), ROUNDING_CASES)
+def test_probabilities_never_leave_0_1_by_rounding(api, route, body):
+    """Regresión: ``post`` comprueba que toda probabilidad de la respuesta está en [0, 1] y sin «-0»."""
+    got = post(api, route, body)
+    if route == "albuminuria":
+        assert got["p_a1"] + got["p_a2"] + got["p_a3"] == pytest.approx(1.0, abs=1e-12)
+        assert got["p_a2_plus"] == pytest.approx(got["p_a2"] + got["p_a3"], abs=1e-12)
+        assert got["status"] == "pendiente_cronicidad" and got["p_a2_plus"] >= 0.999999
+    elif route == "assess":
+        check_kdigo_map(got)
+
+
+def test_the_library_does_give_rounding_errors_for_those_inputs():
+    """Las entradas de la regresión anterior provocan de verdad el error en la librería."""
+    filt = load_default_filter("espana")
+    as_of = date(2026, 11, 16)
+    first = filt.assess(Patient(58, True, False, 88, [library_sample(s) for s in ALL_HIGH]), as_of=as_of, detail=False)
+    second = filt.assess(Patient(62, False, True, 75, [library_sample(s) for s in ALL_A3]), as_of=as_of, detail=False)
+    values = [first.p_a1, first.p_a2_plus, second.p_a2, second.p_a3]
+    if all(0.0 <= v <= 1.0 for v in values):
+        pytest.skip("en esta máquina la suma no se pasa de 1: queda la prueba directa de la limpieza")
+    assert all(-1e-12 < v < 1.0 + 1e-12 for v in values)  # es redondeo, no un fallo del modelo
+
+
+def test_probability_cleanup_only_touches_rounding_errors():
+    clean_p = model._probability
+    assert clean_p(1.0000000000000002) == 1.0
+    assert clean_p(-2.220446049250313e-16) == 0.0
+    assert math.copysign(1.0, clean_p(-0.0)) == 1.0  # sin «-0»
+    for untouched in (0.0, 1.0, 0.5, 1e-300, 0.9999999999999999, 2.2e-16):
+        assert clean_p(untouched) == untouched
+    # Algo claramente fuera de [0, 1] sería un fallo del modelo: no se tapa.
+    assert clean_p(1.2) == 1.2 and clean_p(-0.3) == -0.3
+    # Se aplica al construir cualquier salida, también dentro de listas y diccionarios.
+    cell = model.KdigoCellOut(a="A1", p=-2.220446049250313e-16, risk="bajo")
+    assert cell.p == 0.0 and math.copysign(1.0, cell.p) == 1.0
+    assert model.AlbuminuriaBeliefOut(uacr=[1.0, 2.0], mass=[1.0000000000000002, -0.0]).mass == [1.0, 0.0]
+    assert model.NextSampleResolvesOut(first_morning=1.0000000000000002, random=0.25).first_morning == 1.0
 
 
 def clear_caches() -> None:

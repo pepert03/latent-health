@@ -30,7 +30,7 @@ export function mg(value) {
 /** Probabilidad 0–1 -> «61 %». Nunca enseña 0 % ni 100 % si no lo son. */
 export function pct(p) {
   if (!Number.isFinite(p)) return '—'
-  const v = p * 100
+  const v = Math.min(1, Math.max(0, p)) * 100
   if (v > 0 && v < 1) return `<${NBSP}1${NBSP}%`
   if (v < 100 && v > 99) return `>${NBSP}99${NBSP}%`
   return `${num(v)}${NBSP}%`

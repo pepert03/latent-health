@@ -29,7 +29,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 from scipy.optimize import brentq
 from scipy.special import ndtr, ndtri
 from threadpoolctl import threadpool_limits  # viene con scikit-learn
@@ -166,6 +166,26 @@ Population = Annotated[
 ]
 SampleType = Literal["first_morning", "random"]
 
+_ROUNDING = 1e-9  # margen del error de redondeo al sumar masas en coma flotante
+
+
+def _probability(value: float) -> float:
+    """Quita el error de redondeo de una probabilidad: 1.0000000000000002 -> 1.0; -1e-17 y -0.0 -> 0.0.
+
+    El modelo las obtiene sumando masas en coma flotante y a veces se pasa del 1 o queda por debajo
+    del 0 en el último decimal (en pantalla, «-0 %»). No cambia ningún valor más que ese margen: algo
+    claramente fuera de [0, 1] sería un fallo del modelo y se deja como está para que se vea.
+    """
+    if -_ROUNDING < value <= 0.0:
+        return 0.0
+    if 1.0 < value < 1.0 + _ROUNDING:
+        return 1.0
+    return value
+
+
+# Probabilidad de salida, como fracción entre 0 y 1.
+Probability = Annotated[float, AfterValidator(_probability)]
+
 
 class _Input(BaseModel):
     """Cuerpo de una petición: no admite campos desconocidos ni números no finitos."""
@@ -297,7 +317,7 @@ class AlbuminuriaPointOut(BaseModel):
     median: float = Field(description="Mediana del UACR verdadero ese día, en mg/g (con todas las muestras).")
     low: float = Field(description="Percentil 10, en mg/g.")
     high: float = Field(description="Percentil 90, en mg/g.")
-    p_a2_plus: float = Field(description="P(UACR verdadero ≥ 30 mg/g) ese día.")
+    p_a2_plus: Probability = Field(description="P(UACR verdadero ≥ 30 mg/g) ese día.")
 
 
 class AlbuminuriaProjectionOut(BaseModel):
@@ -306,17 +326,17 @@ class AlbuminuriaProjectionOut(BaseModel):
     median: float = Field(description="Mediana del UACR verdadero, en mg/g.")
     low: float = Field(description="Percentil 10, en mg/g.")
     high: float = Field(description="Percentil 90, en mg/g.")
-    p_a2_plus: float = Field(description="P(UACR verdadero ≥ 30 mg/g).")
+    p_a2_plus: Probability = Field(description="P(UACR verdadero ≥ 30 mg/g).")
 
 
 class NextSampleResolvesOut(BaseModel):
-    first_morning: float = Field(description="Con una muestra más de primera orina de la mañana.")
-    random: float = Field(description="Con una muestra aleatoria más.")
+    first_morning: Probability = Field(description="Con una muestra más de primera orina de la mañana.")
+    random: Probability = Field(description="Con una muestra aleatoria más.")
 
 
 class AlbuminuriaBeliefOut(BaseModel):
     uacr: list[float] = Field(description="Centro de cada celda de la rejilla, en mg/g (escala logarítmica).")
-    mass: list[float] = Field(description="Probabilidad de que el UACR verdadero esté en esa celda. Suma 1.")
+    mass: list[Probability] = Field(description="Probabilidad de que el UACR verdadero esté en esa celda. Suma 1.")
 
 
 class UrineSampleOut(BaseModel):
@@ -324,9 +344,14 @@ class UrineSampleOut(BaseModel):
     date: dt.date = Field(description="Fecha de la muestra.")
     label: str = Field(description="Nombre que el modelo da a ese tipo de muestra o de tira.")
     value_mg_g: float = Field(
-        description="UACR en mg/g: el medido en el laboratorio o el aproximado que sugiere la lectura de la tira."
+        description="UACR en mg/g: el medido en el laboratorio (o su límite de detección si «censored») o el "
+        "aproximado que sugiere la lectura de la tira."
     )
     sample_type: SampleType = Field(description="Primera orina de la mañana o muestra aleatoria.")
+    censored: bool = Field(
+        description="El laboratorio solo informó «menor que»: «value_mg_g» es entonces el límite de detección, "
+        "no una medida. Siempre falso en las tiras."
+    )
 
 
 class AlbuminuriaSummaryOut(BaseModel):
@@ -338,10 +363,10 @@ class AlbuminuriaSummaryOut(BaseModel):
     )
     status_label: str = Field(description="Nombre del estado para mostrarlo.")
     category: Literal["A1", "A2", "A3"] = Field(description="Categoría KDIGO más probable.")
-    p_a1: float = Field(description="P(UACR verdadero < 30 mg/g).")
-    p_a2: float = Field(description="P(UACR verdadero entre 30 y 300 mg/g).")
-    p_a3: float = Field(description="P(UACR verdadero > 300 mg/g).")
-    p_a2_plus: float = Field(description="P(UACR verdadero ≥ 30 mg/g): la probabilidad de albuminuria.")
+    p_a1: Probability = Field(description="P(UACR verdadero < 30 mg/g).")
+    p_a2: Probability = Field(description="P(UACR verdadero entre 30 y 300 mg/g).")
+    p_a3: Probability = Field(description="P(UACR verdadero > 300 mg/g).")
+    p_a2_plus: Probability = Field(description="P(UACR verdadero ≥ 30 mg/g): la probabilidad de albuminuria.")
     median: float = Field(description="Mediana del UACR verdadero, en mg/g.")
     low: float = Field(description="Percentil 10, en mg/g.")
     high: float = Field(description="Percentil 90, en mg/g.")
@@ -383,6 +408,7 @@ def _sample_echo(sample: ModelSample) -> UrineSampleOut:
             label=sample.spec.name,
             value_mg_g=sample.nominal_uacr,
             sample_type=sample.sample_type,
+            censored=False,
         )
     return UrineSampleOut(
         kind="laboratorio",
@@ -390,6 +416,7 @@ def _sample_echo(sample: ModelSample) -> UrineSampleOut:
         label=SAMPLE_LABELS[sample.sample_type],
         value_mg_g=sample.uacr,
         sample_type=sample.sample_type,
+        censored=bool(sample.censored),
     )
 
 
@@ -570,10 +597,10 @@ class EgfrTrendOut(BaseModel):
     slope: float = Field(description="Pendiente, en ml/min/1,73 m² por año (negativa si baja).")
     slope_low: float = Field(description="Límite inferior del intervalo del 80 % de la pendiente.")
     slope_high: float = Field(description="Límite superior del intervalo del 80 % de la pendiente.")
-    p_decline: float = Field(description="P(pierde más de 3 ml/min/1,73 m² al año).")
-    p_rapid: float = Field(description="P(pierde más de 5 al año): descenso rápido según KDIGO.")
-    p_below_60: float = Field(description="P(filtrado actual < 60).")
-    p_below_30_in_5y: float = Field(description="P(filtrado < 30 dentro de cinco años).")
+    p_decline: Probability = Field(description="P(pierde más de 3 ml/min/1,73 m² al año).")
+    p_rapid: Probability = Field(description="P(pierde más de 5 al año): descenso rápido según KDIGO.")
+    p_below_60: Probability = Field(description="P(filtrado actual < 60).")
+    p_below_30_in_5y: Probability = Field(description="P(filtrado < 30 dentro de cinco años).")
     status: Literal["sin_datos", "insuficiente", "estable", "descenso", "descenso_rapido", "incierto"] = Field(
         description="Lectura de la tendencia."
     )
@@ -791,7 +818,7 @@ class BloodEstimateOut(BaseModel):
 
 class KdigoCellOut(BaseModel):
     a: Literal["A1", "A2", "A3"] = Field(description="Categoría de albuminuria.")
-    p: float = Field(description="Probabilidad de que el paciente esté en esa casilla.")
+    p: Probability = Field(description="Probabilidad de que el paciente esté en esa casilla.")
     risk: Literal["bajo", "moderado", "alto", "muy alto"] = Field(description="Nivel de riesgo KDIGO de la casilla.")
 
 
@@ -801,10 +828,10 @@ class KdigoRowOut(BaseModel):
 
 
 class CvRiskOut(BaseModel):
-    score: float = Field(description="SCORE2 o SCORE2-OP a 10 años (mediana si faltan datos), como fracción.")
-    score_low: float = Field(description="Percentil 10 del SCORE2 con lo que falta por medir.")
-    score_high: float = Field(description="Percentil 90.")
-    probs: list[float] = Field(description="Probabilidad de cada categoría real: bajo o moderado, alto, muy alto.")
+    score: Probability = Field(description="SCORE2 o SCORE2-OP a 10 años (mediana si faltan datos), como fracción.")
+    score_low: Probability = Field(description="Percentil 10 del SCORE2 con lo que falta por medir.")
+    score_high: Probability = Field(description="Percentil 90.")
+    probs: list[Probability] = Field(description="Probabilidad de cada categoría real: bajo o moderado, alto, muy alto.")
     recorded: int = Field(description="Categoría con lo que ya consta en la historia: 0, 1 o 2 (mismo orden).")
     recorded_label: str = Field(description="Nombre de esa categoría.")
     category: int = Field(description="Categoría real más probable: 0, 1 o 2.")
@@ -820,22 +847,22 @@ class RecommendationOut(BaseModel):
 class AssessOut(BaseModel):
     albuminuria: AlbuminuriaSummaryOut = Field(description="Estado de la albuminuria (el filtro, dentro de la evaluación).")
     blood: list[BloodEstimateOut] = Field(description="Panel de sangre: lo medido y lo estimado con la historia y la orina.")
-    p_egfr_below_60: float = Field(description="P(filtrado glomerular < 60).")
-    kdigo_g: dict[str, float] = Field(description="Probabilidad de cada categoría de filtrado: G1, G2, G3a, G3b, G4 y G5.")
-    kdigo_risk: dict[str, float] = Field(
+    p_egfr_below_60: Probability = Field(description="P(filtrado glomerular < 60).")
+    kdigo_g: dict[str, Probability] = Field(description="Probabilidad de cada categoría de filtrado: G1, G2, G3a, G3b, G4 y G5.")
+    kdigo_risk: dict[str, Probability] = Field(
         description="Probabilidad de cada nivel de riesgo KDIGO: bajo, moderado, alto y «muy alto»."
     )
     kdigo_joint: list[KdigoRowOut] = Field(
         description="Mapa KDIGO: probabilidad conjunta de filtrado (6 filas) y albuminuria (3 columnas). Suma 1."
     )
-    p_ckd: float = Field(description="P(filtrado < 60 o albuminuria ≥ 30 mg/g), sin exigir aún la cronicidad.")
+    p_ckd: Probability = Field(description="P(filtrado < 60 o albuminuria ≥ 30 mg/g), sin exigir aún la cronicidad.")
     diabetes: str = Field(description="«diagnosticada», «probable», «posible» o «poco probable».")
-    p_diabetes: float | None = Field(description="P(diabetes sin diagnosticar); nulo si ya está diagnosticada.")
+    p_diabetes: Probability | None = Field(description="P(diabetes sin diagnosticar); nulo si ya está diagnosticada.")
     heart_failure: str = Field(description="«diagnosticada», «a descartar» o «poco probable».")
-    p_nt_probnp_high: float | None = Field(description="P(NT-proBNP ≥ 125 pg/ml); nulo si ya está diagnosticada.")
+    p_nt_probnp_high: Probability | None = Field(description="P(NT-proBNP ≥ 125 pg/ml); nulo si ya está diagnosticada.")
     cv: CvRiskOut | None = Field(description="Riesgo cardiovascular con la incertidumbre de lo que falta por medir.")
-    p_new_finding: float = Field(description="Probabilidad de un hallazgo nuevo si se completan las pruebas pendientes.")
-    finding_by_test: dict[str, float] = Field(description="Esa probabilidad si solo se hiciera cada prueba.")
+    p_new_finding: Probability = Field(description="Probabilidad de un hallazgo nuevo si se completan las pruebas pendientes.")
+    finding_by_test: dict[str, Probability] = Field(description="Esa probabilidad si solo se hiciera cada prueba.")
     recommendations: list[RecommendationOut] = Field(description="Pruebas que merece la pena pedir, por orden.")
     alerts: list[str] = Field(description="Hallazgos que ya piden actuar, con las palabras del modelo.")
 
@@ -858,8 +885,8 @@ def _compute_assess(body: AssessIn) -> AssessOut:
         KdigoRowOut(
             g=g,
             cells=[
-                # ``+ 0.0`` quita el signo de los ceros negativos que deja el modelo con el FG medido.
-                KdigoCellOut(a=label, p=float(joint[i, j]) + 0.0, risk=panel.KDIGO_RISK[g][j])
+                # Con el FG medido el modelo deja ceros negativos: los limpia el tipo ``Probability``.
+                KdigoCellOut(a=label, p=float(joint[i, j]), risk=panel.KDIGO_RISK[g][j])
                 for j, label in enumerate(cvrisk.A_LABELS)
             ],
         )
@@ -882,8 +909,8 @@ def _compute_assess(body: AssessIn) -> AssessOut:
         albuminuria=AlbuminuriaSummaryOut(**_albuminuria_fields(a.albuminuria, samples)),
         blood=[BloodEstimateOut(key=key, **clean(estimate)) for key, estimate in a.blood.items()],
         p_egfr_below_60=a.p_egfr_below_60,
-        kdigo_g={g: float(p) + 0.0 for g, p in a.kdigo_g.items()},
-        kdigo_risk={level: float(p) + 0.0 for level, p in a.kdigo_risk.items()},
+        kdigo_g={g: float(p) for g, p in a.kdigo_g.items()},
+        kdigo_risk={level: float(p) for level, p in a.kdigo_risk.items()},
         kdigo_joint=kdigo_joint,
         p_ckd=a.p_ckd,
         diabetes=a.diabetes,
