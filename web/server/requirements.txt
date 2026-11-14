@@ -2,3 +2,5 @@
 # el entorno de los modelos: web/start.ps1 las superpone con `uv run --with-requirements`.
 fastapi==0.162.7
 uvicorn==0.54.0
+# Asistente de la app del paciente (opcional: sin credenciales contesta en modo guiado).
+anthropic

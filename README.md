@@ -86,10 +86,28 @@ uv run pytest
 `demo.py`, la ficha de cinco pacientes. Para rehacer los modelos y los informes desde los datos
 públicos de NHANES, sigue la sección 4 de [docs/solucion.md](docs/solucion.md).
 
+## Sitio web de presentación (local)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File web\start.ps1
+```
+
+Abre <http://127.0.0.1:8000>. Un solo proceso sirve la web (`web/site`: HTML, CSS y JavaScript,
+sin compilar) y las rutas `/api` que llaman a los modelos de `src/latenthealth` en tiempo real
+(documentadas en <http://127.0.0.1:8000/api/docs>). La página cuenta el porqué del proyecto, deja
+probar el filtro de albuminuria en vivo y trae la app del paciente dentro de un teléfono:
+recordatorio, tira, registro, asistente y mensaje a la médica. Todo con datos sintéticos.
+
+- El asistente de la app usa Claude si existe la variable `ANTHROPIC_API_KEY`; sin ella contesta en
+  modo guiado con los mismos datos del modelo, y lo indica.
+- Tests del servidor: `uv run --with-requirements web/server/requirements-dev.txt pytest web/server/tests -q`
+- Prueba de humo de la app en el navegador: <http://127.0.0.1:8000/?auto=registro>
+
 ## Estructura
 
 | Ruta | Contenido |
 |---|---|
+| `web/` | Sitio de presentación (`site/`) y servidor local que envuelve los modelos (`server/`) |
 | `src/latenthealth/albuminuria/` | Modelo, ajuste y filtro de la albuminuria; tira (`strip.py`), preguntas de contexto (`context.py`) y protocolo en casa (`protocol.py`) |
 | `src/latenthealth/panel/` | Datos, modelo distribucional y evaluación del panel de sangre |
 | `src/latenthealth/outcomes/` | Cohorte con seguimiento de mortalidad, modelo de riesgo en tiempo discreto y sus métricas |

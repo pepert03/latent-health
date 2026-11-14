@@ -1,7 +1,7 @@
 """Servidor local del sitio de LatentHealth.
 
 Un solo proceso y un solo puerto: las rutas ``/api/...`` llaman a los modelos reales de
-``src/latenthealth`` (que no se modifican) y el resto sirve el sitio compilado (``web/dist``).
+``src/latenthealth`` (que no se modifican) y el resto sirve el sitio (``web/site``).
 
 Arranque (desde la raíz del repositorio)::
 
@@ -23,15 +23,16 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .routes import home, model
+from .routes import chat, home, model
 
 WEB_DIR = Path(__file__).resolve().parents[1]
-DIST_DIR = WEB_DIR / "dist"
+DIST_DIR = WEB_DIR / "site"  # el sitio: HTML, CSS y JavaScript sin paso de compilación
 log = logging.getLogger("latenthealth.web")
 
 # En algunos Windows el registro asocia .js a text/plain y el navegador rechaza los módulos.
 mimetypes.add_type("text/javascript", ".js")
 mimetypes.add_type("text/css", ".css")
+mimetypes.add_type("font/woff2", ".woff2")
 
 _models_ready = threading.Event()
 
@@ -79,6 +80,7 @@ def health() -> Health:
 
 
 app.include_router(home.router)
+app.include_router(chat.router)
 app.include_router(model.router)
 
 

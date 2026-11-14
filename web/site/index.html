@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="LatentHealth: detección precoz del riesgo cardio-renal-metabólico en atención primaria, medida en casa. Prototipo con datos sintéticos."
+    />
+    <title>LatentHealth · Detección precoz cardio-renal-metabólica, medida en casa</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="stylesheet" href="css/styles.css" />
+    <script>
+      // Con JavaScript las secciones aparecen al hacer scroll; sin él (o con ?estatico=1) todo se ve.
+      document.documentElement.classList.add('js')
+      if (new URLSearchParams(location.search).has('estatico')) document.documentElement.classList.add('static')
+    </script>
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap">
+        <a class="brand" href="#inicio">
+          <svg width="38" height="14" viewBox="0 0 38 14" aria-hidden="true">
+            <rect width="8" height="14" fill="#e8eedb" stroke="#c9d3cf" />
+            <rect x="10" width="8" height="14" fill="#bcdcc0" />
+            <rect x="20" width="8" height="14" fill="#6cb99f" />
+            <rect x="30" width="8" height="14" fill="#0b7774" />
+          </svg>
+          LatentHealth
+        </a>
+        <nav class="nav" aria-label="Secciones">
+          <a href="#porque">Por qué</a>
+          <a href="#como">Cómo</a>
+          <a href="#enfermedades">Qué detecta</a>
+          <a href="#ventaja">Frente al laboratorio</a>
+          <a href="#modelo">Modelo en vivo</a>
+          <a href="#app">La app</a>
+        </nav>
+      </div>
+      <div class="progress" id="progress" aria-hidden="true"></div>
+    </header>
+
+    <main id="inicio">
+      <!-- ============================ PORTADA ============================ -->
+      <section class="wrap hero">
+        <div class="hero-txt">
+          <p class="eyebrow rv">Detección precoz cardio-renal-metabólica, medida en casa</p>
+          <h1 class="h1 rv" style="--d: 80ms">Esto se podría haber visto venir.</h1>
+          <p class="lede rv" style="--d: 160ms">
+            Diabetes, hipertensión, riñón y corazón se dañan en silencio durante años. Con LatentHealth el paciente se
+            mide en casa y su médica recibe una lista ya ordenada de a quién mirar y qué pedirle.
+          </p>
+          <p class="btns rv" style="--d: 240ms">
+            <a class="btn btn-1" href="#como">Ver cómo funciona</a>
+            <a class="btn btn-2" href="#app">Probar la app del paciente</a>
+          </p>
+        </div>
+        <figure
+          class="reader"
+          id="reader"
+          role="img"
+          aria-label="Tira reactiva leída contra la carta de colores del bote. Albúmina: 10, 30, 80 y 150 mg/l. Creatinina: 10, 50, 100, 200 y 300 mg/dl."
+        >
+          <div class="strip"><b>LatentHealth</b><i class="pad pad-a"></i><i class="pad pad-c"></i></div>
+          <div class="bote">
+            <p class="rowname"><b>Albúmina</b> mg/l</p>
+            <ol class="scale sa">
+              <li style="background: var(--a10)">10</li>
+              <li style="background: var(--a30)">30</li>
+              <li style="background: var(--a80)">80</li>
+              <li style="background: var(--a150); color: #fff">150</li>
+            </ol>
+            <p class="rowname"><b>Creatinina</b> mg/dl</p>
+            <ol class="scale sc">
+              <li style="background: var(--c10)">10</li>
+              <li style="background: var(--c50)">50</li>
+              <li style="background: var(--c100)">100</li>
+              <li style="background: var(--c200)">200</li>
+              <li style="background: var(--c300); color: #fff">300</li>
+            </ol>
+          </div>
+        </figure>
+      </section>
+
+      <!-- ============================ POR QUÉ ============================ -->
+      <section class="sec tint" id="porque">
+        <div class="wrap">
+          <header class="sec-head rv">
+            <p class="eyebrow">Por qué</p>
+            <h2 class="h2">Cuatro enfermedades que se alimentan entre sí, y casi todo ocurre sin síntomas</h2>
+            <p class="lede">
+              Cuando aparece el síntoma (un infarto, un ictus, la diálisis) el daño ya está hecho. El aviso más temprano
+              está en la orina, y hoy casi nadie lo mira.
+            </p>
+          </header>
+
+          <div class="figs">
+            <article class="fig rv">
+              <div class="pads" aria-hidden="true"><i class="on"></i><i></i><i></i><i></i></div>
+              <p class="num">1<small>de cada</small>4</p>
+              <p class="txt">
+                muertes en España en 2024, cerca de esa proporción, se debe a las enfermedades que este proyecto quiere
+                anticipar: más de 100.000.
+              </p>
+              <p class="src">INE, 2024 (datos provisionales)<sup><a href="#ref-1">1</a></sup></p>
+            </article>
+            <article class="fig rv" style="--d: 120ms">
+              <div class="pads" aria-hidden="true">
+                <i style="height: 40%; background: var(--a10)"></i><i style="height: 58%; background: var(--a30)"></i
+                ><i style="height: 78%; background: var(--a80)"></i><i class="on"></i>
+              </div>
+              <p class="num">+10,3&#8239;%</p>
+              <p class="txt">La insuficiencia renal fue la causa de muerte que más creció en 2024.</p>
+              <p class="src">INE, 2024 (datos provisionales)<sup><a href="#ref-1">1</a></sup></p>
+            </article>
+            <article class="fig rv" style="--d: 240ms">
+              <div class="pads" aria-hidden="true" id="pads-25"></div>
+              <p class="num">4&#8239;%</p>
+              <p class="txt">
+                de los hipertensos tiene hecha la prueba de orina que avisa primero. En diabéticos, el 35&nbsp;%.
+              </p>
+              <p class="src">Shin et al., <i>Hypertension</i>, 2021<sup><a href="#ref-2">2</a></sup></p>
+            </article>
+          </div>
+
+          <ol class="loop rv">
+            <li><b>Azúcar y tensión altos</b>Dañan los vasos sanguíneos pequeños.</li>
+            <li><b>Riñón</b>Está hecho de millones de esos vasos: son sus filtros. Se estropea.</li>
+            <li><b>Corazón</b>Un riñón estropeado sube la tensión y lo sobrecarga.</li>
+            <li><b>Y vuelta a empezar</b>El corazón que falla riega peor el riñón.</li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="sec" id="cadena">
+        <div class="wrap">
+          <header class="sec-head rv">
+            <p class="eyebrow">Qué buscamos mejorar</p>
+            <h2 class="h2">No faltan análisis. Falla la cadena, en cuatro eslabones</h2>
+          </header>
+          <ol class="links">
+            <li class="rv">
+              <h3 class="h3">No se pide la orina</h3>
+              <p>
+                La albúmina en orina es la primera señal de daño en los vasos, años antes de que baje el filtrado del
+                riñón.
+              </p>
+              <b class="big">4&nbsp;%</b>
+              <p class="src">de los hipertensos la tiene hecha<sup><a href="#ref-2">2</a></sup></p>
+            </li>
+            <li class="rv" style="--d: 100ms">
+              <h3 class="h3">Un resultado aislado engaña</h3>
+              <p>El ejercicio, la fiebre, la regla o una infección la disparan sin que haya daño.</p>
+              <b class="big">60&nbsp;%</b>
+              <p class="src">
+                de los positivos de una muestra aleatoria no se repite en la primera orina de la mañana (58 de 97
+                personas, NHANES 2009-2010)<sup><a href="#ref-7">7</a></sup>
+              </p>
+            </li>
+            <li class="rv" style="--d: 200ms">
+              <h3 class="h3">Lo que sale no se convierte en diagnóstico</h3>
+              <p>El riñón ya está afectado en la analítica, pero no consta en la historia.</p>
+              <b class="big">62–96&nbsp;%</b>
+              <p class="src">
+                de la enfermedad renal en estadio 3 sin diagnóstico registrado, según el país (REVEAL-CKD)<sup
+                  ><a href="#ref-3">3</a></sup
+                >
+              </p>
+            </li>
+            <li class="rv off" style="--d: 300ms">
+              <h3 class="h3">No siempre se trata</h3>
+              <p>Hay fármacos que frenan el daño si se empiezan a tiempo.</p>
+              <p class="src">Este eslabón queda fuera del prototipo: es lo que falta por abordar.</p>
+            </li>
+          </ol>
+          <p class="lede rv">
+            LatentHealth actúa sobre los dos primeros: que la prueba llegue a casa sin esperar a una consulta, y que
+            repetirla sirva de algo porque un modelo sabe combinar medidas ruidosas.
+          </p>
+        </div>
+      </section>
+
+      <!-- ============================ CÓMO ============================ -->
+      <section class="sec tint" id="como">
+        <div class="wrap">
+          <header class="sec-head rv">
+            <p class="eyebrow">Cómo lo hace</p>
+            <h2 class="h2">Tira para todos y tubo al laboratorio solo para los dudosos</h2>
+          </header>
+          <div class="how">
+            <figure class="kit rv" id="kit">
+              <svg
+                viewBox="0 0 560 500"
+                role="img"
+                aria-label="El kit abierto visto desde arriba: la caja, su tapa con el sello de recibido y la hoja con el bote de tiras, la tira, el tubo y el sobre de devolución colocados en orden de uso"
+              >
+                <g class="ln">
+                  <rect x="10" y="14" width="236" height="174" rx="8" fill="#dccdb4" />
+                  <path d="M26 30h204v142H26z" fill="#b79b72" stroke="none" />
+                  <path d="M26 30h204v13H39v129H26z" fill="#9a7f58" stroke="none" />
+                  <rect x="26" y="30" width="204" height="142" rx="4" fill="none" />
+                  <path d="M13 17l13 13M243 17l-13 13M13 185l13-13M243 185l-13-13" />
+                  <path
+                    d="M54 152l14-11 14 11 14-11 14 11 14-11 14 11 14-11 14 11 14-11 14 11 14-11M54 70l14-11 14 11 14-11 14 11 14-11 14 11 14-11 14 11 14-11 14 11 14-11"
+                    fill="none"
+                    stroke="#dccdb4"
+                    stroke-width="2"
+                  />
+                </g>
+                <g transform="translate(424 102)">
+                  <g class="ln lid">
+                    <rect x="-114" y="-86" width="228" height="172" rx="8" fill="#dccdb4" />
+                    <path d="M-113 -13h226v26h-226z" fill="#a9d3ca" stroke="none" />
+                    <path d="M-114 -13h228M-114 13h228" />
+                    <rect x="-98" y="-74" width="104" height="48" rx="3" fill="#fff" />
+                    <path
+                      d="M-88 -62h42M-88 -51h28M-88 -40h36M-32 -64v28M-26 -64v28M-18 -64v28M-13 -64v28M-5 -64v28"
+                      stroke-width="2.2"
+                    />
+                    <g transform="translate(30 49) rotate(-9)">
+                      <g class="stamp">
+                        <rect x="-76" y="-22" width="152" height="44" rx="8" fill="none" stroke="#0b7774" stroke-width="3.5" />
+                        <text y="9.2" fill="#0b7774" letter-spacing="1.5">RECIBIDO</text>
+                      </g>
+                    </g>
+                  </g>
+                </g>
+                <rect class="ln" x="6" y="216" width="548" height="278" rx="3" fill="#fff" />
+                <g fill="none" stroke="#0d2226" stroke-width="2" stroke-dasharray="5 6" opacity=".4">
+                  <rect x="16" y="252" width="116" height="230" rx="12" />
+                  <rect x="153" y="252" width="116" height="230" rx="12" />
+                  <rect x="291" y="252" width="116" height="230" rx="12" />
+                  <rect x="428" y="252" width="116" height="230" rx="12" />
+                </g>
+                <g transform="translate(74 372)">
+                  <g class="ln pc pc1">
+                    <rect x="-26" y="-48" width="52" height="122" rx="9" fill="#fff" />
+                    <rect x="-30" y="-76" width="60" height="30" rx="6" fill="#0b7774" />
+                    <path d="M-26 -22h52v66h-52z" fill="#f2f5f4" />
+                    <g stroke-width="1.6">
+                      <rect x="-20" y="-14" width="11" height="11" fill="#e8eedb" />
+                      <rect x="-5.5" y="-14" width="11" height="11" fill="#bcdcc0" />
+                      <rect x="9" y="-14" width="11" height="11" fill="#6cb99f" />
+                      <rect x="-20" y="2" width="11" height="11" fill="#f4ccb2" />
+                      <rect x="-5.5" y="2" width="11" height="11" fill="#e9a78b" />
+                      <rect x="9" y="2" width="11" height="11" fill="#cc7482" />
+                    </g>
+                    <path d="M-18 26h36M-18 34h22" stroke-width="2" />
+                  </g>
+                </g>
+                <g transform="translate(211 372)">
+                  <g class="ln pc pc2">
+                    <rect x="-10" y="-80" width="20" height="160" rx="4" fill="#fff" />
+                    <g stroke-width="1.6">
+                      <rect x="-6" y="-72" width="12" height="15" fill="#bcdcc0" />
+                      <rect x="-6" y="-51" width="12" height="15" fill="#e9a78b" />
+                    </g>
+                  </g>
+                </g>
+                <g transform="translate(349 372)">
+                  <g class="ln pc pc3">
+                    <path d="M-15 -52V58a15 15 0 0 0 30 0V-52Z" fill="#fff" />
+                    <path d="M-15 -4V58a15 15 0 0 0 30 0V-4Z" fill="#f3ebc8" />
+                    <rect x="-20" y="-78" width="40" height="26" rx="6" fill="#6cb99f" />
+                    <path d="M5 -36h10M5 -22h10" stroke-width="2" />
+                  </g>
+                </g>
+                <g transform="translate(486 372)">
+                  <g class="ln pc pc4">
+                    <rect x="-50" y="-36" width="100" height="72" rx="5" fill="#fff" />
+                    <path d="M-50 -33L0 6 50 -33" fill="none" />
+                    <circle cy="6" r="9" fill="#a9d3ca" />
+                    <path d="M-40 29l7-9h10l-7 9zM-13 29l7-9h10l-7 9zM14 29l7-9h10l-7 9z" fill="#0b7774" stroke="none" />
+                  </g>
+                </g>
+                <g fill="#fff">
+                  <g transform="translate(34 252)"><g class="nb nb1"><circle r="17" fill="#0d2226" /><text y="9.2">1</text></g></g>
+                  <g transform="translate(171 252)"><g class="nb nb2"><circle r="17" fill="#0d2226" /><text y="9.2">2</text></g></g>
+                  <g transform="translate(309 252)"><g class="nb nb3"><circle r="17" fill="#0d2226" /><text y="9.2">3</text></g></g>
+                  <g transform="translate(446 252)"><g class="nb nb4"><circle r="17" fill="#0d2226" /><text y="9.2">4</text></g></g>
+                </g>
+              </svg>
+              <figcaption>
+                <ol class="kit-steps">
+                  <li>Bote de tiras</li>
+                  <li>Tira</li>
+                  <li>Tubo</li>
+                  <li>Sobre de devolución</li>
+                </ol>
+                <button class="link-btn" type="button" id="kit-replay">Abrir el kit otra vez</button>
+              </figcaption>
+            </figure>
+
+            <ol class="steps">
+              <li class="rv">
+                <b>El sistema recorre el cupo</b>
+                <p>
+                  Con la historia clínica calcula, para cada paciente, la probabilidad de que las pruebas que le faltan
+                  den un hallazgo nuevo.
+                </p>
+              </li>
+              <li class="rv">
+                <b>Al paciente le llega un kit</b>
+                <p>Por el canal que le sirve: aplicación, carta, farmacia, enfermería o tubo por correo.</p>
+              </li>
+              <li class="rv">
+                <b>Antes de cada prueba, cuatro preguntas</b>
+                <p>Ejercicio intenso, fiebre, regla, escozor al orinar. Si alguna es que sí, la prueba se aplaza.</p>
+              </li>
+              <li class="rv">
+                <b>Hace la tira y el sistema le contesta</b>
+                <p>Solo repite quien tiene un resultado dudoso.</p>
+                <p class="outs">
+                  <span class="out"
+                    ><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2.2" /></svg
+                    >Ya está</span
+                  >
+                  <span class="out"
+                    ><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M12.3 .8v3.6H8.7" fill="none" stroke="currentColor" stroke-width="2" /></svg
+                    >Repite mañana</span
+                  >
+                  <span class="out"
+                    ><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 1.5h7M6 1.5v11a2 2 0 0 0 4 0v-11M6 8h4" fill="none" stroke="currentColor" stroke-width="2" /></svg
+                    >Manda el tubo</span
+                  >
+                </p>
+              </li>
+              <li class="rv">
+                <b>La médica abre la lista</b>
+                <p>
+                  Arriba, los hallazgos claros que no constan en la historia. Debajo, los pacientes ordenados por la
+                  probabilidad de hallazgo nuevo, con la prueba que más aporta.
+                </p>
+              </li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ ENFERMEDADES ============================ -->
+      <section class="sec" id="enfermedades">
+        <div class="wrap">
+          <header class="sec-head rv">
+            <p class="eyebrow">Qué busca identificar</p>
+            <h2 class="h2">Seis problemas, cada uno con su medida de casa</h2>
+            <p class="lede">
+              El núcleo es el riñón. El resto se apoya en él, y decimos en cada caso con qué datos está comprobado.
+            </p>
+          </header>
+          <div class="diseases">
+            <article class="disease rv">
+              <div class="sw" aria-hidden="true"><i style="background: var(--a30)"></i><i style="background: var(--a80)"></i><i style="background: var(--a150)"></i></div>
+              <h3 class="h3">Enfermedad renal crónica</h3>
+              <p>El riñón pierde capacidad de filtrar poco a poco, sin que duela.</p>
+              <dl>
+                <dt>Se mide con</dt>
+                <dd>Tira de orina repetida (albúmina), filtrado y su tendencia.</dd>
+                <dt>Comprobado con</dt>
+                <dd><span class="tag real">Personas reales</span> el filtro de albuminuria. La tendencia, solo en simulación.</dd>
+              </dl>
+            </article>
+            <article class="disease rv" style="--d: 100ms">
+              <div class="sw" aria-hidden="true"><i style="background: var(--c50)"></i><i style="background: var(--c100)"></i></div>
+              <h3 class="h3">Diabetes sin diagnosticar</h3>
+              <p>Azúcar alto en sangre de forma mantenida. Daña los vasos pequeños.</p>
+              <dl>
+                <dt>Se mide con</dt>
+                <dd>Glucómetro en ayunas, dos días. Con 126 mg/dl o más, hallazgo.</dd>
+                <dt>Comprobado con</dt>
+                <dd>
+                  <span class="tag real">Personas reales</span> encuentra el <b class="mono">86&nbsp;%</b> donde el
+                  cuestionario FINDRISC encuentra el <b class="mono">52&nbsp;%</b>. El error del glucómetro es simulado.
+                </dd>
+              </dl>
+            </article>
+            <article class="disease rv" style="--d: 200ms">
+              <div class="sw" aria-hidden="true"><i style="background: var(--c200)"></i><i style="background: var(--c300)"></i></div>
+              <h3 class="h3">Hipertensión no controlada</h3>
+              <p>Tensión alta mantenida: sobrecarga el corazón y los filtros del riñón.</p>
+              <dl>
+                <dt>Se mide con</dt>
+                <dd>Manguito en casa durante una semana; se descarta el primer día. Límite: 135/85 mmHg.</dd>
+                <dt>Comprobado con</dt>
+                <dd><span class="tag">Protocolo de guía</span> sin validación propia.</dd>
+              </dl>
+            </article>
+            <article class="disease rv">
+              <div class="sw" aria-hidden="true"><i style="background: var(--a10); box-shadow: inset 0 0 0 1px var(--line)"></i><i style="background: var(--a30)"></i></div>
+              <h3 class="h3">Insuficiencia cardíaca</h3>
+              <p>El corazón no bombea lo suficiente. Falta de aire, cansancio.</p>
+              <dl>
+                <dt>Se estima con</dt>
+                <dd>Probabilidad de NT-proBNP alto (125 pg/ml o más), afinada con síntomas y pulso.</dd>
+                <dt>Comprobado con</dt>
+                <dd><span class="tag">La parte más débil</span> no hay ecocardiograma ni diagnóstico confirmado en los datos.</dd>
+              </dl>
+            </article>
+            <article class="disease rv" style="--d: 100ms">
+              <div class="sw" aria-hidden="true"><i style="background: var(--a80)"></i><i style="background: var(--a150)"></i></div>
+              <h3 class="h3">Fibrilación auricular</h3>
+              <p>Pulso irregular que multiplica el riesgo de ictus y suele pasar desapercibido.</p>
+              <dl>
+                <dt>Se mide con</dt>
+                <dd>Irregularidad de los intervalos entre latidos.</dd>
+                <dt>Comprobado con</dt>
+                <dd>
+                  <span class="tag real">8.528 registros reales</span> AUC <b class="mono">0,971</b>. Con la cámara del
+                  móvil, solo simulado.
+                </dd>
+              </dl>
+            </article>
+            <article class="disease rv" style="--d: 200ms">
+              <div class="sw" aria-hidden="true"><i style="background: var(--ink)"></i><i style="background: var(--teal)"></i></div>
+              <h3 class="h3">Infarto e ictus</h3>
+              <p>Daño de las arterias grandes. La primera causa de muerte en España.</p>
+              <dl>
+                <dt>Se estima con</dt>
+                <dd>SCORE2 y un modelo propio de muerte cardiovascular que no necesita sangre.</dd>
+                <dt>Comprobado con</dt>
+                <dd>
+                  <span class="tag real">12.710 personas con seguimiento</span> AUC <b class="mono">0,844</b> frente a
+                  <b class="mono">0,813</b> de SCORE2. Riesgo absoluto sin recalibrar a España.
+                </dd>
+              </dl>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ VENTAJA ============================ -->
+      <section class="sec tint" id="ventaja">
+        <div class="wrap">
+          <header class="sec-head rv">
+            <p class="eyebrow">Frente a la analítica de rutina</p>
+            <h2 class="h2">Por qué medir en casa, y varias veces, gana a una prueba suelta que hay que pedir</h2>
+          </header>
+          <div class="versus rv">
+            <div class="row head">
+              <div></div>
+              <div>Analítica que pide tu médico</div>
+              <div>LatentHealth en casa</div>
+            </div>
+            <div class="row">
+              <div class="k">Quién la pone en marcha</div>
+              <div>Hace falta una consulta y que alguien la pida. En hipertensos ocurre el <b class="n">4&nbsp;%</b> de las veces<sup><a href="#ref-2">2</a></sup>.</div>
+              <div>El kit llega a casa. Nadie tiene que acordarse.</div>
+            </div>
+            <div class="row">
+              <div class="k">Cuántas medidas</div>
+              <div>Una. La guía pide confirmar con otra pasados tres meses<sup><a href="#ref-6">6</a></sup>, y casi nunca se hace.</div>
+              <div>Las que hagan falta, y solo esas: <b class="n">1,17</b> tiras y <b class="n">0,13</b> tubos por persona de media <span class="tag">Simulación</span></div>
+            </div>
+            <div class="row">
+              <div class="k">Cuánto vale un positivo</div>
+              <div>Una tira positiva suelta es real el <b class="n">59&nbsp;%</b> de las veces <span class="tag">Simulación</span></div>
+              <div>Con el filtro combinando las tiras, el <b class="n">98&nbsp;%</b> <span class="tag">Simulación</span></div>
+            </div>
+            <div class="row">
+              <div class="k">El contexto de la muestra</div>
+              <div>Nadie pregunta si ayer hubo ejercicio intenso o fiebre.</div>
+              <div>Cuatro preguntas antes de cada prueba aplazan las que no valdrían.</div>
+            </div>
+            <div class="row">
+              <div class="k">El laboratorio</div>
+              <div>Para todos, siempre.</div>
+              <div>Solo para los dudosos: mide el valor exacto cuando la tira ya no aclara más.</div>
+            </div>
+            <div class="row">
+              <div class="k">Acierto con personas reales</div>
+              <div>Tratar «un positivo es positivo»: error de Brier <b class="n">0,067</b></div>
+              <div>El filtro: error de Brier <b class="n">0,027</b>, menos de la mitad <span class="tag real">976 personas reales</span><sup><a href="#ref-7">7</a></sup></div>
+            </div>
+          </div>
+          <div class="caveat">
+            <p class="rv">
+              <b>No sustituye a la analítica de sangre.</b> La orina sola no predice el filtrado del riñón. El sistema
+              decide a quién medir y qué pedir primero; el laboratorio sigue haciendo falta para confirmar.
+            </p>
+            <p class="rv" style="--d: 120ms">
+              <b>Qué es simulación y qué no.</b> Las cifras de la tira salen de 1.500 pacientes simulados con los
+              supuestos del propio modelo: el error de lectura de la tira aún no se ha calibrado con muestras reales.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ MODELO EN VIVO ============================ -->
+      <section class="sec dark" id="modelo">
+        <div class="wrap">
+          <header class="sec-head rv">
+            <p class="eyebrow">El modelo, en vivo</p>
+            <h2 class="h2">Un modelo que sabe cuánto fiarse de cada medida</h2>
+            <p class="lede">
+              Cada cambio de esta pantalla es una petición real al filtro bayesiano que corre en este ordenador. Añade
+              muestras y mira cómo se estrecha la duda.
+            </p>
+          </header>
+          <div class="lab-grid">
+            <div class="panel rv" id="lab-in">
+              <p class="lab">Lo que sabe el modelo</p>
+              <div class="field">
+                <label for="lab-example">Paciente de ejemplo</label>
+                <select id="lab-example"></select>
+              </div>
+              <div class="two">
+                <div class="field">
+                  <label for="lab-age">Edad <output id="lab-age-out"></output></label>
+                  <input type="range" id="lab-age" min="30" max="90" step="1" value="58" />
+                </div>
+                <div class="field">
+                  <label for="lab-egfr">FG, ml/min/1,73&nbsp;m² <output id="lab-egfr-out"></output></label>
+                  <input type="range" id="lab-egfr" min="15" max="120" step="1" value="88" />
+                </div>
+              </div>
+              <div class="two">
+                <div class="field">
+                  <span class="lbl">Sexo</span>
+                  <div class="seg" id="lab-sex">
+                    <button type="button" data-v="true" aria-pressed="true">Mujer</button>
+                    <button type="button" data-v="false" aria-pressed="false">Hombre</button>
+                  </div>
+                </div>
+                <div class="field">
+                  <span class="lbl">Diabetes</span>
+                  <div class="seg" id="lab-dm">
+                    <button type="button" data-v="false" aria-pressed="true">No</button>
+                    <button type="button" data-v="true" aria-pressed="false">Sí</button>
+                  </div>
+                </div>
+              </div>
+
+              <h3 class="sub">Muestras de orina</h3>
+              <ul class="samples" id="lab-samples"></ul>
+
+              <div class="seg" id="lab-kind" role="group" aria-label="Tipo de muestra que se añade">
+                <button type="button" data-v="tira" aria-pressed="true">Tira en casa</button>
+                <button type="button" data-v="laboratorio" aria-pressed="false">Laboratorio</button>
+              </div>
+              <div id="lab-add-strip" style="margin-top: 14px">
+                <div class="picker" id="lab-pick-a"></div>
+                <div class="picker" id="lab-pick-c"></div>
+              </div>
+              <div id="lab-add-lab" style="margin-top: 14px" hidden>
+                <div class="two">
+                  <div class="field">
+                    <label for="lab-uacr">Cociente albúmina/creatinina, mg/g</label>
+                    <input type="number" id="lab-uacr" min="1" max="3000" step="1" value="45" />
+                  </div>
+                  <div class="field">
+                    <label for="lab-type">Tipo de orina</label>
+                    <select id="lab-type">
+                      <option value="first_morning">Primera de la mañana</option>
+                      <option value="random">Aleatoria</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div class="two" style="margin-top: 4px">
+                <div class="field">
+                  <label for="lab-date">Fecha de la muestra</label>
+                  <input type="date" id="lab-date" />
+                </div>
+                <div class="field">
+                  <span class="lbl">&nbsp;</span>
+                  <button type="button" class="btn btn-1" id="lab-add">Añadir muestra</button>
+                </div>
+              </div>
+              <button type="button" class="link-btn" id="lab-clear">Quitar todas las muestras</button>
+            </div>
+
+            <div class="panel rv" style="--d: 120ms" id="lab-out" aria-live="polite">
+              <p class="lab">Lo que contesta</p>
+              <div class="card-top">
+                <h3 class="h3">Albuminuria</h3>
+                <span id="lab-state"></span>
+              </div>
+              <dl class="est">
+                <div>
+                  <dt>Valor verdadero estimado</dt>
+                  <dd class="big" id="lab-median">—</dd>
+                </div>
+                <div>
+                  <dt>Intervalo del 80&nbsp;%</dt>
+                  <dd id="lab-interval">—</dd>
+                </div>
+              </dl>
+              <ul class="bars" id="lab-bars"></ul>
+              <p class="next" id="lab-next" hidden></p>
+              <p class="say" id="lab-action"></p>
+
+              <svg class="chart" id="lab-chart" viewBox="0 0 640 250" role="img" aria-label="Distribución de probabilidad del cociente albúmina/creatinina verdadero, en escala logarítmica"></svg>
+              <p class="legend">
+                <span><i style="background: var(--a80)"></i>Lo que cree ahora</span>
+                <span><i style="border: 1.5px dashed var(--ink2)"></i>Lo que creía antes de medir</span>
+                <span><i style="width: 2px; height: 14px; background: var(--ink)"></i>Mediana</span>
+              </p>
+
+              <h3 class="sub">Si no se vuelve a medir</h3>
+              <table class="proj" id="lab-proj"></table>
+              <p class="src">Proyección bajo supuesto de deriva, sin validar con datos longitudinales.</p>
+
+              <div class="wire" id="lab-wire"><i></i><span>Esperando al modelo…</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ APP ============================ -->
+      <section class="sec" id="app">
+        <div class="wrap">
+          <header class="sec-head rv">
+            <p class="eyebrow">La app del paciente</p>
+            <h2 class="h2">Todo el circuito, en el bolsillo</h2>
+            <p class="lede">
+              Úsala como si fuera tu móvil. Cada pantalla pregunta al modelo: lo que lees son sus respuestas, no un
+              guion grabado.
+            </p>
+          </header>
+          <div class="app-grid">
+            <div class="app-side rv">
+              <ul class="feat">
+                <li>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 7v5l3 2" /><circle cx="12" cy="12" r="9" /></svg>
+                  <b>Recordatorio</b>
+                  <p>Te dice qué día toca la próxima prueba y por qué. La fecha la decide el modelo.</p>
+                </li>
+                <li>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="2" width="6" height="20" rx="1.5" /><path d="M9 8h6M9 13h6" /></svg>
+                  <b>La tira</b>
+                  <p>Cuatro preguntas, la lectura de las dos almohadillas y la respuesta: ya está, repite o manda el tubo.</p>
+                </li>
+                <li>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h10" /></svg>
+                  <b>Registro</b>
+                  <p>Todas las pruebas hechas en casa, con su fecha y lo que el modelo sacó de cada una.</p>
+                </li>
+                <li>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z" /></svg>
+                  <b>Asistente</b>
+                  <p>Un chat para preguntar por tu evolución. Explica y orienta; no diagnostica ni pauta tratamientos.</p>
+                </li>
+                <li>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" /></svg>
+                  <b>Tu médica</b>
+                  <p>Un mensaje a tu centro de salud cuando quieras hablar con una persona.</p>
+                </li>
+              </ul>
+            </div>
+
+            <div class="stage rv" style="--d: 100ms">
+              <div class="phone" role="group" aria-label="Aplicación del paciente (maqueta interactiva)">
+                <div class="screen">
+                  <div class="sbar" aria-hidden="true"><span>9:41</span><span>LatentHealth</span></div>
+                  <div class="view" id="app-view" aria-live="polite"></div>
+                  <div class="tabs" role="tablist" aria-label="Secciones de la app" id="app-tabs">
+                    <button type="button" role="tab" data-tab="hoy" aria-selected="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 7v5l3 2" /><circle cx="12" cy="12" r="9" /></svg>Hoy
+                    </button>
+                    <button type="button" role="tab" data-tab="registro" aria-selected="false">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h10" /></svg>Registro
+                    </button>
+                    <button type="button" role="tab" data-tab="chat" aria-selected="false">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z" /></svg>Asistente
+                    </button>
+                    <button type="button" role="tab" data-tab="medica" aria-selected="false">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" /></svg>Mi médica
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="app-side right rv" style="--d: 200ms">
+              <div class="sidecard">
+                <h3 class="h3">Quién usa el móvil</h3>
+                <div class="people" id="app-people"></div>
+                <p class="src">Pacientes inventados. Al cambiar, empieza de cero.</p>
+              </div>
+              <div class="sidecard">
+                <h3 class="h3">Peticiones al modelo</h3>
+                <ul class="calls" id="app-calls"></ul>
+                <button type="button" class="link-btn" id="app-reset">Reiniciar la demo</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ EVIDENCIA ============================ -->
+      <section class="sec tint" id="evidencia">
+        <div class="wrap">
+          <header class="sec-head rv">
+            <p class="eyebrow">Qué está demostrado y qué no</p>
+            <h2 class="h2">Es apoyo a la decisión, no diagnóstico</h2>
+          </header>
+          <div class="proof">
+            <div class="rv">
+              <h3 class="h3">Validado con personas reales</h3>
+              <ul>
+                <li>El filtro de albuminuria predice la siguiente muestra con AUC <b>0,918</b> (NHANES 2009-2010, personas que el modelo no vio).</li>
+                <li>La albuminuria no se adivina con la historia clínica: AUC <b>0,53</b> en hipertensos sin diabetes. Con una orina, <b>0,91</b>.</li>
+                <li>Filtrado por debajo de 60 sin analítica: AUC <b>0,92</b>.</li>
+                <li>Riesgo de muerte cardiovascular sin sangre: AUC <b>0,844</b> frente a <b>0,813</b> de SCORE2.</li>
+                <li>Fibrilación auricular por el pulso: sensibilidad <b>87,5&nbsp;%</b>, especificidad <b>93,8&nbsp;%</b>.</li>
+              </ul>
+            </div>
+            <div class="rv" style="--d: 120ms">
+              <h3 class="h3">Supuestos, comprobados solo en simulación</h3>
+              <ul>
+                <li>El error de lectura de la tira: es el supuesto que más pesa en el circuito de casa.</li>
+                <li>El efecto de las cuatro preguntas previas.</li>
+                <li>La tendencia del filtrado: no hay analíticas repetidas en los datos.</li>
+                <li>Los modelos se entrenaron con NHANES (EE. UU.); los puntos de partida están recalibrados a España con prevalencias publicadas<sup><a href="#ref-4">4</a></sup>, sin validación prospectiva.</li>
+                <li>Lo más urgente y barato: calibrar la tira con muestras leídas a la vez en casa y en el laboratorio.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ REFERENCIAS ============================ -->
+      <section class="sec" id="referencias">
+        <div class="wrap">
+          <header class="sec-head rv">
+            <p class="eyebrow">Fuentes</p>
+            <h2 class="h2">Referencias</h2>
+          </header>
+          <ol class="refs rv">
+            <li id="ref-1"><span>Instituto Nacional de Estadística. Estadística de Defunciones según la Causa de Muerte. Año 2024. Datos provisionales. Madrid: INE; 23 jun 2025. <a href="https://www.ine.es/dyngs/Prensa/pEDCM2024.htm" target="_blank" rel="noopener">ine.es</a></span></li>
+            <li id="ref-2"><span>Shin JI, Chang AR, Grams ME, et al. Albuminuria testing in hypertension and diabetes: an individual-participant data meta-analysis in a global consortium. Hypertension. 2021;78(4):1042-1052. <a href="https://doi.org/10.1161/HYPERTENSIONAHA.121.17323" target="_blank" rel="noopener">doi:10.1161/HYPERTENSIONAHA.121.17323</a></span></li>
+            <li id="ref-3"><span>Tangri N, Moriyama T, Schneider MP, et al. Prevalence of undiagnosed stage 3 chronic kidney disease in France, Germany, Italy, Japan and the USA: results from the multinational observational REVEAL-CKD study. BMJ Open. 2023;13(5):e067386. <a href="https://doi.org/10.1136/bmjopen-2022-067386" target="_blank" rel="noopener">doi:10.1136/bmjopen-2022-067386</a></span></li>
+            <li id="ref-4"><span>Sánchez-Ospina D, Mas-Fontao S, Palencia MM, et al. Impact of albuminuria screening in primary care on the detection and management of chronic kidney disease: findings from the ONDAAS study. Clin Kidney J. 2025;18(5):sfaf123. <a href="https://doi.org/10.1093/ckj/sfaf123" target="_blank" rel="noopener">doi:10.1093/ckj/sfaf123</a></span></li>
+            <li id="ref-5"><span>van Mil D, Kieneker LM, Evers-Roeten B, et al. Participation rate and yield of two home-based screening methods to detect increased albuminuria in the general population in the Netherlands (THOMAS). Lancet. 2023;402(10407):1052-1064. <a href="https://doi.org/10.1016/S0140-6736(23)00876-0" target="_blank" rel="noopener">doi:10.1016/S0140-6736(23)00876-0</a></span></li>
+            <li id="ref-6"><span>Kidney Disease: Improving Global Outcomes (KDIGO) CKD Work Group. KDIGO 2024 Clinical Practice Guideline for the Evaluation and Management of Chronic Kidney Disease. Kidney Int. 2024;105(4S):S117-S314. <a href="https://doi.org/10.1016/j.kint.2023.10.018" target="_blank" rel="noopener">doi:10.1016/j.kint.2023.10.018</a></span></li>
+            <li id="ref-7"><span>Centers for Disease Control and Prevention, National Center for Health Statistics. National Health and Nutrition Examination Survey (NHANES), 1999-2018. Hyattsville (MD): NCHS. <a href="https://wwwn.cdc.gov/nchs/nhanes/" target="_blank" rel="noopener">cdc.gov/nchs/nhanes</a>. Las cifras del sitio son cálculos del proyecto sobre estos datos.</span></li>
+            <li id="ref-8"><span>SCORE2 working group and ESC Cardiovascular risk collaboration. SCORE2 risk prediction algorithms: new models to estimate 10-year risk of cardiovascular disease in Europe. Eur Heart J. 2021;42(25):2439-2454. <a href="https://doi.org/10.1093/eurheartj/ehab309" target="_blank" rel="noopener">doi:10.1093/eurheartj/ehab309</a></span></li>
+            <li id="ref-9"><span>Clifford GD, Liu C, Moody B, et al. AF classification from a short single lead ECG recording: the PhysioNet/Computing in Cardiology Challenge 2017. Comput Cardiol. 2017;44. <a href="https://doi.org/10.22489/CinC.2017.065-469" target="_blank" rel="noopener">doi:10.22489/CinC.2017.065-469</a></span></li>
+            <li id="ref-10"><span>Lindström J, Tuomilehto J. The diabetes risk score: a practical tool to predict type 2 diabetes risk. Diabetes Care. 2003;26(3):725-731. <a href="https://doi.org/10.2337/diacare.26.3.725" target="_blank" rel="noopener">doi:10.2337/diacare.26.3.725</a></span></li>
+            <li id="ref-11"><span>Ministerio de Sanidad. Aprobado el Documento de Consenso para el Abordaje de la Enfermedad Renal Crónica [nota de prensa]. Madrid; 9 abr 2026. <a href="https://www.sanidad.gob.es/gabinete/notasPrensa.do?id=6882" target="_blank" rel="noopener">sanidad.gob.es</a></span></li>
+          </ol>
+          <p class="src rv">
+            El resto de las cifras salen de los informes del repositorio (carpeta <span class="mono">reports/</span>),
+            generados por sus scripts.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <div class="wrap">
+        <p>LatentHealth · Hackathon, reto «Automatizar lo repetitivo»</p>
+        <p>La herramienta prioriza y explica; el profesional decide.</p>
+      </div>
+    </footer>
+
+    <div class="notice" role="note">
+      <b>Datos sintéticos</b> · Prototipo de apoyo a la decisión, no diagnostica · Modelos entrenados con NHANES (EE. UU.)
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>
