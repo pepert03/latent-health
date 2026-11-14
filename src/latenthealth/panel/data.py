@@ -146,6 +146,9 @@ def _panel_columns(df: pd.DataFrame) -> pd.DataFrame:
     out["potassium"] = df.LBXSKSI.to_numpy(float)
     out["non_hdl"] = df.LBXTC.to_numpy(float) - df.LBDHDD.to_numpy(float)
     out["hemoglobin"] = df.LBXHGB.to_numpy(float)
+    # No son objetivos del panel: se usan para calcular el SCORE2 real al validar la lista del cupo.
+    out["total_cholesterol"] = df.LBXTC.to_numpy(float)
+    out["hdl"] = df.LBDHDD.to_numpy(float)
     morning_alb = _col(df, "URXUMA2")
     with np.errstate(invalid="ignore"):
         out["log_uacr_morning"] = np.log(100.0 * np.where(morning_alb <= 0.22, 0.3, morning_alb) / _col(df, "URXUCR2"))

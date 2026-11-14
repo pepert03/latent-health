@@ -27,6 +27,8 @@ def test_measured_values_replace_estimates():
     assert a.p_egfr_below_60 == pytest.approx(1.0)
     assert a.diabetes == "diagnosticada"
     assert not any(r.test.startswith("Creatinina") for r in a.recommendations)
+    # Un FG < 60 aislado no es diagnóstico: se pide confirmarlo a los tres meses.
+    assert any(r.test == "Repetir creatinina a los tres meses" for r in a.recommendations)
 
 
 def test_confirmed_albuminuria_with_low_egfr_is_high_kdigo_risk():

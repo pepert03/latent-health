@@ -1,0 +1,30 @@
+{
+  "desenlace": "muerte por enfermedad del corazón o ictus en 10 años",
+  "datos": "NHANES 1999-2014 con mortalidad enlazada hasta 2019 (EE. UU.)",
+  "auc_validacion_cruzada": {
+    "SCORE2 publicado (analítica y consulta)": 0.812654180311034,
+    "Edad y sexo": 0.8013239951158837,
+    "Historia clínica": 0.8365769776329189,
+    "Historia y cuestionario": 0.8384410693406479,
+    "Historia, cuestionario y manguito": 0.840111238492196,
+    "Historia, cuestionario, manguito y tira de orina": 0.8443059051408068,
+    "Historia, cuestionario, manguito y orina de laboratorio": 0.8441988765202133,
+    "Todo lo anterior y analítica de sangre": 0.8449215869837993,
+    "Historia, cuestionario, manguito, orina y punción capilar": 0.8445977689818703,
+    "Kit mínimo": 0.8362563075315957,
+    "Variables de SCORE2, ecuación reajustada": 0.8146444850147458,
+    "Variables de SCORE2, con el método nuevo": 0.8171821086633907,
+    "Variables de PREVENT, con el método nuevo": 0.826676295678859,
+    "Variables de PREVENT con orina y HbA1c, con el método nuevo": 0.8337963122997742
+  },
+  "cuestionario_minimo": [
+    "age",
+    "female",
+    "health",
+    "dx_heart_failure",
+    "bp_meds",
+    "smoker_now",
+    "dx_coronary",
+    "sbp"
+  ]
+}

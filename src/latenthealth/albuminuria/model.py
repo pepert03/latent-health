@@ -90,6 +90,9 @@ class Observations:
     censored: np.ndarray
     sample_type: str
     u: np.ndarray  # dilución de la muestra (ver ``dilution``)
+    # Desplazamiento del logit de elevación transitoria por el contexto de la muestra
+    # (ejercicio, fiebre, regla...; ver ``context``). 0 si no se sabe nada.
+    spike_offset: np.ndarray | float = 0.0
 
     @classmethod
     def from_uacr(cls, uacr, sample_type, censored=None, ucr=None) -> "Observations":
@@ -159,6 +162,9 @@ class AlbuminuriaParams:
     dilution_quantiles: dict = field(default_factory=lambda: {FIRST_MORNING: [0.0], RANDOM: [0.0]})
     # Dinámica: supuesto, no ajustado (desviación típica del cambio verdadero en un año)
     drift_sd_per_year: float = 0.35
+    # Recalibración a otra población (ver ``recalibration``): se suma al logit de las
+    # componentes elevadas del prior. 0 = población de ajuste (NHANES).
+    prior_logit_offset: float = 0.0
     meta: dict = field(default_factory=dict)
 
     # --- vector de parámetros (para el ajuste) ---
@@ -269,7 +275,7 @@ def prior_components(p: AlbuminuriaParams, Z: np.ndarray):
     offsets = np.concatenate([[0.0], np.cumsum(np.exp(p.log_gaps))])
     means = p.mu_low + (Z @ np.asarray(p.beta))[:, None] + offsets[None, :]
     gammas = np.asarray(p.gammas).reshape(len(p.alphas), Z.shape[1])
-    logits = np.column_stack([np.zeros(Z.shape[0]), np.asarray(p.alphas)[None, :] + Z @ gammas.T])
+    logits = np.column_stack([np.zeros(Z.shape[0]), np.asarray(p.alphas)[None, :] + Z @ gammas.T + p.prior_logit_offset])
     log_w = logits - logsumexp(logits, axis=1, keepdims=True)
     return means, np.exp(np.asarray(p.log_taus)), log_w
 
@@ -286,16 +292,20 @@ def noise_scale(p: AlbuminuriaParams, Z: np.ndarray, sample_type: str, u) -> np.
     return p.sigma(sample_type) * np.exp(Z @ np.asarray(p.eta) + p.eta_dilution * np.asarray(u))
 
 
-def spike_prob(p: AlbuminuriaParams, Z: np.ndarray, sample_type: str, u) -> np.ndarray:
-    """Probabilidad de elevación transitoria de cada muestra, (N,)."""
-    return expit(p.spike_logit_base(sample_type) + Z @ np.asarray(p.kappa) + p.kappa_dilution * np.asarray(u))
+def spike_prob(p: AlbuminuriaParams, Z: np.ndarray, sample_type: str, u, offset=0.0) -> np.ndarray:
+    """Probabilidad de elevación transitoria de cada muestra, (N,).
+
+    ``offset`` desplaza el logit según el contexto de la muestra (0 si no se conoce).
+    """
+    logit = p.spike_logit_base(sample_type) + Z @ np.asarray(p.kappa) + p.kappa_dilution * np.asarray(u)
+    return expit(logit + np.asarray(offset, dtype=float))
 
 
 def log_obs(p, obs: Observations, Z, x) -> np.ndarray:
     """log p(y | x) en la rejilla, (N, G). Las muestras que faltan (NaN) aportan 0."""
     y = np.asarray(obs.y, dtype=float)
     s = noise_scale(p, Z, obs.sample_type, obs.u)[:, None]
-    rho = spike_prob(p, Z, obs.sample_type, obs.u)[:, None]
+    rho = spike_prob(p, Z, obs.sample_type, obs.u, obs.spike_offset)[:, None]
     r = y[:, None] - x[None, :] - p.bias_at(obs.sample_type, x)[None, :]
     z = r / s
     base = np.log1p(-rho) + _t_logpdf(z, p.nu) - np.log(s)
@@ -322,14 +332,18 @@ def posterior(p, Z, observations: list[Observations], x) -> np.ndarray:
     return w / w.sum(axis=1, keepdims=True)
 
 
-def new_sample_survival(p, Z, sample_type, log_threshold, x, u=None) -> np.ndarray:
-    """P(nueva muestra ≥ umbral | x), (N, G). Sin ``u`` se promedia sobre la dilución típica."""
+def new_sample_survival(p, Z, sample_type, log_threshold, x, u=None, spike_offset=0.0) -> np.ndarray:
+    """P(nueva muestra ≥ umbral | x), (N, G). Sin ``u`` se promedia sobre la dilución típica.
+
+    ``log_threshold`` puede ser un escalar o un array (N,), con un umbral por fila.
+    """
     us = [np.asarray(u, float)] if u is not None else [np.full(Z.shape[0], q) for q in p.dilution_quantiles[sample_type]]
+    threshold = np.reshape(np.asarray(log_threshold, dtype=float), (-1, 1))
     out = 0.0
     for ui in us:
         s = noise_scale(p, Z, sample_type, ui)[:, None]
-        rho = spike_prob(p, Z, sample_type, ui)[:, None]
-        r = log_threshold - x[None, :] - p.bias_at(sample_type, x)[None, :]
+        rho = spike_prob(p, Z, sample_type, ui, spike_offset)[:, None]
+        r = threshold - x[None, :] - p.bias_at(sample_type, x)[None, :]
         out = out + (1.0 - rho) * (1.0 - stdtr(p.nu, r / s)) + rho * (1.0 - stdtr(p.nu_spike, (r - p.spike_size) / p.spike_sd))
     return out / len(us)
 

@@ -1,0 +1,23 @@
+{
+  "fuente": "ONDAAS, Clin Kidney J 2025;18(5):sfaf123 (Burgos, febrero-mayo de 2024)",
+  "poblacion": "adultos (≥ 18 años) a los que su médico de familia pidió una analítica",
+  "albuminuria": {
+    "constante_prior": -0.18736369149048607,
+    "tipo_de_muestra_supuesto": "aleatoria",
+    "objetivo": 0.1404,
+    "modelo_antes": 0.15065184549766295,
+    "constante_si_fuera_primera_de_la_manana": 1.2353942079313518
+  },
+  "egfr": {
+    "constante_fg_menor_60": -0.7785703943576702,
+    "corte": 60.0,
+    "objetivo_fg_menor_60_ckd_epi_2009": 0.128,
+    "modelo_antes": 0.18264729899676738
+  },
+  "cautelas": [
+    "ONDAAS son pacientes a los que se pidió analítica, no todo el cupo.",
+    "El artículo no dice si la orina era la primera de la mañana; se asume muestra aleatoria.",
+    "ONDAAS usó CKD-EPI 2009 y creatinina por Jaffé; el objetivo se traduce a la escala de CKD-EPI 2021.",
+    "La población de comparación es NHANES repesada por edad y sexo; la edad de NHANES está acotada en 80 años."
+  ]
+}

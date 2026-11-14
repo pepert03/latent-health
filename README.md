@@ -1,26 +1,77 @@
 # LatentHealth
 
-Detección precoz del riesgo cardio-renal-metabólico en atención primaria a partir de la orina y
-la historia clínica (Reto 1 del hackathon de Boehringer: *automatizar lo repetitivo*).
+Detección precoz del riesgo cardio-renal-metabólico en atención primaria (Reto 1 del hackathon de
+Boehringer: *automatizar lo repetitivo*). El paciente se mide en casa, las veces que haga falta, y
+la médica recibe una lista ya ordenada de a quién mirar y qué pedirle.
 
-- **Filtro bayesiano de la albuminuria.** Estima el UACR verdadero de cada paciente con todas sus
-  muestras de orina: tipo de muestra, dilución, elevaciones transitorias y censura. A partir de ahí
-  descarta, confirma (con el criterio de cronicidad KDIGO) o dice si merece la pena repetir.
-  Validado en NHANES 2009-2010 y bien calibrado.
+**En casa (el paciente)**
+
+- **Tira de orina y protocolo de repetición.** El filtro lee las almohadillas de albúmina y
+  creatinina de una tira y dice "ya está", "repite mañana" o "manda el tubo". Tira para todos y
+  tubo al laboratorio solo para los dudosos.
+- **Preguntas antes de la prueba.** Ejercicio intenso, fiebre, regla o síntomas de infección
+  aplazan la prueba y explican las elevaciones pasajeras.
+- **Canales sin móvil.** La misma lógica con la tira leída a ojo, en la farmacia, en enfermería o
+  solo con el tubo por correo.
+- **Glucómetro.** Una glucosa capilar encuentra el 86 % de la diabetes sin diagnosticar donde el
+  cuestionario FINDRISC encuentra el 52 %.
+- **Ritmo cardíaco.** Detector propio de fibrilación auricular por la irregularidad del pulso,
+  validado con 8.528 registros reales.
+- **Otras medidas.** Tensión con manguito y punción capilar (creatinina y HbA1c).
+- **Preguntas sobre síntomas.** Falta de aire, dificultad para caminar y salud percibida: afinan
+  la sospecha de insuficiencia cardíaca en mayores de 60 años.
+
+**En la consulta (la médica)**
+
+- **Lista del cupo.** Primero los hallazgos claros que no constan en la historia; después, los
+  pacientes ordenados por la probabilidad de que completar las pruebas dé un hallazgo nuevo, con
+  la prueba que más aporta.
+- **Riesgo cardiovascular.** SCORE2, SCORE2-OP y categorías de la guía europea, con la
+  incertidumbre de lo que falta por medir.
+- **Tendencia del filtrado glomerular.** Nivel y pendiente con las analíticas previas, con los
+  tratamientos como entrada conocida.
+
+**Los modelos**
+
+- **Riesgo de muerte cardiovascular sin analítica de sangre.** Entrenado con desenlaces reales
+  (NHANES enlazado con el registro de defunciones). Ordena el riesgo mejor que SCORE2 con la
+  historia clínica y una tira de orina, sobre todo en diabéticos e hipertensos.
+
+- **Filtro bayesiano de la albuminuria.** Estima el UACR verdadero con todas las muestras: tipo de
+  muestra, dilución, elevaciones transitorias y censura. Validado en NHANES 2009-2010.
 - **Panel virtual de sangre.** Estima con su incertidumbre el FG, la HbA1c, la glucosa, el potasio,
-  el colesterol no-HDL, la hemoglobina y el NT-proBNP a partir de la historia clínica y la orina.
-  Entrenado en NHANES 1999-2018.
-- **Evaluación por paciente.** Da la probabilidad de cada categoría y nivel de riesgo KDIGO, de
-  diabetes oculta y de insuficiencia cardíaca, y dice qué pruebas pedir.
+  el colesterol no-HDL, la hemoglobina y el NT-proBNP con la historia clínica y la orina.
+- **Recalibración a España** con las prevalencias del estudio ONDAAS, y **comprobaciones de
+  robustez** (FG y albuminuria juntos, calibración por sexo y edad, umbrales por utilidad).
 
-Toda la explicación, con resultados y límites: [docs/solucion.md](docs/solucion.md). Informes de
-validación: [reports/validacion_albuminuria.md](reports/validacion_albuminuria.md) y
-[reports/panel_sangre.md](reports/panel_sangre.md).
+Toda la explicación, con resultados y límites: [docs/solucion.md](docs/solucion.md). Ahí se dice
+también **qué está ajustado con datos y qué es un supuesto** todavía.
+
+Informes generados por los scripts:
+
+| Informe | Qué comprueba | Con qué |
+|---|---|---|
+| [validacion_albuminuria.md](reports/validacion_albuminuria.md) | El filtro de albuminuria | Personas reales (NHANES) |
+| [panel_sangre.md](reports/panel_sangre.md) | El panel virtual | Personas reales (NHANES) |
+| [robustez.md](reports/robustez.md) | FG y albuminuria juntos, calibración por grupos, umbrales | Personas reales (NHANES) |
+| [lista_cupo.md](reports/lista_cupo.md) | El orden de la lista del cupo | Personas reales (NHANES) |
+| [riesgo_en_casa.md](reports/riesgo_en_casa.md) | El riesgo con lo medido en casa frente a SCORE2 | Personas reales con seguimiento (NHANES y mortalidad) |
+| [insuficiencia_cardiaca.md](reports/insuficiencia_cardiaca.md) | Qué se sabe de la insuficiencia cardíaca desde casa | Personas reales con seguimiento |
+| [diabetes_en_casa.md](reports/diabetes_en_casa.md) | La diabetes oculta con glucómetro frente a FINDRISC | Personas reales (NHANES) |
+| [ritmo.md](reports/ritmo.md) | El detector de fibrilación auricular | 8.528 registros reales de electrocardiógrafo de bolsillo |
+| [validacion_espana.md](reports/validacion_espana.md) | El riesgo cardiovascular en españoles | Muestra del ensayo PREDIMED |
+| [recalibracion_espana.md](reports/recalibracion_espana.md) | El ajuste a atención primaria española | Prevalencias publicadas (ONDAAS) |
+| [cribado_en_casa.md](reports/cribado_en_casa.md) | El protocolo en casa | Simulación |
+| [tendencia_fg.md](reports/tendencia_fg.md) | La tendencia del filtrado | Simulación |
 
 ## Uso rápido
 
 ```bash
 uv sync
+```
+
+```bash
+uv run python scripts/demo_casa.py
 ```
 
 ```bash
@@ -31,19 +82,31 @@ uv run python scripts/demo.py
 uv run pytest
 ```
 
-Para rehacer los modelos desde los datos públicos de NHANES, sigue la sección 3 de
-[docs/solucion.md](docs/solucion.md).
+`demo_casa.py` enseña el circuito completo (el paciente en casa y la lista de la médica);
+`demo.py`, la ficha de cinco pacientes. Para rehacer los modelos y los informes desde los datos
+públicos de NHANES, sigue la sección 4 de [docs/solucion.md](docs/solucion.md).
 
 ## Estructura
 
 | Ruta | Contenido |
 |---|---|
-| `src/latenthealth/albuminuria/` | Modelo, ajuste y filtro de la albuminuria |
+| `src/latenthealth/albuminuria/` | Modelo, ajuste y filtro de la albuminuria; tira (`strip.py`), preguntas de contexto (`context.py`) y protocolo en casa (`protocol.py`) |
 | `src/latenthealth/panel/` | Datos, modelo distribucional y evaluación del panel de sangre |
-| `src/latenthealth/assessment.py` | Evaluación cardio-renal-metabólica de un paciente |
-| `scripts/` | Descarga de datos, ajuste, validación y demo |
+| `src/latenthealth/outcomes/` | Cohorte con seguimiento de mortalidad, modelo de riesgo en tiempo discreto y sus métricas |
+| `src/latenthealth/kidney_trend.py` | Tendencia del filtrado glomerular |
+| `src/latenthealth/home.py` | Tensión en casa, punción capilar y ritmo cardíaco |
+| `src/latenthealth/diabetes.py` | Glucómetro en casa y cuestionario FINDRISC |
+| `src/latenthealth/rhythm.py` | Detector de fibrilación auricular por intervalos entre latidos |
+| `src/latenthealth/predimed.py`, `rdata.py` | Muestra española PREDIMED y lector de sus datos |
+| `src/latenthealth/cvrisk.py` | SCORE2, SCORE2-OP y categorías de riesgo cardiovascular |
+| `src/latenthealth/assessment.py` | Evaluación completa de un paciente |
+| `src/latenthealth/worklist.py` | Lista del cupo |
+| `src/latenthealth/recalibration.py` | Recalibración de los priors a España |
+| `src/latenthealth/decision.py` | Umbrales por utilidad clínica y beneficio neto |
+| `src/latenthealth/cohort.py` | Pacientes de prueba a partir de NHANES |
+| `scripts/` | Descarga de datos, ajuste, validación, simulación y demos |
 | `models/` | Parámetros y modelos ya entrenados |
-| `reports/` | Informes de validación generados por los scripts |
+| `reports/` | Informes generados por los scripts |
 | `tests/` | Tests |
 
 ---
