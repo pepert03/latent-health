@@ -6,11 +6,16 @@ Un solo proceso y un solo puerto: las rutas ``/api/...`` llaman a los modelos re
 Arranque (desde la raíz del repositorio)::
 
     powershell -ExecutionPolicy Bypass -File web\\start.ps1
+
+La documentación interactiva de las rutas queda en ``/api/docs``.
 """
 
 from __future__ import annotations
 
+import logging
 import mimetypes
+import threading
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -18,12 +23,34 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from .routes import home, model
+
 WEB_DIR = Path(__file__).resolve().parents[1]
 DIST_DIR = WEB_DIR / "dist"
+log = logging.getLogger("latenthealth.web")
 
 # En algunos Windows el registro asocia .js a text/plain y el navegador rechaza los módulos.
 mimetypes.add_type("text/javascript", ".js")
 mimetypes.add_type("text/css", ".css")
+
+_models_ready = threading.Event()
+
+
+def _warm_up() -> None:
+    """Carga los modelos en segundo plano para que la primera petición de la demo no espere."""
+    for module in (home, model):
+        try:
+            module.warm_up()
+        except Exception:  # la web debe arrancar aunque un modelo falle al precargarse
+            log.exception("No se pudo precargar %s", module.__name__)
+    _models_ready.set()
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    threading.Thread(target=_warm_up, name="precarga-modelos", daemon=True).start()
+    yield
+
 
 app = FastAPI(
     title="LatentHealth · servidor local del sitio",
@@ -31,18 +58,28 @@ app = FastAPI(
     docs_url="/api/docs",
     redoc_url=None,
     openapi_url="/api/openapi.json",
+    lifespan=lifespan,
 )
 
 
 class Health(BaseModel):
     status: str
+    models_ready: bool
     site_built: bool
 
 
-@app.get("/api/health")
+@app.get("/api/health", tags=["Estado"])
 def health() -> Health:
     """Comprobación de vida: la web la usa para saber si el modelo está disponible."""
-    return Health(status="ok", site_built=(DIST_DIR / "index.html").is_file())
+    return Health(
+        status="ok",
+        models_ready=_models_ready.is_set(),
+        site_built=(DIST_DIR / "index.html").is_file(),
+    )
+
+
+app.include_router(home.router)
+app.include_router(model.router)
 
 
 class SPAStaticFiles(StaticFiles):
@@ -58,10 +95,6 @@ class SPAStaticFiles(StaticFiles):
             raise
 
 
-def mount_site(application: FastAPI) -> None:
-    """Monta el sitio compilado. Debe llamarse lo último, después de todas las rutas /api."""
-    if DIST_DIR.is_dir():
-        application.mount("/", SPAStaticFiles(directory=DIST_DIR, html=True), name="web")
-
-
-mount_site(app)
+# Siempre lo último: el sitio compilado ocupa todo lo que no sea /api.
+if DIST_DIR.is_dir():
+    app.mount("/", SPAStaticFiles(directory=DIST_DIR, html=True), name="web")

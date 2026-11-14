@@ -1,0 +1,3 @@
+# Para los tests de contrato del servidor (web/server/tests). pytest ya viene con el proyecto.
+-r requirements.txt
+httpx==0.28.1
