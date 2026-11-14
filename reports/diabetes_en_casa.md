@@ -49,6 +49,35 @@ Personas a las que hay que hacer el análisis para encontrar el 80 % y el 90 % d
 | Historia y glucómetro | 16 % | 26 % |
 | Historia, orina y glucómetro | 16 % | 27 % |
 
+## El circuito en dos pasos: a quién se le mide la glucosa
+
+En el producto la glucosa capilar no se le mide a todos. Se le mide a quien la historia clínica deja con una probabilidad de diabetes oculta del 2 % o más, y después se pide el análisis a quien, ya con su glucosa, sigue en el 2 % o más. Como basta una medida, se hace en la farmacia más cercana o con el glucómetro del paciente, si lo tiene. Los porcentajes son sobre todas las personas sin diagnóstico.
+
+| Criterio | Se miden la glucosa | Diabetes oculta entre ellos | Se les pide el análisis | Diabetes oculta encontrada | VPP del análisis | Medidas de glucosa por caso encontrado |
+|---|---|---|---|---|---|---|
+| FINDRISC ≥ 15 y análisis directo, sin medir la glucosa | - | - | 22 % | 52 % | 7,6 % | - |
+| Glucosa a todos | 100 % | 100 % | 22 % | 87 % | 12,3 % | 36 |
+| Glucosa si la historia da 2 % o más (el producto) | 46 % | 85 % | 20 % | 75 % | 12,2 % | 20 |
+| Glucosa si la historia y la orina dan 2 % o más | 41 % | 85 % | 19 % | 76 % | 12,9 % | 17 |
+| Glucosa si la historia da 5 % o más | 19 % | 56 % | 11 % | 52 % | 14,4 % | 11 |
+
+Cuánto se encuentra depende sobre todo del umbral del análisis. Con la glucosa medida como en el producto:
+
+| Se pide el análisis si la probabilidad, ya con la glucosa, es al menos | Se les pide el análisis | Diabetes oculta encontrada | VPP del análisis |
+|---|---|---|---|
+| 5 % | 10 % | 63 % | 20,0 % |
+| 3 % | 15 % | 70 % | 15,2 % |
+| 2 % (el producto) | 20 % | 75 % | 12,2 % |
+| 1 % | 30 % | 82 % | 8,7 % |
+
+## ¿Una medida o varias?
+
+- **Todas las cifras de este informe son con una sola medida por persona.**
+- Con esa medida, al 58 % de quienes se la hacen el sistema les contesta que ya está; al resto se le pide el análisis.
+- **Repetir para promediar el error del aparato apenas añade.** Con un glucómetro sin error, que es el techo de repetir muchas veces, la AUC pasa de 0,920 a 0,931 (+0,011; intervalo 0,007 a 0,015).
+- **Lo que no se puede medir aquí** es si repetirla en días distintos añade algo más, porque la glucosa de una persona cambia de un día a otro y NHANES tiene una sola por persona.
+- En el producto, una glucosa en ayunas de 126 mg/dl o más se repite otro día: con dos días sale como hallazgo, que es lo que exige el criterio diagnóstico.
+
 ## Regla simple con el glucómetro
 
 Entre las 13620 personas en ayunas, sin modelo: solo el número del glucómetro.

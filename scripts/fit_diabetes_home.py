@@ -20,6 +20,7 @@ from pathlib import Path
 import joblib
 import numpy as np
 
+from latenthealth.decision import Thresholds
 from latenthealth.diabetes import BLOCKS, DIABETES_HBA1C, GLUCOSE, HISTORY, URINE, findrisc, load_diabetes, undiagnosed
 from latenthealth.outcomes import mask_blocks
 from latenthealth.outcomes.evaluation import auc, bootstrap_auc, difference_interval
@@ -121,6 +122,44 @@ def main() -> None:
         effort.append([f"{BEST}, en ayunas", pct(rate), pct(sens), pct(ppv, 1)])
     need = [[name, pct(flagged_for_sensitivity(y, s, 0.8)), pct(flagged_for_sensitivity(y, s, 0.9))] for name, s in scores.items()]
 
+    # El circuito en dos pasos, con los umbrales del producto: la glucosa capilar se le mide a
+    # quien la historia deja con probabilidad suficiente (es lo que hay al decidir el kit) y el
+    # análisis se pide a quien la sigue teniendo después de medirse.
+    cuts = Thresholds()
+    after = scores[BEST]
+
+    def circuit(label: str, first: np.ndarray, measure: float, lab: float = cuts.hba1c) -> list[str]:
+        measured = first >= measure
+        analysed = measured & (after >= lab)
+        found = int((analysed & y).sum())
+        return [
+            label, pct(measured.mean()), pct(measured[y].mean()), pct(analysed.mean()), pct(found / y.sum()),
+            pct(y[analysed].mean(), 1), num(measured.sum() / found, 0),
+        ]  # fmt: skip
+
+    history = scores["Historia clínica"]
+    lent = history >= cuts.home_glucose
+    circuits = [
+        ["FINDRISC ≥ 15 y análisis directo, sin medir la glucosa", "-", "-", pct((fr >= 15).mean()), pct((fr >= 15)[y].mean()), pct(y[fr >= 15].mean(), 1), "-"],
+        circuit("Glucosa a todos", history, 0.0),
+        circuit(f"Glucosa si la historia da {pct(cuts.home_glucose)} o más (el producto)", history, cuts.home_glucose),
+        circuit(f"Glucosa si la historia y la orina dan {pct(cuts.home_glucose)} o más", scores["Historia y orina"], cuts.home_glucose),
+        circuit("Glucosa si la historia da 5 % o más", history, 0.05),
+    ]
+    done_after_one = float((after[lent] < cuts.hba1c).mean())
+    # Con la glucosa medida como en el producto, lo que cambia al mover el umbral del análisis.
+    lab_rows = []
+    for cut in (0.05, 0.03, 0.02, 0.01):
+        analysed = lent & (after >= cut)
+        mark = " (el producto)" if abs(cut - cuts.hba1c) < 1e-9 else ""
+        lab_rows.append([pct(cut) + mark, pct(analysed.mean()), pct((analysed & y).sum() / y.sum()), pct(y[analysed].mean(), 1)])
+
+    # ¿Una medida o varias? Todo lo anterior es con una sola. Repetir promedia el error del aparato:
+    # el techo de eso es un glucómetro sin error, es decir, la glucosa de laboratorio.
+    perfect = out_of_fold(e, HISTORY + URINE + ["glucose", "fasting_hours"])
+    repeat_boot = bootstrap_auc(y, {"sin error": perfect, "una medida": after}, n=400)
+    repeat_gain = difference_interval(repeat_boot["sin error"], repeat_boot["una medida"])
+
     # Regla simple con el glucómetro en ayunas.
     g = e.glucose_home.to_numpy()
     rules = []
@@ -191,6 +230,36 @@ def main() -> None:
         "Personas a las que hay que hacer el análisis para encontrar el 80 % y el 90 % de la diabetes oculta:",
         "",
         *table(["Lo que se usa", "Para encontrar el 80 %", "Para encontrar el 90 %"], need),
+        "## El circuito en dos pasos: a quién se le mide la glucosa",
+        "",
+        "En el producto la glucosa capilar no se le mide a todos. Se le mide a quien la historia clínica deja con una "
+        f"probabilidad de diabetes oculta del {pct(cuts.home_glucose)} o más, y después se pide el análisis a quien, ya con "
+        f"su glucosa, sigue en el {pct(cuts.hba1c)} o más. Como basta una medida, se hace en la farmacia más cercana o con "
+        "el glucómetro del paciente, si lo tiene. Los porcentajes son sobre todas las personas sin diagnóstico.",
+        "",
+        *table(
+            [
+                "Criterio", "Se miden la glucosa", "Diabetes oculta entre ellos", "Se les pide el análisis",
+                "Diabetes oculta encontrada", "VPP del análisis", "Medidas de glucosa por caso encontrado",
+            ],  # fmt: skip
+            circuits,
+        ),
+        "Cuánto se encuentra depende sobre todo del umbral del análisis. Con la glucosa medida como en el producto:",
+        "",
+        *table(["Se pide el análisis si la probabilidad, ya con la glucosa, es al menos", "Se les pide el análisis", "Diabetes oculta encontrada", "VPP del análisis"], lab_rows),
+        "## ¿Una medida o varias?",
+        "",
+        "- **Todas las cifras de este informe son con una sola medida por persona.**",
+        f"- Con esa medida, al {pct(done_after_one)} de quienes se la hacen el sistema les contesta que ya está; "
+        "al resto se le pide el análisis.",
+        f"- **Repetir para promediar el error del aparato apenas añade.** Con un glucómetro sin error, que es el techo de "
+        f"repetir muchas veces, la AUC pasa de {num(auc(y, after))} a {num(auc(y, perfect))} "
+        f"({'+' if repeat_gain[0] >= 0 else ''}{num(repeat_gain[0])}; intervalo {num(repeat_gain[1])} a {num(repeat_gain[2])}).",
+        "- **Lo que no se puede medir aquí** es si repetirla en días distintos añade algo más, porque la glucosa de una "
+        "persona cambia de un día a otro y NHANES tiene una sola por persona.",
+        "- En el producto, una glucosa en ayunas de 126 mg/dl o más se repite otro día: con dos días sale como hallazgo, "
+        "que es lo que exige el criterio diagnóstico.",
+        "",
         "## Regla simple con el glucómetro",
         "",
         f"Entre las {int(fasting.sum())} personas en ayunas, sin modelo: solo el número del glucómetro.",

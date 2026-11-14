@@ -2,12 +2,17 @@
 
 1. El paciente en casa: qué le dice el sistema cada día, por tres canales distintos.
 2. La médica: la lista del cupo ordenada por lo que cambiaría, y la ficha de un paciente.
+3. El kit de cada paciente (solo lo que le falta) y el pulso con el reloj o con la cámara.
+4. El corazón en 30 segundos: dos grabaciones reales (si están descargadas) valoradas con cada
+   nivel de aparato.
 
 Uso:
     uv run python scripts/demo_casa.py
 """
 
 from datetime import date, timedelta
+
+import numpy as np
 
 from latenthealth.albuminuria import (
     FIRST_MORNING,
@@ -21,10 +26,12 @@ from latenthealth.albuminuria import (
     load_default_filter,
     next_step,
 )
+from latenthealth import ejection, rhythm
 from latenthealth.assessment import ClinicalRecord, assess, describe
 from latenthealth.diabetes import GlucoseReading
-from latenthealth.home import BPReading, HomeLab, RhythmCheck
+from latenthealth.home import BPReading, HomeLab, RhythmCheck, af_probability, low_ef_probability
 from latenthealth.kidney_trend import EgfrMeasurement, TreatmentStart
+from latenthealth.kit import Devices, checks_from_pulse, describe_kit, kit_for
 from latenthealth.worklist import describe as describe_worklist
 from latenthealth.worklist import rank_cupo
 
@@ -220,10 +227,72 @@ def carmen() -> None:
         print(describe(assess(CUPO[name], as_of=D0)))
 
 
+def kits() -> None:
+    """Qué se le pide a cada paciente y con qué, y una medida de pulso con el reloj o con la cámara."""
+    title("3. EL KIT DE CADA PACIENTE: LO QUE SU FICHA DICE QUE FALTA (las tiras se mandan, los aparatos se prestan)")
+    infarction = ClinicalRecord(
+        age=64, female=False, bmi=29.0, sbp=132, dbp=78, coronary=True, hypertension=True, bp_meds=True,
+        diabetes=True, diabetes_pills=True, has_smartphone=True,
+    )
+    cases = (
+        ("Julián (62), hipertenso con 146 en consulta y sin orina; tiene un reloj que mide el pulso", CUPO["Julián (62), hipertenso sin orina"], Devices(watch_pulse=True)),
+        ("Marta (47), diabética con tiras dudosas", CUPO["Marta (47), diabética con tiras dudosas"], Devices()),
+        ("Elena (74), hipertensa con 142 en consulta, sin diabetes conocida: le toca casi todo", CUPO["Elena (74), punción capilar con FG 51"], Devices()),
+        ("Antonio (81), hipertenso con 150 en consulta, sin móvil y con manguito propio", CUPO["Antonio (81), sin analítica en años"], Devices(cuff=True)),
+        ("Lucía (45), sana y bien estudiada: nada que mandarle", CUPO["Lucía (45), sana y bien estudiada"], Devices()),
+        ("Paco (64), diabético e hipertenso con un infarto, y un reloj con ECG", infarction, Devices(watch_pulse=True, watch_ecg=True)),
+        ("Paco, si no tuviera reloj", infarction, Devices()),
+    )
+    for name, record, devices in cases:
+        print()
+        print(name)
+        print(describe_kit(kit_for(record, devices, as_of=D0)))
+    if not rhythm.available():
+        return
+    print()
+    print("Una medida de pulso de un minuto en un hombre de 77 años (latidos simulados):")
+    rng = np.random.default_rng(0)
+    regular = np.cumsum(0.85 + 0.02 * rng.standard_normal(70))
+    irregular = np.cumsum(rng.uniform(0.45, 1.15, 80))
+    measures = (
+        ("Reloj, pulso regular", rhythm.intervals_from_beats(regular), "reloj"),
+        ("Cámara, pulso regular", rhythm.intervals_from_beats(rhythm.degrade(regular, rng)), "cámara"),
+        ("Cámara, pulso irregular", rhythm.intervals_from_beats(rhythm.degrade(irregular, rng)), "cámara"),
+    )
+    for label, rr, source in measures:
+        check, _ = checks_from_pulse(D0, rr, source)
+        p = af_probability([check], 77, female=False)
+        print(f"  {label:24s} multiplica la sospecha por {check.likelihood_ratio:6.2f}  ->  P(fibrilación auricular) = {p:5.1%}")
+
+
+def heart() -> None:
+    """Dos personas reales del segundo hospital (el modelo no las vio al entrenar), una con el corazón débil."""
+    if not (ejection.available() and ejection.COMMUNITY_ZIP.exists()):
+        return
+    title("4. EL CORAZÓN EN 30 SEGUNDOS (grabaciones reales, Zenodo 16934966)")
+    labels = ejection.read_labels(ejection.COMMUNITY_ZIP).sort_values(["lvef", "subject"])
+    weak, healthy = labels.iloc[0], labels.iloc[len(labels) // 2]
+    table = ejection.features_from_zip(ejection.COMMUNITY_ZIP, subjects=[weak.subject, healthy.subject], profiles=True)
+    table["site_code"] = table.site.map({site: i for i, site in enumerate(ejection.SITES)})
+    for person in (weak, healthy):
+        recordings = table[table.subject == person.subject].to_dict("records")
+        print()
+        print(f"Persona con fracción de eyección del {person.lvef:.0%} por ecocardiograma ({len(recordings)} grabaciones de 30 s)")
+        for tier, label in (("pulso", "Solo el pulso"), ("ecg", "ECG de una derivación"), ("sonido", "ECG y sonido cardíaco")):
+            check = ejection.check_from_recordings(D0, recordings, tier)
+            p = low_ef_probability([check], 70)
+            action = "pedir NT-proBNP y ecocardiograma" if p >= 0.05 else "nada que hacer"
+            print(f"  {label:24s} multiplica la sospecha por {check.likelihood_ratio:5.2f}  ->  P(fracción de eyección baja) a los 70 años: {p:5.1%}  ({action})")
+
+
 def main() -> None:
     patients_at_home()
     print()
     carmen()
+    print()
+    kits()
+    print()
+    heart()
 
 
 if __name__ == "__main__":

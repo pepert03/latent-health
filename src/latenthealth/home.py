@@ -6,9 +6,12 @@ el paciente necesita otras medidas para completar la evaluación sin desplazarse
 - **Tensión en casa** con un manguito validado (automedida, AMPA). Es la medida de más valor
   para el riesgo cardiovascular y muchos pacientes ya tienen el aparato.
 - **Punción capilar** (gota de sangre en papel, enviada por correo) para creatinina y HbA1c.
-  Mide de verdad, pero con más error que la sangre venosa: no sustituye a la estimación,
-  la **actualiza** (regla de Bayes sobre la distribución del panel).
-- **Ritmo cardíaco** con la cámara o el reloj, para sospechar fibrilación auricular.
+  No es el glucómetro, que también pincha el dedo pero da la glucosa al momento. Mide de
+  verdad, pero con más error que la sangre venosa: no sustituye a la estimación, la
+  **actualiza** (regla de Bayes sobre la distribución del panel).
+- **Ritmo cardíaco** con el reloj o con la cámara del móvil, para sospechar fibrilación auricular.
+- **Grabación del corazón** (pulso, ECG de una derivación o ECG con sonido), para sospechar que
+  el corazón bombea poco (fracción de eyección baja).
 
 Los errores de medida por defecto son **supuestos** (se indica en cada uno). La prevalencia de
 fibrilación auricular sí es española y medida (estudio OFRECE). La evidencia de la punción
@@ -161,10 +164,15 @@ def update_pmf(bounds, pmf, value: float, sd: float | None = None, log_sd: float
 
 # --- Ritmo cardíaco ---
 
+# De dónde salen los latidos: un ECG de una derivación (reloj o electrocardiógrafo de bolsillo),
+# el pulso que registra el reloj o la cámara del móvil con el dedo sobre la lente. El detector se
+# validó con ECG reales; con cámara, solo con latidos degradados por simulación.
+RHYTHM_SOURCES = ("ecg", "reloj", "cámara")
+
 
 @dataclass
 class RhythmCheck:
-    """Una comprobación del ritmo con el móvil o el reloj (pulso irregular sí o no)."""
+    """Una comprobación del ritmo con el reloj o con la cámara del móvil (pulso irregular sí o no)."""
 
     date: date
     irregular: bool
@@ -175,6 +183,7 @@ class RhythmCheck:
     # Si la comprobación viene del detector propio (``rhythm.check_from_intervals``), cuánto
     # multiplica la odds de fibrilación auricular; tiene más matiz que un sí o un no.
     likelihood_ratio: float | None = None
+    source: str = "reloj"  # "ecg", "reloj" o "cámara"
 
 
 # Prevalencia de fibrilación auricular en España por edad y sexo: estudio OFRECE (Rev Esp Cardiol
@@ -211,4 +220,49 @@ def af_probability(checks: list[RhythmCheck], age: float, prior: float | None = 
             log_odds += np.log(c.sensitivity / (1.0 - c.specificity))
         else:
             log_odds += np.log((1.0 - c.sensitivity) / c.specificity)
+    return float(1.0 / (1.0 + np.exp(-log_odds)))
+
+
+# --- Fracción de eyección baja ---
+
+# Fracción de eyección por debajo del 40 % en mayores de 45 años: estudio ECHOES (Lancet
+# 2001;358:439-444; 3.960 personas de Inglaterra con ecocardiograma), el 1,8 %, la mitad sin
+# síntomas. Tras un infarto, el 22,1 % (54 de 244; BMJ 2001). No hay un estudio español
+# equivalente con ecocardiograma a toda la muestra.
+LOW_EF_PREVALENCE = 0.018
+LOW_EF_AFTER_INFARCTION = 0.221
+LOW_EF_UNDIAGNOSED = 0.5  # supuesto: los que no tenían síntomas son los que no estaban diagnosticados
+LOW_EF_UNDER_45 = 0.003  # supuesto: ECHOES no estudió a menores de 45 años
+SOURCES = ("ecg y sonido", "ecg", "pulso")  # de más a menos informativa
+
+
+@dataclass
+class HeartCheck:
+    """Una grabación del corazón en casa ya valorada (``ejection.classify`` o ``pulse.classify_pulse``)."""
+
+    date: date
+    likelihood_ratio: float  # cuánto multiplica la odds de fracción de eyección baja
+    source: str = "ecg y sonido"  # "pulso", "ecg" o "ecg y sonido"
+
+
+def low_ef_prior(age: float, coronary: bool = False) -> float:
+    """P(fracción de eyección baja sin diagnosticar) antes de grabar nada."""
+    prevalence = LOW_EF_AFTER_INFARCTION if coronary else LOW_EF_PREVALENCE if age >= 45 else LOW_EF_UNDER_45
+    return LOW_EF_UNDIAGNOSED * prevalence / (1.0 - (1.0 - LOW_EF_UNDIAGNOSED) * prevalence)
+
+
+def low_ef_probability(checks: list[HeartCheck], age: float, coronary: bool = False, prior: float | None = None) -> float:
+    """P(fracción de eyección baja) tras las grabaciones.
+
+    A diferencia de la fibrilación auricular, el corazón es el mismo todos los días: repetir la
+    grabación quita ruido pero no suma evidencia independiente. Por eso se promedia (no se
+    acumula) el resultado de las grabaciones, y solo cuenta la fuente más informativa.
+    """
+    p = low_ef_prior(age, coronary) if prior is None else prior
+    log_odds = np.log(p / (1.0 - p))
+    for source in SOURCES:
+        ratios = [c.likelihood_ratio for c in checks if c.source == source]
+        if ratios:
+            log_odds += float(np.mean(np.log(ratios)))
+            break
     return float(1.0 / (1.0 + np.exp(-log_odds)))

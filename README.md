@@ -13,13 +13,20 @@ la médica recibe una lista ya ordenada de a quién mirar y qué pedirle.
   aplazan la prueba y explican las elevaciones pasajeras.
 - **Canales sin móvil.** La misma lógica con la tira leída a ojo, en la farmacia, en enfermería o
   solo con el tubo por correo.
-- **Glucómetro.** Una glucosa capilar encuentra el 86 % de la diabetes sin diagnosticar donde el
-  cuestionario FINDRISC encuentra el 52 %.
+- **Glucosa capilar.** Una sola medida, en la farmacia o con glucómetro, encuentra el 75 % de la
+  diabetes sin diagnosticar con los mismos análisis con los que el cuestionario FINDRISC
+  encuentra el 52 %.
 - **Ritmo cardíaco.** Detector propio de fibrilación auricular por la irregularidad del pulso,
   validado con 8.528 registros reales.
 - **Otras medidas.** Tensión con manguito y punción capilar (creatinina y HbA1c).
+- **Un kit distinto para cada paciente**, con lo que su ficha dice que falta. Las tiras se mandan
+  y el manguito se presta una semana solo a quien lo necesita. El pulso se toma del reloj,
+  si el paciente lo conecta, o con la cámara del móvil.
 - **Preguntas sobre síntomas.** Falta de aire, dificultad para caminar y salud percibida: afinan
   la sospecha de insuficiencia cardíaca en mayores de 60 años.
+- **El corazón en 30 segundos.** Un ECG de una derivación (reloj o electrocardiógrafo de bolsillo)
+  detecta la fracción de eyección baja con AUC 0,88 frente al ecocardiograma; con el sonido del
+  corazón, 0,91. El pulso solo no basta (0,68).
 
 **En la consulta (la médica)**
 
@@ -56,7 +63,11 @@ Informes generados por los scripts:
 | [robustez.md](reports/robustez.md) | FG y albuminuria juntos, calibración por grupos, umbrales | Personas reales (NHANES) |
 | [lista_cupo.md](reports/lista_cupo.md) | El orden de la lista del cupo | Personas reales (NHANES) |
 | [riesgo_en_casa.md](reports/riesgo_en_casa.md) | El riesgo con lo medido en casa frente a SCORE2 | Personas reales con seguimiento (NHANES y mortalidad) |
+| [kit_en_casa.md](reports/kit_en_casa.md) | Qué se pierde al quitar cada pieza del kit | Personas reales con seguimiento (NHANES y mortalidad) |
 | [insuficiencia_cardiaca.md](reports/insuficiencia_cardiaca.md) | Qué se sabe de la insuficiencia cardíaca desde casa | Personas reales con seguimiento |
+| [fraccion_eyeccion.md](reports/fraccion_eyeccion.md) | La fracción de eyección baja con pulso, ECG de una derivación y sonido | 620 personas con ecocardiograma (Zenodo) |
+| [pulso_insuficiencia_cardiaca.md](reports/pulso_insuficiencia_cardiaca.md) | La insuficiencia cardíaca con el pulso solo, y por qué no basta | 83 personas (PhysioNet) y 587 pacientes españoles |
+| [insuficiencia_cardiaca_espana.md](reports/insuficiencia_cardiaca_espana.md) | Cuánto de la gravedad se ve desde casa | 992 pacientes españoles con seguimiento (MUSIC) |
 | [diabetes_en_casa.md](reports/diabetes_en_casa.md) | La diabetes oculta con glucómetro frente a FINDRISC | Personas reales (NHANES) |
 | [ritmo.md](reports/ritmo.md) | El detector de fibrilación auricular | 8.528 registros reales de electrocardiógrafo de bolsillo |
 | [validacion_espana.md](reports/validacion_espana.md) | El riesgo cardiovascular en españoles | Muestra del ensayo PREDIMED |
@@ -112,9 +123,13 @@ recordatorio, tira, registro, asistente y mensaje a la médica. Todo con datos s
 | `src/latenthealth/panel/` | Datos, modelo distribucional y evaluación del panel de sangre |
 | `src/latenthealth/outcomes/` | Cohorte con seguimiento de mortalidad, modelo de riesgo en tiempo discreto y sus métricas |
 | `src/latenthealth/kidney_trend.py` | Tendencia del filtrado glomerular |
-| `src/latenthealth/home.py` | Tensión en casa, punción capilar y ritmo cardíaco |
+| `src/latenthealth/home.py` | Tensión en casa, punción capilar, ritmo cardíaco y grabación del corazón |
+| `src/latenthealth/kit.py` | Qué lleva el kit de cada paciente y entrada de las medidas del reloj o de la cámara |
 | `src/latenthealth/diabetes.py` | Glucómetro en casa y cuestionario FINDRISC |
 | `src/latenthealth/rhythm.py` | Detector de fibrilación auricular por intervalos entre latidos |
+| `src/latenthealth/ejection.py` | Fracción de eyección baja con ECG de una derivación y sonido cardíaco |
+| `src/latenthealth/pulse.py`, `wfdb.py` | Señal de insuficiencia cardíaca en el pulso y lector de latidos de PhysioNet |
+| `src/latenthealth/music.py` | Cohorte española MUSIC de insuficiencia cardíaca |
 | `src/latenthealth/predimed.py`, `rdata.py` | Muestra española PREDIMED y lector de sus datos |
 | `src/latenthealth/cvrisk.py` | SCORE2, SCORE2-OP y categorías de riesgo cardiovascular |
 | `src/latenthealth/assessment.py` | Evaluación completa de un paciente |

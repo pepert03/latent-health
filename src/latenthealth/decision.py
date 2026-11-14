@@ -35,9 +35,16 @@ class Utilities:
     missed_albuminuria: float = 20.0
     false_label: float = 20.0
     tests_creatinine: float = 20.0
-    tests_hba1c: float = 20.0
+    # Diabetes oculta, en dos pasos (reports/diabetes_en_casa.md). Primero una glucosa capilar, en
+    # la farmacia o con glucómetro, a quien la historia deja con probabilidad suficiente: con 50
+    # medidas por caso se la hace menos de la mitad de quienes no tienen diagnóstico y ahí está el
+    # 85 % de la diabetes oculta. Después el análisis, a quien sigue con probabilidad suficiente ya
+    # con su glucosa: con 50 se piden los mismos análisis que con FINDRISC y se encuentra el 75 %.
+    tests_home_glucose: float = 50.0
+    tests_hba1c: float = 50.0
     tests_nt_probnp: float = 10.0 / 3.0
     tests_ecg: float = 10.0
+    tests_echo: float = 20.0
 
     def thresholds(self) -> "Thresholds":
         return Thresholds(
@@ -47,6 +54,8 @@ class Utilities:
             hba1c=threshold_from_tests_per_case(self.tests_hba1c),
             nt_probnp=threshold_from_tests_per_case(self.tests_nt_probnp),
             ecg=threshold_from_tests_per_case(self.tests_ecg),
+            echo=threshold_from_tests_per_case(self.tests_echo),
+            home_glucose=threshold_from_tests_per_case(self.tests_home_glucose),
         )
 
 
@@ -57,9 +66,11 @@ class Thresholds:
     albuminuria_discard: float = 0.05
     albuminuria_confirm: float = 0.95
     creatinine: float = 0.05  # pedir creatinina si P(FG < 60) la supera
-    hba1c: float = 0.05  # pedir HbA1c si P(diabetes sin diagnosticar) la supera
+    hba1c: float = 0.02  # pedir HbA1c si, ya con la glucosa medida, P(diabetes sin diagnosticar) la supera
     nt_probnp: float = 0.30  # pedir NT-proBNP si P(≥ 125 pg/ml) la supera
     ecg: float = 0.10  # pedir ECG si P(fibrilación auricular) la supera
+    echo: float = 0.05  # pedir NT-proBNP y ecocardiograma si P(fracción de eyección baja) la supera
+    home_glucose: float = 0.02  # medir la glucosa capilar (farmacia o glucómetro) si P(diabetes sin diagnosticar) la supera
 
 
 def net_benefit(y, p, threshold: float) -> float:

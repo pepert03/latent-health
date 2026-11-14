@@ -55,7 +55,7 @@ enfermedades del corazón:
 | Diabetes | Glucómetro en casa: encuentra el 86 % de la diabetes oculta donde el cuestionario FINDRISC encuentra el 52 % (apartado 3.12) |
 | Hipertensión | Tensión medida en casa con el protocolo de una semana |
 | Infarto e ictus (aterosclerosis) | SCORE2 y un modelo propio de muerte cardiovascular entrenado con desenlaces reales y comprobado en españoles (apartado 3.10) |
-| Insuficiencia cardíaca | Probabilidad de NT-proBNP alto, afinada con síntomas y pulso (apartado 3.11). Es la parte más débil |
+| Insuficiencia cardíaca | Fracción de eyección baja con 30 s de ECG de una derivación (AUC 0,88 frente a ecocardiograma; 0,91 con sonido), NT-proBNP estimado y gravedad en pacientes españoles (apartado 3.11) |
 | Arritmias | Detector propio de fibrilación auricular por la irregularidad del pulso, validado con 8.528 registros reales (apartado 3.12) |
 | Valvulopatías y cardiomiopatías | Nada: se ven con ecografía o auscultación |
 
@@ -63,8 +63,8 @@ enfermedades del corazón:
 
 1. **El sistema recorre el cupo.** Con la historia clínica calcula, para cada paciente, la
    probabilidad de que las pruebas que le faltan den un hallazgo nuevo.
-2. **Al paciente le llega un kit** por el canal que le sirve: aplicación, carta, farmacia,
-   enfermería o tubo por correo.
+2. **Al paciente le llega su kit**, con solo lo que le falta (apartado 3.5), por el canal que le
+   sirve: aplicación, carta, farmacia, enfermería o tubo por correo.
 3. **Antes de cada prueba contesta cuatro preguntas** (ejercicio intenso, fiebre, regla, escozor
    al orinar). Si alguna es que sí, la prueba se aplaza.
 4. **Hace la tira y el sistema le contesta**: "ya está", "repite mañana" o "manda el tubo". Solo
@@ -312,7 +312,7 @@ cuántos se marcan por error:
 - **iSGLT2.** En pacientes estables que lo empiezan, las alertas falsas de descenso bajan del
   1,1 % al 0,2 % cuando el tratamiento entra como dato.
 
-### 3.5 Otras medidas en casa (`src/latenthealth/home.py`)
+### 3.5 Otras medidas en casa y el kit de cada paciente (`home.py`, `kit.py`)
 
 Como la orina no sustituye a la sangre, el paciente necesita otras medidas para completar la
 evaluación sin desplazarse:
@@ -320,16 +320,74 @@ evaluación sin desplazarse:
 - **Tensión con manguito validado.** Protocolo habitual de una semana: se descarta el primer día
   y se promedia el resto. Da la probabilidad de que la media verdadera pase de 135/85 y alimenta
   el SCORE2 (sumando 5 mmHg para equipararla a la de consulta).
-- **Punción capilar** (gota de sangre en papel, por correo) para creatinina y HbA1c. Tiene más
-  error que la sangre venosa, así que **no sustituye a la estimación: la actualiza** con la regla
-  de Bayes. Un FG capilar de 51 deja la estimación en 59 (entre 51 y 68) y recomienda confirmarlo
-  en el laboratorio.
-- **Ritmo cardíaco** con el móvil o el reloj. Dos comprobaciones irregulares en un paciente de 77
-  años dejan la probabilidad de fibrilación auricular en el 73 % y se pide un ECG.
+- **Punción capilar** (gota de sangre en papel, por correo) para creatinina y HbA1c. No es el
+  glucómetro: los dos pinchan el dedo, pero el glucómetro da la glucosa al momento y esta gota
+  viaja al laboratorio. Tiene más error que la sangre venosa, así que **no sustituye a la
+  estimación: la actualiza** con la regla de Bayes. Un FG capilar de 51 deja la estimación en 59
+  (entre 51 y 68) y recomienda confirmarlo en el laboratorio.
+- **Ritmo cardíaco** con el reloj, si el paciente lo conecta a la aplicación, o con la cámara del
+  móvil (el dedo sobre la lente). Dos comprobaciones irregulares en un paciente de 77 años dejan
+  la probabilidad de fibrilación auricular en el 73 % y se pide un ECG.
+- **Grabación del corazón** de 30 segundos con un ECG de una derivación (el del reloj o un
+  electrocardiógrafo de bolsillo), con o sin sonido. Una grabación sospechosa lleva la
+  probabilidad de fracción de eyección baja del 0,9 % al 8 % en una persona de 70 años y se pide
+  NT-proBNP y ecocardiograma (apartado 3.11).
 
 Los errores de medida son supuestos. La prevalencia de fibrilación auricular de partida es
 española y medida (apartado 3.11). La evidencia de la punción capilar para el FG es todavía de
 estudios pequeños.
+
+**El kit no es igual para todos** (`kit.kit_for`): lleva lo que la ficha del paciente dice que
+falta. Nadie compra nada: las tiras se mandan, los aparatos se prestan y la glucosa se mide en
+la farmacia.
+
+| Pieza | A quién | Con qué |
+|---|---|---|
+| Orina | Quien no tiene la albuminuria medida o la tiene dudosa | Tiras leídas con el móvil, o tubo por correo |
+| Cinco preguntas | Todos | Aplicación, teléfono o papel |
+| Glucosa | Sin diabetes diagnosticada y con probabilidad de tenerla oculta del 2 % o más | Una medida en la farmacia más cercana, o con su glucómetro |
+| Tensión | Tensión de consulta alta o sin registrar, tenga o no hipertensión diagnosticada | Manguito prestado una semana |
+| Pulso | Sin fibrilación auricular diagnosticada | El reloj conectado; si no, la cámara del móvil |
+| ECG de 30 segundos | Con reloj con ECG, o tras un infarto | El reloj; tras un infarto, un electrocardiógrafo de bolsillo prestado |
+| Gota de sangre por correo | Nadie de entrada | Se pide si la lista dice que la creatinina es lo que más aporta |
+
+- **La glucosa capilar es para descubrir la diabetes**, así que se le mide a quien no la tiene
+  diagnosticada. Al diabético ya diagnosticado no le descubre nada; su control es otro uso, que
+  aquí no se cubre. Basta una medida (apartado 3.12), así que se hace en la farmacia.
+- **El manguito va a quien tiene la tensión de consulta alta**: en el hipertenso tratado, para
+  ver si está controlado; en quien no tiene diagnóstico, para ver si es hipertensión.
+- **Una semana** es el protocolo de automedida: dos medidas por la mañana y dos por la noche
+  durante siete días. Una sola toma no vale, porque la tensión cambia mucho de un rato a otro.
+  Al acabar, el manguito se devuelve.
+
+Un diabético hipertenso con la tensión de consulta en rango, el paciente típico del reto, solo
+recibe las tiras.
+
+Lo que se pierde al ordenar el riesgo (`reports/kit_en_casa.md`; 12.710 personas, 701 muertes
+cardiovasculares en 10 años, mismas personas que el apartado 3.10):
+
+| Lo que se usa | AUC | Diferencia con el kit completo |
+|---|---|---|
+| Kit completo: historia, cinco preguntas, manguito y tira | 0,844 | |
+| Kit de todos: historia, cinco preguntas y tira | 0,844 | +0,000 (-0,003 a 0,003) |
+| Historia y tira, sin las preguntas | 0,841 | -0,004 (-0,008 a 0,000) |
+| Historia y cinco preguntas, sin la tira | 0,838 | -0,006 (-0,010 a -0,002) |
+
+- **Quitar el manguito del kit de todos no cambia el orden del riesgo.**
+- **Las preguntas se quedan**: no cuestan nada, y sin ellas se pierden 0,004, con un intervalo
+  que roza el cero.
+- **La tira no se puede quitar.**
+
+**Reloj o cámara.** La aplicación admite las dos fuentes de pulso. `kit.checks_from_pulse` recibe
+los intervalos entre latidos, del reloj o de la cámara, y `kit.checks_from_ecg` el ECG del reloj;
+devuelven las comprobaciones que guarda la ficha. Tres límites:
+
+- **La conexión con el reloj no está construida** (Apple Health, Health Connect o la aplicación
+  del fabricante). Está la entrada de sus datos.
+- **Con cámara**, el detector de fibrilación auricular solo está probado con latidos degradados
+  por simulación (apartado 3.12).
+- **El ECG del reloj es otra derivación**, de muñeca a dedo. El modelo de fracción de eyección se
+  entrenó con el aparato en el pecho, así que con reloj está sin validar.
 
 ### 3.6 Riesgo cardiovascular y lista del cupo (`cvrisk.py`, `worklist.py`)
 
@@ -541,10 +599,78 @@ Límites: solo muertes (el fichero público no tiene infartos ni ictus no mortal
 SCORE2 pretende predecir); población de EE. UU.; cuestionario hecho por un entrevistador; y en los
 ficheros públicos de mortalidad algunos tiempos y causas están sustituidos por valores sintéticos.
 
-### 3.11 Insuficiencia cardíaca y fibrilación auricular (`reports/insuficiencia_cardiaca.md`)
+### 3.11 Insuficiencia cardíaca y fibrilación auricular
 
-**Insuficiencia cardíaca.** El NT-proBNP no se puede medir en casa. Se comprobó, con los 10.174
-adultos de NHANES 1999-2004 que lo tienen medido, cuánto ayuda lo que el paciente cuenta:
+Informes: `reports/fraccion_eyeccion.md`, `reports/pulso_insuficiencia_cardiaca.md`,
+`reports/insuficiencia_cardiaca_espana.md` y `reports/insuficiencia_cardiaca.md`.
+
+Era la parte más débil porque no había datos abiertos con ecocardiograma. Se encontraron tres
+conjuntos que se descargan sin cuenta ni solicitud, y cada uno contesta una pregunta distinta.
+
+**a) ¿Se ve desde casa que el corazón bombea poco?** (`src/latenthealth/ejection.py`). Datos:
+Zenodo 16934966 (CC-BY 4.0): 620 personas de dos hospitales de Wuhan con la fracción de eyección
+medida por ecocardiograma y cuatro grabaciones de 30 segundos con un aparato de mano que recoge
+un ECG de una derivación y el sonido del corazón. Es el único conjunto del proyecto con
+ecocardiograma como verdad y con personas sin la enfermedad de la misma consulta. Se comparan
+tres niveles de aparato para detectar una fracción de eyección del 40 % o menos:
+
+| Lo que se usa | AUC (500 personas, validación cruzada) | Con una sola grabación | Sensibilidad con especificidad del 90 % | AUC en el segundo hospital (120 personas, 5 casos) |
+|---|---|---|---|---|
+| Pulso: intervalos entre latidos | 0,682 (0,60-0,76) | 0,660 | 35 % | 0,715 |
+| ECG de una derivación | 0,883 (0,83-0,93) | 0,826 | 68 % | 0,981 |
+| ECG y sonido cardíaco | 0,911 (0,87-0,94) | 0,867 | 70 % | 0,977 |
+
+- **El salto está en el ECG de una derivación**, el que da un reloj o un electrocardiógrafo de
+  bolsillo: +0,20 de AUC sobre el pulso (intervalo 0,14 a 0,27). El pulso solo no basta.
+- **El sonido añade poco**: +0,027, con un intervalo que incluye el cero (-0,008 a 0,063).
+- **Las medidas son explicables** y van en la dirección que describe la fisiología: QRS de
+  pendiente más lenta, primer ruido más flojo y más tardío, sístole más corta y pulso más
+  rápido. Añadir el latido y el sonido promedios completos sube el AUC dos centésimas.
+- **Detecta sobre todo lo grave**: señala al 88 % de quienes tienen la fracción de eyección por
+  debajo del 30 % y al 48 % de quienes la tienen entre el 30 % y el 40 %.
+- **En el segundo hospital** el modelo, sin tocar, detecta a los 5 casos con especificidad del
+  88 % al 93 %. Son solo 5 casos: confirma la dirección, no la cifra.
+
+En la ficha entra como una grabación ya valorada (`HeartCheck`): multiplica la odds de partida
+(1,8 % de los mayores de 45 años tiene la fracción de eyección por debajo del 40 %, la mitad sin
+saberlo, según el estudio ECHOES; 22 % tras un infarto) y, si la probabilidad pasa del 5 %, se
+recomienda NT-proBNP y ecocardiograma y el paciente sube en la lista del cupo. Varias grabaciones
+se promedian en vez de acumularse: el corazón es el mismo todos los días.
+
+**b) ¿Y solo con el pulso?** (`src/latenthealth/pulse.py`). Datos: dos bases de PhysioNet con los
+latidos de 24 horas de 29 personas con insuficiencia cardíaca y 54 sanas. Una medida de dos
+minutos separa con AUC 0,83 y la media de siete, con 0,89; con los latidos degradados como los de
+una cámara, lo mismo. Parece muy bueno, y **no lo es**: al aplicar la regla equivalente al resumen
+del Holter de los 587 pacientes españoles de MUSIC en ritmo sinusal, solo señala al **22 %** (19 %
+de los que toman betabloqueante, 30 % de los que no). Los enfermos de esas bases son de los años
+noventa, sin el tratamiento actual, y los controles están sanos. Con el ecocardiograma como
+verdad (apartado a) el pulso solo da 0,68. Por eso el pulso nunca decide: su razón de
+verosimilitud está limitada a lo visto en los pacientes españoles (entre 0,86 y 2,2).
+
+**c) En quien ya tiene la enfermedad, ¿cuánto de la gravedad se ve desde casa?**
+(`src/latenthealth/music.py`). Datos: tabla clínica de MUSIC (PhysioNet, ODbL): 992 pacientes con
+insuficiencia cardíaca de ocho hospitales españoles, con mortalidad a cuatro años.
+
+| Quién muere en tres años (221 de 962) | AUC |
+|---|---|
+| Edad y sexo | 0,629 |
+| Historia clínica (diagnósticos y medicación) | 0,733 |
+| + medidas de casa: cómo se cansa, peso, tensión y pulso | 0,757 |
+| + ECG | 0,754 |
+| + analítica con NT-proBNP | 0,764 |
+| Todo lo del hospital, con ecocardiograma y Holter | 0,778 |
+
+- **Las cuatro medidas de casa añaden +0,024** a la historia (intervalo 0,001 a 0,047). Todo lo
+  que mide el hospital añade otros +0,021, con un intervalo que incluye el cero (-0,005 a 0,046).
+- Ordenando con la historia y las medidas de casa, el tercio de más riesgo reúne el 64 % de las
+  muertes (mueren el 44 %, frente al 9 % del tercio de menos riesgo).
+- Las mismas medidas adivinan quién tiene el NT-proBNP por encima de 1.000 ng/l con AUC 0,745
+  (0,700 con la historia sola).
+- Solo el 8 % de estos pacientes tenía el NT-proBNP por debajo de 125 ng/l.
+
+**d) NT-proBNP estimado con la historia y los síntomas** (lo que ya había). El NT-proBNP no se
+puede medir en casa. Se comprobó, con los 10.174 adultos de NHANES 1999-2004 que lo tienen
+medido, cuánto ayuda lo que el paciente cuenta:
 
 | Quién tendrá el NT-proBNP alto, en personas de 60 años o más | Por encima de 125 pg/ml | Por encima de 300 pg/ml |
 |---|---|---|
@@ -558,9 +684,10 @@ adultos de NHANES 1999-2004 que lo tienen medido, cuánto ayuda lo que el pacien
 - **Medir el NT-proBNP sigue aportando.** Para predecir la muerte por enfermedad del corazón, lo de
   casa da 0,824, lo mismo que la edad, el sexo y el NT-proBNP medido (0,822); las dos cosas
   juntas, 0,838 (+0,014, intervalo 0,004 a 0,025).
-- **Sigue siendo la parte más débil.** NHANES no tiene ecocardiograma ni diagnóstico confirmado, ni
-  pregunta por los síntomas más específicos (tobillos hinchados, dormir incorporado, subida rápida
-  de peso). Con una cohorte que los tenga es donde más se puede ganar.
+
+**Lo que sigue faltando.** Los datos con ecocardiograma son de hospital y de China, con 65 casos;
+la mitad de la insuficiencia cardíaca tiene la fracción de eyección conservada y aquí no se
+detecta; y las grabaciones las hizo personal sanitario, no el paciente.
 
 **Fibrilación auricular.** La probabilidad de partida ya no es un supuesto: sale del estudio OFRECE
 (8.343 españoles de 40 años o más con ECG), por edad y sexo, y de que el 10 % de los casos no
@@ -602,6 +729,31 @@ glucómetro doméstico (7,5 %).
 - **Está calibrado:** a quien da entre el 30 % y el 60 % de probabilidad, la tiene el 47 %.
 - En la ficha, la glucosa de casa actualiza la HbA1c estimada y la probabilidad de diabetes. Dos
   días en ayunas con 126 mg/dl o más salen como hallazgo. El paciente puede repetirla.
+
+**En el producto la glucosa no se le mide a todos: son dos pasos.** Se le mide a quien la
+historia deja con una probabilidad de diabetes oculta del 2 % o más, y el análisis se pide a
+quien, ya con su glucosa, sigue en el 2 % o más (50 pruebas por caso en los dos pasos). Los
+porcentajes son sobre todas las personas sin diagnóstico:
+
+| Criterio | Se miden la glucosa | Se les pide el análisis | Diabetes oculta encontrada | VPP del análisis |
+|---|---|---|---|---|
+| FINDRISC ≥ 15 y análisis directo | - | 22 % | 52 % | 7,6 % |
+| Glucosa a todos | 100 % | 22 % | 87 % | 12,3 % |
+| Glucosa si la historia da 2 % o más (el producto) | 46 % | 20 % | 75 % | 12,2 % |
+| Glucosa si la historia da 5 % o más | 19 % | 11 % | 52 % | 14,4 % |
+
+- **Con los mismos análisis que FINDRISC (20 % frente a 22 %), el producto encuentra el 75 % de
+  la diabetes oculta frente al 52 %**, midiendo la glucosa a menos de la mitad de la gente.
+- **El umbral del análisis decide cuánto se encuentra.** Con un 5 % se pide al 10 % y se
+  encuentra el 63 %; con un 1 %, al 30 % y el 82 %.
+- **Basta una medida, así que se hace en la farmacia más cercana**, en ayunas y sin cita, o con
+  el glucómetro del paciente si lo tiene. No hay aparato que prestar. Al 58 % de quienes se la
+  hacen el sistema les contesta que ya está; al resto se le pide el análisis.
+- **Repetir para promediar el error del aparato apenas añade**: un glucómetro sin error, que es
+  el techo, sube la AUC de 0,920 a 0,931. Si repetirla en días distintos aporta más no se puede
+  medir con estos datos, que tienen una glucosa por persona.
+- **En la farmacia deja de ser una prueba hecha en casa**, y en ayunas exige ir por la mañana.
+  Sin ayunas también sirve, con algo menos de acierto (AUC 0,893 frente a 0,944).
 
 No es un hallazgo médico nuevo: la glucosa en ayunas es un criterio diagnóstico. Lo que se mide
 es cuánto se gana frente a lo que hoy se usa para cribar sin análisis. Los límites: glucosa de
@@ -663,9 +815,13 @@ Los modelos ya entrenados están en `models/`. Para rehacerlo todo desde los dat
 | 10 | `uv run python scripts/fit_outcomes.py` | `models/outcomes/` y `reports/riesgo_en_casa.md` (unos 15 minutos) |
 | 11 | `uv run python scripts/fit_heart_home.py` | `models/panel/log_nt_probnp__casa*.joblib` y `reports/insuficiencia_cardiaca.md` |
 | 12 | `uv run python scripts/fit_diabetes_home.py` | `models/panel/hba1c__casa.joblib` y `reports/diabetes_en_casa.md` |
-| 13 | `uv run python scripts/download_open_data.py` | Electrocardiogramas de PhysioNet y muestra PREDIMED en `data/raw/` (unos 100 MB) |
+| 13 | `uv run python scripts/download_open_data.py` | Electrocardiogramas de PhysioNet, muestra PREDIMED, grabaciones con ecocardiograma de Zenodo, tabla de MUSIC y latidos de 24 h, en `data/raw/` (unos 480 MB) |
 | 14 | `uv run python scripts/fit_rhythm.py` | `models/ritmo/fa_intervalos.joblib` y `reports/ritmo.md` |
 | 15 | `uv run python scripts/validate_predimed.py` | `reports/validacion_espana.md` |
+| 16 | `uv run python scripts/fit_ejection.py` | `models/ritmo/fe_baja.joblib` y `reports/fraccion_eyeccion.md` |
+| 17 | `uv run python scripts/fit_pulse_hf.py` | `models/ritmo/ic_pulso.joblib` y `reports/pulso_insuficiencia_cardiaca.md` (unos 5 minutos) |
+| 18 | `uv run python scripts/validate_music.py` | `reports/insuficiencia_cardiaca_espana.md` |
+| 19 | `uv run python scripts/fit_kit.py` | `reports/kit_en_casa.md` (unos 5 minutos) |
 
 `fit_albuminuria.py --variant <nombre>` ajusta las variantes de la tabla de validación
 (`picos_normales`, `sin_covariables_muestra`, `sin_pendiente`, `sin_picos`, `normal`).
@@ -690,12 +846,17 @@ Los modelos ya entrenados están en `models/`. Para rehacerlo todo desde los dat
 | Tendencia del FG | **Supuesto** de la literatura; comprobado solo en simulación |
 | Riesgo de muerte cardiovascular con datos de casa | Entrenado y validado con desenlaces reales (EE. UU.); el riesgo absoluto está sin recalibrar a España |
 | NT-proBNP con síntomas y pulso | Ajustado y validado con personas reales (NHANES 1999-2004) |
+| Fracción de eyección baja con ECG y sonido | Entrenado y validado con 500 personas con ecocardiograma (hospital de Wuhan) y probado en 120 de otro hospital; 65 casos en total. Grabado por personal sanitario |
+| Fracción de eyección baja: probabilidad de partida | Medida en Inglaterra (estudio ECHOES); que la mitad esté sin diagnosticar es un **supuesto** |
+| Insuficiencia cardíaca con el pulso solo | Entrenado con 83 personas (bases de los años 90); en pacientes españoles tratados señala solo al 22 %. No decide |
+| Gravedad de la insuficiencia cardíaca con medidas de casa | Validado con 992 pacientes españoles (MUSIC, 2003-2004); las medidas las tomó personal sanitario |
 | Fibrilación auricular: probabilidad de partida | Medida en España (estudio OFRECE) |
 | Detector de fibrilación auricular | Entrenado y validado con 8.528 registros reales de electrocardiógrafo de bolsillo; con cámara, **solo simulado** |
 | Diabetes oculta con glucómetro | Validado con personas reales (NHANES); la glucosa es de laboratorio con el error de un glucómetro **simulado** |
 | Riesgo cardiovascular en españoles | Comprobado en la muestra PREDIMED (pocas variables, todos de alto riesgo) |
 | Lectura continua del color de la tira | **Supuesto**; evaluada solo en simulación. No hay modelo de visión construido |
 | Punción capilar y ritmo: errores de medida | **Supuesto** |
+| Kit por paciente | Medido con desenlaces reales (EE. UU.) que sin manguito el orden del riesgo no cambia. La conexión con relojes no está construida, solo la entrada de sus datos; el ECG del reloj, sin validar |
 
 Otros límites:
 
@@ -721,13 +882,17 @@ Otros límites:
 4. **Estimar el efecto de las preguntas de contexto** con los datos de uso.
 5. **SCORE2-Diabetes y el complemento de ERC** para el riesgo cardiovascular, y **recalibrar a
    España el riesgo absoluto** del modelo de casa con las tasas de mortalidad del INE.
-6. **Una cohorte con infartos e ictus no mortales y con ecocardiograma.** No se puede descargar
-   ninguna: SIDIAP y similares exigen solicitud institucional con protocolo y comité de ética, y
-   SHARE (que incluye España) exige registrarse como investigador. Es lo que falta para comparar
-   con SCORE2 en lo que SCORE2 predice y para mejorar de verdad la insuficiencia cardíaca.
-7. **Lecturas reales de casa**: glucómetros y pulso por cámara en pacientes, para sustituir los
+6. **Una cohorte de primaria con infartos e ictus no mortales y con ecocardiograma.** No se puede
+   descargar ninguna: SIDIAP y similares exigen solicitud institucional con protocolo y comité de
+   ética, y SHARE (que incluye España) exige registrarse como investigador. Es lo que falta para
+   comparar con SCORE2 en lo que SCORE2 predice. Para la insuficiencia cardíaca ya hay datos con
+   ecocardiograma (apartado 3.11), pero de hospital; el siguiente es EchoNext (100.000 ECG con
+   ecocardiograma, en PhysioNet), que solo pide firmar un acuerdo de uso con una cuenta.
+7. **Lecturas reales de casa**: glucómetros, pulso por cámara y grabaciones del corazón hechas por
+   el propio paciente (con un reloj o un electrocardiógrafo de bolsillo), para sustituir los
    errores simulados por medidos.
-8. **Integración en la historia clínica (FHIR)** e interfaz: aplicación del paciente y lista de la
-   médica con petición de pruebas en un clic.
+8. **Integración en la historia clínica (FHIR)** e interfaz: aplicación del paciente, con la
+   conexión a relojes y la medida del pulso con la cámara, y lista de la médica con petición de
+   pruebas en un clic.
 9. **Paso al tratamiento.** El cuarto fallo de la cadena, la inercia terapéutica, sigue sin
    abordar: señalar quién cumple criterios de guía para cada fármaco.

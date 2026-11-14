@@ -29,9 +29,10 @@ ACT, MEASURE, NOTHING = "actuar", "medir", "sin pendientes"
 HOW_AT_HOME = {
     "orina": "kit de orina en casa",
     "creatinina": "punción capilar en casa o analítica",
-    "glucosa": "glucómetro en casa",
+    "glucosa": "una medida en la farmacia, o con su glucómetro",
     "HbA1c": "analítica",
     "lípidos": "analítica",
+    "ecocardiograma": "cardiología o ecógrafo de bolsillo en el centro",
 }
 
 
@@ -59,7 +60,7 @@ class WorklistRow:
 def row_for(patient_id: str, a: PatientAssessment, min_p: float = 0.05) -> WorklistRow:
     cv = a.cv
     # La prueba que más aporta; a igualdad (al punto porcentual), la que se hace en casa sin pinchar.
-    order = {"orina": 0, "glucosa": 1, "creatinina": 2, "HbA1c": 3, "lípidos": 4}
+    order = {"orina": 0, "glucosa": 1, "creatinina": 2, "HbA1c": 3, "lípidos": 4, "ecocardiograma": 5}
     tests = sorted(a.finding_by_test, key=lambda t: (-round(a.finding_by_test[t], 2), order.get(t, 9)))
     test = tests[0] if tests and a.finding_by_test[tests[0]] > 0 else None
     how = ""

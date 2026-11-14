@@ -186,12 +186,12 @@ def decision_block(lines: list[str]) -> None:
     cases = [
         ("Pedir creatinina por P(FG < 60)", test[np.isfinite(test.egfr)], "egfr", 60.0, True, thresholds.creatinine, (0.02, 0.05, 0.10, 0.20)),
         (
-            "Pedir HbA1c por P(≥ 6,5 %) sin diagnóstico",
+            "Medir la glucosa capilar por P(HbA1c ≥ 6,5 %) sin diagnóstico",
             test[np.isfinite(test.hba1c) & (test.dx_diabetes == 0)],
             "hba1c",
             6.5,
             False,
-            thresholds.hba1c,
+            thresholds.home_glucose,
             (0.02, 0.05, 0.10, 0.20),
         ),
         ("Pedir NT-proBNP por P(≥ 125)", heart_test, "log_nt_probnp", np.log(125.0), False, thresholds.nt_probnp, (0.10, 0.20, 0.30, 0.40)),

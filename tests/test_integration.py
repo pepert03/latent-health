@@ -17,10 +17,11 @@ from latenthealth.albuminuria import (
     UrineSample,
 )
 from latenthealth.albuminuria.model import covariates
-from latenthealth.assessment import PANEL_DIR, ClinicalRecord, assess, describe
+from latenthealth.assessment import HOME_GLUCOSE_TEST, PANEL_DIR, ClinicalRecord, assess, describe
 from latenthealth.cohort import record_from_row
 from latenthealth.cvrisk import HIGH, VERY_HIGH
 from latenthealth.decision import Utilities
+from latenthealth.diabetes import GlucoseReading
 from latenthealth.home import BPReading, HomeLab, RhythmCheck
 from latenthealth.kidney_trend import EgfrMeasurement, TreatmentStart
 from latenthealth.recalibration import (
@@ -153,11 +154,25 @@ def test_spanish_recalibration_lowers_the_chance_of_low_egfr():
 @needs_models
 def test_thresholds_change_what_is_recommended():
     rec = ClinicalRecord(age=55, female=False, bmi=27)
-    relaxed = assess(rec, thresholds=Utilities(tests_creatinine=2, tests_hba1c=2).thresholds())
-    eager = assess(rec, thresholds=Utilities(tests_creatinine=200, tests_hba1c=200).thresholds())
+    relaxed = assess(rec, thresholds=Utilities(tests_creatinine=2, tests_home_glucose=2).thresholds())
+    eager = assess(rec, thresholds=Utilities(tests_creatinine=200, tests_home_glucose=200).thresholds())
     names = lambda a: {r.test for r in a.recommendations}  # noqa: E731
-    glucose = "Glucosa capilar en ayunas (en casa)"
-    assert glucose in names(eager) and glucose not in names(relaxed)
+    assert HOME_GLUCOSE_TEST in names(eager) and HOME_GLUCOSE_TEST not in names(relaxed)
+
+
+@needs_models
+def test_glucose_is_measured_with_little_suspicion_and_the_analysis_follows_the_reading():
+    """Dos pasos: glucosa capilar desde el 2 %; el análisis, si con esa glucosa sigue en el 2 % o más."""
+    cuts = Utilities().thresholds()
+    assert cuts.home_glucose == pytest.approx(0.02) and cuts.hba1c == pytest.approx(0.02)
+    rec = ClinicalRecord(age=59, female=True, bmi=27.0, waist=92, sbp=138, dbp=86)
+    first = assess(rec)
+    assert 0.02 < first.p_diabetes < 0.05
+    assert HOME_GLUCOSE_TEST in {r.test for r in first.recommendations}
+    normal = replace(rec, home_glucose=[GlucoseReading(D0, 88.0, 10.0)])
+    high = replace(rec, home_glucose=[GlucoseReading(D0, 148.0, 10.0)])
+    assert "HbA1c" not in {r.test for r in assess(normal).recommendations}
+    assert "HbA1c" in {r.test for r in assess(high).recommendations}
 
 
 # --- Lista del cupo ---

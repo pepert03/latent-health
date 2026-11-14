@@ -65,10 +65,10 @@ Un umbral de probabilidad equivale a aceptar un número de pruebas por caso enco
 | Pedir creatinina por P(FG < 60) | 5 % (elegido) | 20 | 31 % | 92 % | 0,0523 | 0,0215 | 58 |
 | Pedir creatinina por P(FG < 60) | 10 % | 10 | 22 % | 85 % | 0,0419 | 0,0000 | 38 |
 | Pedir creatinina por P(FG < 60) | 20 % | 5 | 13 % | 71 % | 0,0285 | 0,0000 | 11 |
-| Pedir HbA1c por P(≥ 6,5 %) sin diagnóstico | 2 % | 50 | 54 % | 89 % | 0,0238 | 0,0186 | 26 |
-| Pedir HbA1c por P(≥ 6,5 %) sin diagnóstico | 5 % (elegido) | 20 | 21 % | 61 % | 0,0134 | 0,0000 | 26 |
-| Pedir HbA1c por P(≥ 6,5 %) sin diagnóstico | 10 % | 10 | 7 % | 31 % | 0,0051 | 0,0000 | 5 |
-| Pedir HbA1c por P(≥ 6,5 %) sin diagnóstico | 20 % | 5 | 2 % | 15 % | 0,0019 | 0,0000 | 1 |
+| Medir la glucosa capilar por P(HbA1c ≥ 6,5 %) sin diagnóstico | 2 % (elegido) | 50 | 54 % | 89 % | 0,0238 | 0,0186 | 26 |
+| Medir la glucosa capilar por P(HbA1c ≥ 6,5 %) sin diagnóstico | 5 % | 20 | 21 % | 61 % | 0,0134 | 0,0000 | 26 |
+| Medir la glucosa capilar por P(HbA1c ≥ 6,5 %) sin diagnóstico | 10 % | 10 | 7 % | 31 % | 0,0051 | 0,0000 | 5 |
+| Medir la glucosa capilar por P(HbA1c ≥ 6,5 %) sin diagnóstico | 20 % | 5 | 2 % | 15 % | 0,0019 | 0,0000 | 1 |
 | Pedir NT-proBNP por P(≥ 125) | 10 % | 10 | 54 % | 94 % | 0,1655 | 0,1283 | 33 |
 | Pedir NT-proBNP por P(≥ 125) | 20 % | 5 | 39 % | 86 % | 0,1353 | 0,0194 | 46 |
 | Pedir NT-proBNP por P(≥ 125) | 30 % (elegido) | 3 | 29 % | 77 % | 0,1121 | 0,0000 | 26 |
