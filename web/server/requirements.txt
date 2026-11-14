@@ -1,0 +1,4 @@
+# Dependencias del servidor local del sitio. No se añaden a pyproject.toml para no tocar
+# el entorno de los modelos: web/start.ps1 las superpone con `uv run --with-requirements`.
+fastapi==0.162.7
+uvicorn==0.54.0
