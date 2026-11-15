@@ -14,11 +14,13 @@ from __future__ import annotations
 
 import logging
 import mimetypes
+import os
 import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -96,6 +98,26 @@ class LanguageMiddleware:
 
 
 app.add_middleware(LanguageMiddleware)
+
+
+def cors_origins(value: str | None = None) -> list[str]:
+    """Origins allowed to call the API from another site (env ``CORS_ORIGINS``, comma-separated).
+
+    Empty by default: the site served by this same process needs no CORS. The GitHub Pages build
+    calls the API on another origin (e.g. ``CORS_ORIGINS=https://pepert03.github.io``).
+    """
+    raw = os.environ.get("CORS_ORIGINS", "") if value is None else value
+    return [o.strip().rstrip("/") for o in raw.split(",") if o.strip()]
+
+
+if _origins := cors_origins():
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_origins,
+        allow_methods=["GET", "POST"],
+        allow_headers=["Content-Type", "X-Lang"],
+        max_age=600,
+    )
 
 
 class Health(BaseModel):

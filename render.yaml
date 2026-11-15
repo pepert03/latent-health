@@ -1,0 +1,25 @@
+# Render Blueprint: the model API (FastAPI + the models) as a free Docker web service.
+# The static website goes to GitHub Pages (.github/workflows/pages.yml) and calls this service.
+services:
+  - type: web
+    name: latent-health-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # Origins allowed to call the API (comma-separated). The site on GitHub Pages:
+      - key: CORS_ORIGINS
+        value: https://pepert03.github.io
+      # Optional: the patient app's assistant uses Claude with this key; without it, guided mode.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # 0.1 CPU and 512 MB on the free plan: one BLAS/OpenMP thread is enough and saves memory.
+      - key: OMP_NUM_THREADS
+        value: "1"
+      - key: OPENBLAS_NUM_THREADS
+        value: "1"
+      - key: MKL_NUM_THREADS
+        value: "1"

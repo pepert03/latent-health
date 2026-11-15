@@ -1,3 +1,5 @@
+import { API_BASE } from './config.js'
+
 // Doctor dashboard (section #medico): the LatentHealth clinic as a desktop application.
 //
 // - Today: the practice list worklist (Act, Measure and Nothing pending), with a one-click action
@@ -1760,7 +1762,7 @@ function select(id, { focusRow = false } = {}) {
 
 // --- Live model --------------------------------------------------------------------------------
 async function post(path, body, signal) {
-  const response = await fetch(`/api${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Lang': document.documentElement.lang || 'en' }, body: JSON.stringify(body), signal })
+  const response = await fetch(`${API_BASE}/api${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Lang': document.documentElement.lang || 'en' }, body: JSON.stringify(body), signal })
   if (!response.ok) throw new Error(`HTTP ${response.status}`)
   return response.json()
 }

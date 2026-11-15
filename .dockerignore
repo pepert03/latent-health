@@ -6,3 +6,4 @@ video
 .pytest_cache
 .ruff_cache
 .claude
+dist-pages

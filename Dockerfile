@@ -1,5 +1,5 @@
 # LatentHealth: website + model API in a single process (FastAPI + uvicorn).
-# Built for Hugging Face Spaces (Docker SDK, port 7860); works on any container host.
+# Built for Hugging Face Spaces (Docker SDK, port 7860) and Render (render.yaml; Render sets $PORT).
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \

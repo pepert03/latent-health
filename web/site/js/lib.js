@@ -1,3 +1,5 @@
+import { API_BASE } from './config.js'
+
 // Utilidades comunes: formato en español de España, llamadas al modelo y piezas de interfaz.
 
 const NBSP = ' '
@@ -79,7 +81,7 @@ export async function api(path, body, signal) {
   const started = performance.now()
   let response
   try {
-    response = await fetch(`/api${path}`, {
+    response = await fetch(`${API_BASE}/api${path}`, {
       method: body === undefined ? 'GET' : 'POST',
       headers: body === undefined ? { 'X-Lang': LANG } : { 'Content-Type': 'application/json', 'X-Lang': LANG },
       body: body === undefined ? undefined : JSON.stringify(body),

@@ -1,3 +1,5 @@
+import { API_BASE } from './config.js'
+
 // Panel del médico (sección #medico): la consulta de LatentHealth como una aplicación de escritorio.
 //
 // - Hoy: la lista de trabajo del cupo (Actuar, Medir y Sin pendientes), con una acción de un clic
@@ -1758,7 +1760,7 @@ function select(id, { focusRow = false } = {}) {
 
 // --- Modelo en vivo ----------------------------------------------------------------------------
 async function post(path, body, signal) {
-  const response = await fetch(`/api${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Lang': document.documentElement.lang || 'es' }, body: JSON.stringify(body), signal })
+  const response = await fetch(`${API_BASE}/api${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Lang': document.documentElement.lang || 'es' }, body: JSON.stringify(body), signal })
   if (!response.ok) throw new Error(`HTTP ${response.status}`)
   return response.json()
 }
