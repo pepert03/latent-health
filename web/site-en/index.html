@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="LatentHealth: a urine kit that comes to your home, an app that reads the strip with the camera and tells you what to do, and a ranked list for your doctor."
+    />
+    <title>LatentHealth · The kidney's early warning, measured at home</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="preload" href="fonts/archivo-latin-wdth-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="css/styles.css" />
+    <link rel="stylesheet" href="css/medico.css" />
+    <script>
+      document.documentElement.classList.add('js')
+      if (new URLSearchParams(location.search).has('estatico')) document.documentElement.classList.add('static')
+    </script>
+  </head>
+  <body>
+    <header class="nav" id="nav">
+      <a class="brand" href="#top" aria-label="LatentHealth, home">
+        <img src="img/logos/01-carta-logotipo.svg" alt="" width="214" height="17" />
+      </a>
+      <div class="nav-actions">
+        <a class="btn btn-small btn-ghost lang-switch" href="?lang=es" hreflang="es" lang="es" aria-label="Ver en español">ES</a>
+        <a class="btn btn-small btn-ghost" href="modelo.html" aria-label="Try the model">
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 19.5h17" /><path d="M5 16c2.2 0 3-9.5 6-9.5s3.6 6 5.4 6c1.2 0 1.8-1.4 2.6-2.5" /></svg>
+          <span>Try the model</span>
+        </a>
+        <a class="btn btn-small" href="#app">
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="2.6" /><path d="M10.5 18.5h3" /></svg>
+          <span>Try the app</span>
+        </a>
+      </div>
+    </header>
+
+    <main>
+      <!-- ===================================== HERO ===================================== -->
+      <section class="hero" id="top">
+        <div class="ink-layer" id="ink-hero" aria-hidden="true"></div>
+        <div class="hero-copy">
+          <p class="tag">Early cardio-renal-metabolic detection, measured at home</p>
+          <h1 class="display">
+            <span class="ln"><span>Prevention today</span></span>
+            <span class="ln"><span>saves health tomorrow.</span></span>
+          </h1>
+          <p class="lede">
+            The first sign that the kidneys and heart are being damaged shows up in urine, years before any symptom.
+            LatentHealth measures it at home: a kit, an app that reads the strip with the camera, and a list for your
+            doctor.
+          </p>
+          <div class="actions">
+            <a class="btn" href="#kit">
+              <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.8 7.6 12 3.3l8.2 4.3v8.8L12 20.7l-8.2-4.3Z" /><path d="m3.8 7.6 8.2 4.3 8.2-4.3M12 11.9v8.8" /></svg>
+              See the kit
+            </a>
+            <a class="btn btn-ghost" href="#app">
+              <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="2.6" /><path d="M10.5 18.5h3" /></svg>
+              Try the app
+            </a>
+          </div>
+        </div>
+
+        <div class="flatlay" aria-hidden="true">
+          <div class="device">
+            <i class="d-btn d-act"></i><i class="d-btn d-up"></i><i class="d-btn d-down"></i><i class="d-btn d-pow"></i>
+            <div class="d-screen">
+              <div class="d-island"></div>
+              <div class="d-status"><span>8:02</span><span class="d-icons"></span></div>
+              <div class="ui">
+                <div class="ui-in">
+                  <div class="a-head">
+                    <div><p class="a-date">Monday, November 16</p><p class="a-title">Today</p></div>
+                    <span class="avatar">PG</span>
+                  </div>
+                  <div class="a-hero">
+                    <span class="a-pads"><i></i><i></i><i></i><i></i></span>
+                    <p class="a-kicker">Due today</p>
+                    <p class="a-big">Urine strip</p>
+                    <p>With your first urine of the day. It takes three minutes.</p>
+                    <span class="a-btn light">Start the test</span>
+                  </div>
+                  <div class="a-grid">
+                    <div class="a-wid">
+                      <p class="a-kicker">Your kit</p>
+                      <p class="a-big">2 strips</p>
+                      <p class="kitline viz"><i></i><i></i><i class="used"></i><i class="tube"></i></p>
+                    </div>
+                    <div class="a-wid">
+                      <p class="a-kicker">Blood pressure</p>
+                      <p class="a-big">129/80</p>
+                      <p class="minibars viz"><i style="--h: 62%; --k: 0"></i><i style="--h: 70%; --k: 1"></i><i style="--h: 55%; --k: 2"></i><i style="--h: 60%; --k: 3"></i><i style="--h: 66%; --k: 4"></i><i style="--h: 52%; --k: 5"></i><i style="--h: 58%; --k: 6"></i></p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="d-tabs">
+                <span class="on"><svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1Z" /></svg>Today</span>
+                <span><svg viewBox="0 0 24 24"><path d="M4 19V9m6 10V5m6 14v-7m4 7H3" /></svg>Log</span>
+                <span><svg viewBox="0 0 24 24"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 4Z" /></svg>Assistant</span>
+                <span><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" /></svg>My doctor</span>
+              </div>
+              <div class="d-home"></div>
+              <div class="d-glass"></div>
+            </div>
+          </div>
+          <div class="hero-strip" id="hero-tira"></div>
+          <div class="chart">
+            <p><b>Albumin</b> mg/l</p>
+            <ol>
+              <li style="background: var(--a10)">10</li>
+              <li class="read" style="background: var(--a30)">30</li>
+              <li style="background: var(--a80)">80</li>
+              <li class="inv" style="background: var(--a150)">150</li>
+            </ol>
+            <p><b>Creatinine</b> mg/dl</p>
+            <ol>
+              <li style="background: var(--c10)">10</li>
+              <li style="background: var(--c50)">50</li>
+              <li class="read" style="background: var(--c100)">100</li>
+              <li style="background: var(--c200)">200</li>
+              <li class="inv" style="background: var(--c300)">300</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================== THE PROBLEM ===================================== -->
+      <section class="problem" id="porque">
+        <div>
+          <p class="mega"><span data-count="96">96</span></p>
+          <p class="problem-of">out of 100</p>
+        </div>
+        <div>
+          <p class="statement">
+            people with hypertension never get the urine test that warns first. Among people with diabetes, 65 out of 100.
+          </p>
+          <div class="dots" id="dots" aria-hidden="true"></div>
+          <p class="src">Shin et al., Hypertension 2021 · 3.7 million adults, two years of follow-up</p>
+        </div>
+      </section>
+
+      <section class="turn">
+        <p>There's no shortage of tests. What's missing is a test that <em>comes home</em>, and repeats that <em>actually count</em>.</p>
+      </section>
+
+      <!-- ===================================== THE LOOP ===================================== -->
+      <section class="circuit" id="circuito" aria-labelledby="circuito-h">
+        <div class="circuit-head">
+          <div>
+            <p class="tag">How it works</p>
+            <h2 id="circuito-h">The loop</h2>
+          </div>
+          <p>Not a kit, not an app: it's what connects the medical record, the patient at home and the doctor.</p>
+        </div>
+        <ol class="circuit-cols">
+          <li style="--sq: var(--a10); --k: 0">
+            <p class="circuit-n">01 · the practice list</p>
+            <h3>The medical record</h3>
+            <p>Every night it scans the doctor's 1,500 patients: age, diagnoses, treatments and any lab results on file.</p>
+          </li>
+          <li style="--sq: var(--a30); --k: 1">
+            <p class="circuit-n">02 · the engine</p>
+            <h3>How far to trust each measurement</h3>
+            <ul>
+              <li><b>Albuminuria:</b> Bayesian filter</li>
+              <li><b>Blood:</b> virtual panel</li>
+              <li><b>CV risk:</b> real outcomes</li>
+              <li><b>Rhythm, EF, diabetes</b></li>
+            </ul>
+          </li>
+          <li style="--sq: var(--a80); --k: 2">
+            <p class="circuit-n">03 · at home</p>
+            <h3>Only what's missing</h3>
+            <ul>
+              <li>Urine strip and app</li>
+              <li>Watch: pulse and ECG</li>
+              <li>BP monitor, for a week</li>
+              <li>Glucose at the pharmacy</li>
+              <li>Lab tube by mail</li>
+            </ul>
+          </li>
+          <li style="--sq: var(--a150); --k: 3">
+            <p class="circuit-n">04 · the clinic</p>
+            <h3>One list, not a hundred alerts</h3>
+            <ul>
+              <li><b>Act:</b> what's clear but not on record</li>
+              <li><b>Measure:</b> the most informative test</li>
+              <li>Order, note and code, pre-written</li>
+            </ul>
+          </li>
+        </ol>
+        <div class="circuit-flow" aria-hidden="true">
+          <svg viewBox="0 0 1080 106">
+            <defs>
+              <marker id="cf-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 1 9 5 0 9" fill="none" stroke="#0d2226" stroke-width="1.6" /></marker>
+              <marker id="cf-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 1 9 5 0 9" fill="none" stroke="#0b7774" stroke-width="1.6" /></marker>
+            </defs>
+            <g fill="none" stroke-width="1.6">
+              <path class="cf-line" d="M8 22H254" stroke="#0d2226" marker-end="url(#cf-a)" />
+              <path class="cf-line" d="M278 22H524" stroke="#0d2226" marker-end="url(#cf-a)" />
+              <path class="cf-line" d="M548 22H794" stroke="#0d2226" marker-end="url(#cf-a)" />
+              <path class="cf-back" d="M675 32V62Q675 72 665 72H415Q405 72 405 62V34" stroke="#0b7774" stroke-dasharray="6 6" marker-end="url(#cf-b)" />
+            </g>
+          </svg>
+          <span class="cf-l" style="left: 1%">chance of a finding</span>
+          <span class="cf-l" style="left: 26%">tailored kit</span>
+          <span class="cf-l" style="left: 51%">once it's known</span>
+          <span class="cf-l cf-back-l">every measurement feeds back and narrows the doubt</span>
+        </div>
+        <div class="circuit-foot">
+          <b>Only borderline results repeat.</b>
+          <span>The doctor decides; the repetitive work comes done.</span>
+        </div>
+      </section>
+
+      <!-- ===================================== THE KIT ===================================== -->
+      <section class="scrolly kit" id="kit" data-steps="4" style="--steps: 4">
+        <div class="pin">
+          <div
+            class="kit-stage"
+            id="kit3d"
+            role="img"
+            aria-label="The LatentHealth kit in 3D: a small box opens; out come three pouches with one strip each, a folding cup, the color card and two lab tubes. Then the add-ons: the watch and the blood pressure monitor."
+          >
+            <div class="kit-fallback" aria-hidden="true">
+              <img src="img/kit-0.webp" alt="" decoding="async" onerror="this.hidden = true" />
+              <img src="img/kit-1.webp" alt="" decoding="async" loading="lazy" onerror="this.hidden = true" />
+              <img src="img/kit-2.webp" alt="" decoding="async" loading="lazy" onerror="this.hidden = true" />
+              <img src="img/kit-3.webp" alt="" decoding="async" loading="lazy" onerror="this.hidden = true" />
+            </div>
+          </div>
+          <div class="kit-copy">
+            <p class="tag">The kit</p>
+            <ol class="story">
+              <li data-i="0">
+                <h2>It shows up without asking.</h2>
+                <p>A small box, like a medicine pack. Your health center sends it when your record shows you're missing the test, and it fits in the mailbox.</p>
+              </li>
+              <li data-i="1">
+                <h2>Three strips, a cup and a color card.</h2>
+                <p>Each strip comes in its own pouch. The cup unfolds and goes in the trash after. The color card is where the camera reads the strip.</p>
+              </li>
+              <li data-i="2">
+                <h2>The app reads the strip on the card.</h2>
+                <p>The corner marks and color patches correct for your home's lighting. If there's still doubt, it asks for a lab tube: it goes back to the lab in the same box, postage prepaid.</p>
+              </li>
+              <li data-i="3">
+                <h2>Add-ons, only if you need them.</h2>
+                <p>Your watch, if you already have one, for pulse and a 30-second ECG. A loaner BP monitor for a week if your blood pressure came out high. Glucose: one reading at the pharmacy.</p>
+              </li>
+            </ol>
+            <div class="ticks" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================== THE APP, SCREEN BY SCREEN ===================================== -->
+      <section class="scrolly showcase" id="funciones" data-steps="8" style="--steps: 8">
+        <div class="pin">
+          <div class="show-copy">
+            <p class="tag">The app</p>
+            <h2 class="show-title">It tells you what to do, not a number.</h2>
+            <ol class="feats">
+              <li data-i="0"><b>A nudge on the right day</b><span>The model sets the date, based on your previous tests.</span></li>
+              <li data-i="1"><b>It checks first, in the chat</b><span>Hard exercise, fever, your period or burning: if anything applies, the test waits.</span></li>
+              <li data-i="2"><b>It reads the strip on the card</b><span>The marks and color patches correct for your home's lighting before reading the two pads.</span></li>
+              <li data-i="3"><b>A clear answer</b><span>All done, repeat tomorrow or send the tube. Only borderline results repeat.</span></li>
+              <li data-i="4"><b>Your log</b><span>Every test narrows the doubt. You see your estimated value and how it changes.</span></li>
+              <li data-i="5"><b>Your watch, connected</b><span>Apple Watch, Galaxy Watch, Pixel, Fitbit or Garmin: daily pulse and a 30 s ECG. No watch? The camera works.</span></li>
+              <li data-i="6"><b>An assistant that explains</b><span>Ask it about your tests. It guides; it doesn't diagnose.</span></li>
+              <li data-i="7"><b>Your doctor, one message away</b><span>With your tests attached, whenever you want to talk to a person.</span></li>
+            </ol>
+          </div>
+
+          <div class="device device--show" aria-hidden="true">
+            <i class="d-btn d-act"></i><i class="d-btn d-up"></i><i class="d-btn d-down"></i><i class="d-btn d-pow"></i>
+            <div class="d-screen">
+              <div class="d-island"></div>
+
+              <!-- 0 · Lock screen with the notification -->
+              <div class="scr scr-lock" data-n="0">
+                <div class="d-status light"><span></span><span class="d-icons"></span></div>
+                <p class="lock-date">Monday, November 16</p>
+                <p class="lock-time">8:02</p>
+                <div class="notif">
+                  <span class="app-ico"><i></i><i></i><i></i><i></i></span>
+                  <div>
+                    <p class="notif-top"><b>LatentHealth</b><span>now</span></p>
+                    <p class="notif-title">Your urine strip is due today</p>
+                    <p class="notif-body">With your first urine of the day. It takes three minutes.</p>
+                  </div>
+                </div>
+                <div class="lock-bottom"><i></i><i></i></div>
+              </div>
+
+              <!-- 1 · The pre-test questions, in the assistant chat -->
+              <div class="scr scr-qa" data-n="1">
+                <div class="d-status"><span>8:03</span><span class="d-icons"></span></div>
+                <div class="ui">
+                  <div class="ui-in qa-in">
+                    <div class="a-steps"><i class="on"></i><i></i><i></i></div>
+                    <div class="a-chathead"><span class="bot"><i></i><i></i><i></i><i></i></span><div><b>Assistant</b><span>Before the test</span></div></div>
+                    <div class="qa-log">
+                      <p class="bub" style="--k: 0">Hi, Pilar. Before the strip, three quick questions: if any answer is yes, better another day.</p>
+                      <p class="bub" style="--k: 1">Have you done hard exercise in the last 24 hours?</p>
+                      <p class="bub me" style="--k: 2">No</p>
+                      <p class="bub" style="--k: 3">Do you have a fever today, or did you yesterday?</p>
+                      <p class="bub me" style="--k: 4">No</p>
+                      <p class="bub" style="--k: 5">Any burning when you pee, or a urinary infection?</p>
+                      <p class="bub me" style="--k: 6">No</p>
+                      <p class="bub" style="--k: 7">All set. Grab the cup and a pouch: I'll guide you with the camera.</p>
+                    </div>
+                    <div class="qa-actions">
+                      <div class="qa-reply qa-fake"><span>No</span><span>Yes</span></div>
+                      <span class="a-btn qa-go">Open the camera</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 2 · Camera: the strip on the color card -->
+              <div class="scr scr-cam" data-n="2">
+                <div class="d-status light"><span>8:04</span><span class="d-icons"></span></div>
+                <div class="cam-head"><span class="cam-flash"></span><span class="cam-mode">Urine strip</span><span class="cam-x"></span></div>
+                <div class="cam" id="show-cam">
+                  <i class="cam-scan"></i>
+                  <p class="cam-pill cam-pill--find"><i></i>Looking for the card…</p>
+                  <p class="cam-pill cam-pill--cal"><i></i>Card found · adjusting light</p>
+                  <p class="cam-pill cam-pill--ok ok"><i></i>Strip read · hold still</p>
+                </div>
+                <div class="cam-bar">
+                  <div class="cam-zoom"><span>.5</span><span class="on">1×</span><span>2</span></div>
+                  <span class="cam-thumb"></span>
+                  <span class="cam-shutter"></span>
+                  <span class="cam-flip"></span>
+                </div>
+              </div>
+
+              <!-- 3 · Result -->
+              <div class="scr" data-n="3">
+                <div class="d-status"><span>8:05</span><span class="d-icons"></span></div>
+                <div class="ui">
+                  <div class="ui-in">
+                    <div class="a-steps"><i class="on"></i><i class="on"></i><i class="on"></i></div>
+                    <p class="a-date">Your result</p>
+                    <p class="a-title">Repeat tomorrow</p>
+                    <div class="ring a-ring" style="--v: 14">
+                      <svg viewBox="0 0 120 120"><circle class="ring-bg" cx="60" cy="60" r="50" /><circle class="ring-fg" cx="60" cy="60" r="50" style="stroke: var(--c200)" /></svg>
+                      <p><b>14%</b><span>urine albumin</span></p>
+                    </div>
+                    <div class="bubble"><p class="who">LatentHealth</p><p>This strip can't rule it out. Tomorrow, with your first urine of the day, we'll know for sure.</p></div>
+                    <span class="a-btn">Remind me tomorrow</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 4 · Log -->
+              <div class="scr" data-n="4">
+                <div class="d-status"><span>9:10</span><span class="d-icons"></span></div>
+                <div class="ui">
+                  <div class="ui-in">
+                    <p class="a-title">My log</p>
+                    <div class="a-card">
+                      <p class="a-kicker">Estimated albumin</p>
+                      <p class="a-big">18 <small>mg/g</small></p>
+                      <div class="range"><i class="range-band" style="--a: 30%; --b: 62%"></i><i class="range-dot" style="--x: 48%"></i><i class="range-lim" style="--x: 60%"></i></div>
+                      <p class="a-hint">Between 9 and 36 mg/g. Below 30 is normal.</p>
+                    </div>
+                    <div class="a-card">
+                      <p class="a-kicker">How the doubt narrows</p>
+                      <svg class="spark" viewBox="0 0 300 110" aria-hidden="true">
+                        <path class="spark-band" d="M10 14 C 90 26 150 44 290 52 L 290 70 C 150 76 90 92 10 104 Z" />
+                        <path class="spark-line" d="M10 62 C 90 64 150 62 290 61" />
+                        <circle cx="10" cy="58" r="5" /><circle cx="120" cy="68" r="5" /><circle cx="200" cy="60" r="5" /><circle cx="290" cy="61" r="5" />
+                      </svg>
+                    </div>
+                    <ul class="log">
+                      <li><i style="background: var(--c100)"></i><b>Strip</b><span class="dt">Nov 16 · repeat tomorrow</span></li>
+                      <li><i style="background: var(--c100)"></i><b>Strip</b><span class="dt">Nov 17 · send the tube</span></li>
+                      <li><i style="background: var(--teal)"></i><b>Lab</b><span class="dt">Nov 20 · 18 mg/g</span></li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 5 · The watch -->
+              <div class="scr" data-n="5">
+                <div class="d-status"><span>9:11</span><span class="d-icons"></span></div>
+                <div class="ui">
+                  <div class="ui-in">
+                    <p class="a-title">Your watch</p>
+                    <div class="a-card a-watch on">
+                      <div class="a-watch-top">
+                        <svg class="ai" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="3.3" /><path d="M8.6 6l.8-3.2h5.2l.8 3.2M8.6 18l.8 3.2h5.2l.8-3.2" /><path d="M8.6 12.3h1.7l1-2 1.4 3.6 1-1.6h1.7" /></svg>
+                        <div><b>Apple Watch</b><span>Connected · daily pulse and 30 s ECG</span></div>
+                        <i class="live"></i>
+                      </div>
+                      <svg class="ecg" viewBox="0 0 200 32" preserveAspectRatio="none"><path d="M0 22h14l3-4 3 4h6l2 5 3-24 3 27 2-8h8l4-5 4 5h16l3-4 3 4h6l2 5 3-24 3 27 2-8h8l4-5 4 5h16l3-4 3 4h6l2 5 3-24 3 27 2-8h8l4-5 4 5h12" /></svg>
+                      <p class="a-hint">Latest ECG, today at 8:12 AM: regular rhythm, 68 bpm.</p>
+                    </div>
+                    <p class="a-sec">Or connect another</p>
+                    <ul class="watch-list">
+                      <li><span class="wl"><svg class="ai" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="6" /><path d="M8.6 6.6l.8-3.8h5.2l.8 3.8M8.6 17.4l.8 3.8h5.2l.8-3.8" /></svg><span>Samsung Galaxy Watch</span><small>Connect</small></span></li>
+                      <li><span class="wl"><svg class="ai" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="6" /><path d="M8.6 6.6l.8-3.8h5.2l.8 3.8M8.6 17.4l.8 3.8h5.2l.8-3.8" /></svg><span>Google Pixel Watch</span><small>Connect</small></span></li>
+                      <li><span class="wl"><svg class="ai" viewBox="0 0 24 24"><rect x="7" y="5" width="10" height="14" rx="3" /><path d="M9 5l.6-2.2h4.8L15 5M9 19l.6 2.2h4.8L15 19" /></svg><span>Fitbit · Garmin · Withings</span><small>Connect</small></span></li>
+                    </ul>
+                    <div class="a-card"><p class="a-kicker">No watch</p><p>Pulse is measured with the camera: finger on the lens, 30 seconds.</p></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 6 · Assistant -->
+              <div class="scr" data-n="6">
+                <div class="d-status"><span>9:12</span><span class="d-icons"></span></div>
+                <div class="ui">
+                  <div class="ui-in">
+                    <p class="a-title">Assistant</p>
+                    <div class="chat">
+                      <p class="bub">Hi, Pilar. Ask me about your home tests.</p>
+                      <p class="bub me">Why do I have to repeat?</p>
+                      <p class="bub typing"><i></i><i></i><i></i></p>
+                      <p class="bub answer">Because a single strip can mislead: exercise or an infection can push it up with no damage. With two, the model knows how far to trust it.</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="ui-input" style="position: absolute; left: 1.05em; right: 1.05em; bottom: 2.6em"><span>Type your question</span><i>↑</i></div>
+              </div>
+
+              <!-- 7 · My doctor -->
+              <div class="scr" data-n="7">
+                <div class="d-status"><span>9:15</span><span class="d-icons"></span></div>
+                <div class="ui">
+                  <div class="ui-in">
+                    <p class="a-title">My doctor</p>
+                    <div class="a-card a-doc"><span class="avatar">CR</span><div><b>Carmen Ruiz</b><span>Family medicine</span></div></div>
+                    <div class="a-card">
+                      <p>Hi, Carmen. The app asked for the tube and I've already sent it. Do I need to book an appointment?</p>
+                      <p class="ui-attach"><i></i>My home tests, attached</p>
+                    </div>
+                    <span class="a-btn">Send to my doctor</span>
+                    <p class="ui-sent"><i></i>Sent. She'll reply in the app.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="d-home"></div>
+              <div class="d-glass"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================== TRY IT ===================================== -->
+      <section class="try" id="app">
+        <div class="ink-layer" id="ink-try" aria-hidden="true"></div>
+        <div class="try-head">
+          <h2>Try it.</h2>
+          <p>
+            With sample patients. Every screen asks the real model, running on this computer: what you read are its
+            answers, not a script.
+          </p>
+        </div>
+        <div class="try-grid">
+          <aside class="demo" aria-label="Demo controls">
+            <p class="demo-h">Who's using the phone</p>
+            <div class="people" id="app-people"></div>
+            <p class="demo-h">Demo controls</p>
+            <button type="button" class="btn btn-small" data-act="advance" id="app-advance">
+              <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5 11 12l-7 5.5Z" /><path d="m12.5 6.5 7 5.5-7 5.5Z" /></svg>
+              Skip to test day
+            </button>
+            <button type="button" class="link" id="app-reset">Start over</button>
+            <details class="calls">
+              <summary>Requests to the model</summary>
+              <ul id="app-calls"></ul>
+            </details>
+            <p class="demo-note">Synthetic data. Nothing leaves this browser.</p>
+          </aside>
+
+          <div class="device device--app" role="group" aria-label="Patient app (interactive mock-up)">
+            <i class="d-btn d-act"></i><i class="d-btn d-up"></i><i class="d-btn d-down"></i><i class="d-btn d-pow"></i>
+            <div class="d-screen">
+              <div class="d-island"></div>
+              <div class="d-status"><span>9:41</span><span class="d-icons"></span></div>
+              <div class="a-view" id="app-view" aria-live="polite"></div>
+              <nav class="a-tabs" role="tablist" aria-label="App sections" id="app-tabs">
+                <button type="button" role="tab" data-tab="hoy" aria-selected="true">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1Z" /></svg>Today
+                </button>
+                <button type="button" role="tab" data-tab="registro" aria-selected="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9m6 10V5m6 14v-7m4 7H3" /></svg>Log
+                </button>
+                <button type="button" role="tab" data-tab="chat" aria-selected="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 4Z" /></svg>Assistant
+                </button>
+                <button type="button" role="tab" data-tab="medico" aria-selected="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" /></svg>My doctor
+                </button>
+              </nav>
+              <div class="a-overlay" id="app-overlay"></div>
+              <div class="d-home"></div>
+              <div class="d-glass"></div>
+            </div>
+          </div>
+
+          <aside class="try-tips">
+            <p class="demo-h">What to try</p>
+            <ol>
+              <li>Skip to test day and answer the assistant.</li>
+              <li>Pick high colors on the strip: you'll see “Repeat tomorrow”.</li>
+              <li>Repeat until it asks for the tube.</li>
+              <li>Ask the assistant why.</li>
+              <li>Connect your watch from “Today”.</li>
+            </ol>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ===================================== FOR THE DOCTOR ===================================== -->
+      <section class="doctor" id="medico">
+        <header class="dr-head">
+          <div>
+            <p class="tag">For the doctor</p>
+            <h2><span class="dr-l">One list.</span> <span class="dr-l">Not a hundred alerts.</span></h2>
+          </div>
+          <p class="dr-lede">
+            Every morning, the practice list sorted by what would change. The repetitive work is already done: strips are read at home,
+            doubts are settled there, and the order, the note and the message to the patient arrive written.
+            <b>The doctor is left to decide.</b>
+          </p>
+        </header>
+        <div class="dr-app" id="dr-app">
+          <!-- Without JavaScript this list stays; js/medico.js replaces it with the full clinic. -->
+          <div class="dr-fallback">
+            <p>Act</p>
+            <ul>
+              <li><b>Julián, 62</b><span>Repeated albuminuria at home, no kidney disease on record</span></li>
+              <li><b>Manuel, 77</b><span>Irregular pulse two days · P(atrial fibrillation) 73%</span></li>
+              <li><b>Lucía, 59</b><span>Home blood pressure 149/91, no hypertension on record</span></li>
+            </ul>
+            <p>Measure</p>
+            <ul>
+              <li><b>Elena, 74</b><span>59% · creatinine</span></li>
+              <li><b>Marta, 47</b><span>34% · home urine test</span></li>
+              <li><b>Antonio, 81</b><span>24% · creatinine</span></li>
+            </ul>
+          </div>
+        </div>
+        <p class="dr-foot">
+          <span>Fictional patients. Patient files are computed by the model; practice list figures are example data.</span>
+          <span>Decision support: it does not diagnose or prescribe treatment.</span>
+          <span><kbd>↑</kbd> <kbd>↓</kbd> move through the list · <kbd>/</kbd> search</span>
+        </p>
+      </section>
+
+      <!-- ===================================== RESULTS ===================================== -->
+      <section class="proof" id="resultados">
+        <h2>Tested on real data.</h2>
+        <ol class="proof-list">
+          <li>
+            <p class="pn"><span data-count="75">75</span><small>out of 100</small></p>
+            <p class="pt">cases of hidden diabetes found with one glucose check at the pharmacy. The questionnaire used today finds 52, with the same tests.</p>
+            <p class="ps">NHANES 2005-2018 · 27,300 adults</p>
+          </li>
+          <li>
+            <p class="pn">0.88</p>
+            <p class="pt">AUC for spotting a weak-pumping heart from a 30-second single-lead ECG, against echocardiography.</p>
+            <p class="ps">620 people from two hospitals</p>
+          </li>
+          <li>
+            <p class="pn">0.97</p>
+            <p class="pt">AUC of the atrial fibrillation detector, from pulse rhythm alone.</p>
+            <p class="ps">8,528 real PhysioNet recordings</p>
+          </li>
+          <li>
+            <p class="pn">+0.054</p>
+            <p class="pt">AUC over SCORE2 in ranking cardiovascular death risk in people with diabetes or hypertension, with no blood draw.</p>
+            <p class="ps">12,710 people, 10 years of follow-up</p>
+          </li>
+        </ol>
+        <p class="proof-note">
+          Still to do: calibrate the strip reading with real samples and validate it in Spanish patients. The models
+          were trained on US and Chinese data. <a href="modelo.html">See the Bayesian model live</a>
+        </p>
+      </section>
+
+      <!-- ===================================== CLOSING ===================================== -->
+      <section class="closing">
+        <div class="ink-layer" id="ink-closing" aria-hidden="true"></div>
+        <p class="closing-num">≈&#8239;<span data-count="1200">1,200</span></p>
+        <p class="closing-txt">fewer deaths a year in Spain if it were used.</p>
+        <p class="closing-src">Estimate with explicit assumptions: hidden albuminuria treated in time with SGLT2 inhibitors.</p>
+        <div class="closing-actions">
+          <a class="btn" href="#app">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="2.6" /><path d="M10.5 18.5h3" /></svg>
+            Try the app
+          </a>
+          <a class="btn btn-ghost" href="modelo.html">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 19.5h17" /><path d="M5 16c2.2 0 3-9.5 6-9.5s3.6 6 5.4 6c1.2 0 1.8-1.4 2.6-2.5" /></svg>
+            Try the model
+          </a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <div class="foot-row">
+        <p class="brand brand--foot"><img src="img/logos/01-carta-logotipo-negativo.svg" alt="LatentHealth" width="189" height="15" /></p>
+        <p>Boehringer Hackathon · “Automate the repetitive” challenge. Decision-support prototype: it does not diagnose. Synthetic data.</p>
+      </div>
+      <details class="refs">
+        <summary>Sources</summary>
+        <ol>
+          <li>Shin JI, et al. Albuminuria testing in hypertension and diabetes. <i>Hypertension</i>. 2021;78(4):1042-52. <a href="https://doi.org/10.1161/HYPERTENSIONAHA.121.17323" target="_blank" rel="noopener">doi</a></li>
+          <li>INE. Deaths by cause of death (Spain), 2024. <a href="https://www.ine.es/dyngs/Prensa/pEDCM2024.htm" target="_blank" rel="noopener">ine.es</a></li>
+          <li>Tangri N, et al. Undiagnosed stage 3 CKD (REVEAL-CKD). <i>BMJ Open</i>. 2023;13:e067386. <a href="https://doi.org/10.1136/bmjopen-2022-067386" target="_blank" rel="noopener">doi</a></li>
+          <li>van Mil D, et al. Home-based albuminuria screening (THOMAS). <i>Lancet</i>. 2023;402:1052-64. <a href="https://doi.org/10.1016/S0140-6736(23)00876-0" target="_blank" rel="noopener">doi</a></li>
+          <li>Nuffield Department of Population Health Renal Studies Group. SGLT2 inhibitors meta-analysis. <i>Lancet</i>. 2022;400:1788-801.</li>
+          <li>NHANES 1999-2018, CDC/NCHS; PhysioNet/CinC 2017; Zenodo 16934966; MUSIC (PhysioNet). Project calculations in the <span class="mono">reports/</span> folder.</li>
+        </ol>
+      </details>
+    </footer>
+
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>

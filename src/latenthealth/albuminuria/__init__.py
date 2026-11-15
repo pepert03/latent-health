@@ -1,4 +1,4 @@
-"""Filtro bayesiano de la albuminuria (UACR)."""
+"""Bayesian filter for albuminuria (UACR)."""
 
 from pathlib import Path
 
@@ -18,21 +18,21 @@ from .strip import (
 )
 
 DEFAULT_PARAMS_PATH = Path(__file__).resolve().parents[3] / "models" / "albuminuria_params.json"
-# Mismos parámetros con el prior recalibrado a atención primaria española (scripts/fit_recalibration.py).
+# Same parameters with the prior recalibrated to Spanish primary care (scripts/fit_recalibration.py).
 SPAIN_PARAMS_PATH = DEFAULT_PARAMS_PATH.with_name("albuminuria_params_espana.json")
 
 
 def params_path(population: str = "nhanes") -> Path:
-    """Fichero de parámetros de una población: ``"nhanes"`` (ajuste original) o ``"espana"``."""
+    """Parameter file for a population: ``"nhanes"`` (original fit) or ``"espana"`` (Spain)."""
     if population == "espana" and SPAIN_PARAMS_PATH.exists():
         return SPAIN_PARAMS_PATH
     return DEFAULT_PARAMS_PATH
 
 
 def load_default_filter(population: str = "nhanes", **kwargs) -> AlbuminuriaFilter:
-    """Filtro con los parámetros ajustados en NHANES (``models/albuminuria_params.json``).
+    """Filter with the parameters fitted on NHANES (``models/albuminuria_params.json``).
 
-    Con ``population="espana"`` usa el prior recalibrado, si existe.
+    With ``population="espana"`` it uses the recalibrated prior, if available.
     """
     return AlbuminuriaFilter(AlbuminuriaParams.load(params_path(population)), **kwargs)
 

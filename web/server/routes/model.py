@@ -1,16 +1,16 @@
-"""Rutas del modelo en vivo: filtro de albuminuria, tendencia del filtrado y evaluación de un paciente.
+"""Live model routes: albuminuria filter, eGFR trend and full patient assessment.
 
-Cada ruta llama a los modelos reales de ``src/latenthealth`` y devuelve sus números y sus textos
-tal cual. No guardan estado: la petición lleva todo lo necesario y la misma petición da siempre
-la misma respuesta, así que las respuestas ya calculadas se reutilizan (la web repite muchas).
+Each route calls the real models in ``src/latenthealth`` and returns their numbers and texts
+as they are. They are stateless: the request carries everything needed and the same request
+always gives the same response, so computed responses are reused (the web repeats many).
 
-- ``POST /api/model/albuminuria``: el filtro bayesiano con las muestras de orina de un paciente.
-- ``POST /api/model/egfr-trend``: nivel y pendiente del filtrado glomerular con sus analíticas.
-- ``POST /api/model/assess``: evaluación cardio-renal-metabólica completa.
-- ``GET /api/model/examples``: cuerpos de ejemplo listos para las tres rutas anteriores.
+- ``POST /api/model/albuminuria``: the Bayesian filter over a patient's urine samples.
+- ``POST /api/model/egfr-trend``: eGFR level and slope from the patient's lab tests.
+- ``POST /api/model/assess``: full cardio-renal-metabolic assessment.
+- ``GET /api/model/examples``: example bodies ready for the three routes above.
 
-Errores: ``422`` si el cuerpo no tiene la forma o los límites declarados (con el mensaje en
-español) y ``400`` si la forma es correcta pero los datos no cuadran entre sí (fechas, etc.).
+Errors: ``422`` if the body does not have the declared shape or limits (with a readable
+message) and ``400`` if the shape is right but the data are inconsistent (dates, etc.).
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ from fastapi.routing import APIRoute
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 from scipy.optimize import brentq
 from scipy.special import ndtr, ndtri
-from threadpoolctl import threadpool_limits  # viene con scikit-learn
+from threadpoolctl import threadpool_limits  # ships with scikit-learn
 
 from latenthealth import assessment as panel
 from latenthealth import cvrisk, kidney_trend
@@ -47,79 +47,97 @@ from latenthealth.albuminuria import (
     load_default_filter,
 )
 from latenthealth.albuminuria.filter import SAMPLE_LABELS, STATUS_LABELS
+from latenthealth.i18n import Labels, fmt_short_date, is_es, lang, t, use_lang
 
 from ..serialize import clean
 
 REPO_DIR = Path(__file__).resolve().parents[3]
 DEMO_SCRIPT = REPO_DIR / "scripts" / "demo.py"
-DEMO_TODAY = dt.date(2026, 11, 14)  # «hoy» de los ejemplos
+DEMO_TODAY = dt.date(2026, 11, 14)  # "today" in the examples
 
-PROJECTION_MONTHS = (0, 3, 6, 12)  # albuminuria: incertidumbre si no se vuelve a medir
-PROJECTION_YEARS = (1, 2, 3, 5)  # filtrado glomerular
-BELIEF_POINTS = 200  # puntos de la creencia que se envían (la rejilla del filtro tiene 400)
+PROJECTION_MONTHS = (0, 3, 6, 12)  # albuminuria: uncertainty if not measured again
+PROJECTION_YEARS = (1, 2, 3, 5)  # eGFR
+BELIEF_POINTS = 200  # belief points sent (the filter's grid has 400)
 STRIPS = {"movil": PHONE_STRIP, "ojo": EYE_STRIP}
 
-# El filtro guarda tablas de las tiras y el panel predice con cientos de árboles: se evalúa de
-# uno en uno (en paralelo va más lento y las cachés de los modelos no están pensadas para ello).
+# The filter keeps strip tables and the panel predicts with hundreds of trees: evaluate one at a
+# time (in parallel it is slower and the model caches are not designed for it).
 _FILTER_LOCK = threading.Lock()
 _PANEL_LOCK = threading.Lock()
 
 
 # --------------------------------------------------------------------------------------
-# Errores de forma (422) con el mensaje en español
+# Shape errors (422) with a readable message
 # --------------------------------------------------------------------------------------
 
-_MESSAGES = {
-    "missing": "Falta este campo.",
-    "extra_forbidden": "Campo desconocido.",
-    "greater_than": "Debe ser mayor que {gt}.",
-    "greater_than_equal": "Debe ser como mínimo {ge}.",
-    "less_than": "Debe ser menor que {lt}.",
-    "less_than_equal": "Debe ser como máximo {le}.",
-    "too_long": "Admite como mucho {max_length} elementos (hay {actual_length}).",
-    "too_short": "Necesita al menos {min_length} elementos (hay {actual_length}).",
-    "literal_error": "Valor no admitido. Debe ser {expected}.",
-    "union_tag_invalid": "Tipo de muestra desconocido ({tag}). El campo «kind» debe ser {expected_tags}.",
-    "union_tag_not_found": "Falta el campo «kind», que dice qué tipo de muestra es.",
-    "finite_number": "Debe ser un número finito.",
-    "float_parsing": "Debe ser un número.",
-    "float_type": "Debe ser un número.",
-    "bool_parsing": "Debe ser verdadero o falso.",
-    "bool_type": "Debe ser verdadero o falso.",
-    "string_type": "Debe ser un texto.",
-    "list_type": "Debe ser una lista.",
-    "model_attributes_type": "Debe ser un objeto con sus campos.",
-    "json_invalid": "El cuerpo de la petición no es JSON válido.",
-}
-_DATE_MESSAGE = "Fecha no válida: se espera AAAA-MM-DD."
+_MESSAGES = Labels(
+    {
+        "missing": ("Falta este campo.", "This field is required."),
+        "extra_forbidden": ("Campo desconocido.", "Unknown field."),
+        "greater_than": ("Debe ser mayor que {gt}.", "Must be greater than {gt}."),
+        "greater_than_equal": ("Debe ser como mínimo {ge}.", "Must be at least {ge}."),
+        "less_than": ("Debe ser menor que {lt}.", "Must be less than {lt}."),
+        "less_than_equal": ("Debe ser como máximo {le}.", "Must be at most {le}."),
+        "too_long": (
+            "Admite como mucho {max_length} elementos (hay {actual_length}).",
+            "Allows at most {max_length} items (got {actual_length}).",
+        ),
+        "too_short": (
+            "Necesita al menos {min_length} elementos (hay {actual_length}).",
+            "Needs at least {min_length} items (got {actual_length}).",
+        ),
+        "literal_error": ("Valor no admitido. Debe ser {expected}.", "Value not allowed. Must be {expected}."),
+        "union_tag_invalid": (
+            "Tipo de muestra desconocido ({tag}). El campo «kind» debe ser {expected_tags}.",
+            'Unknown sample type ({tag}). The "kind" field must be {expected_tags}.',
+        ),
+        "union_tag_not_found": (
+            "Falta el campo «kind», que dice qué tipo de muestra es.",
+            'The "kind" field is missing; it says what type of sample this is.',
+        ),
+        "finite_number": ("Debe ser un número finito.", "Must be a finite number."),
+        "float_parsing": ("Debe ser un número.", "Must be a number."),
+        "float_type": ("Debe ser un número.", "Must be a number."),
+        "bool_parsing": ("Debe ser verdadero o falso.", "Must be true or false."),
+        "bool_type": ("Debe ser verdadero o falso.", "Must be true or false."),
+        "string_type": ("Debe ser un texto.", "Must be a string."),
+        "list_type": ("Debe ser una lista.", "Must be a list."),
+        "model_attributes_type": ("Debe ser un objeto con sus campos.", "Must be an object with its fields."),
+        "json_invalid": ("El cuerpo de la petición no es JSON válido.", "The request body is not valid JSON."),
+    }
+)
+
+
+def _date_message() -> str:
+    return t("Fecha no válida: se espera AAAA-MM-DD.", "Invalid date: expected YYYY-MM-DD.")
 
 
 def _plain(value: Any) -> Any:
-    """Valor del contexto de un error tal como se lee mejor: 18 y no 18.0, «o» y no «or»."""
+    """Error context value as it reads best: 18 rather than 18.0; in Spanish, "o" rather than "or"."""
     if isinstance(value, float) and value.is_integer():
         return int(value)
-    if isinstance(value, str):
+    if isinstance(value, str) and is_es():
         return value.replace(" or ", " o ")
     return value
 
 
-def _in_spanish(error: dict[str, Any]) -> None:
-    """Traduce el mensaje de un error de validación de Pydantic (se modifica en el sitio)."""
+def _readable(error: dict[str, Any]) -> None:
+    """Rewrites a Pydantic validation error message in plain words (in place)."""
     kind = str(error.get("type", ""))
-    template = _DATE_MESSAGE if kind.startswith("date_") else _MESSAGES.get(kind)
+    template = _date_message() if kind.startswith("date_") else _MESSAGES.get(kind)
     if template is not None:
         try:
             error["msg"] = template.format(**{k: _plain(v) for k, v in (error.get("ctx") or {}).items()})
         except (KeyError, IndexError):
-            pass  # se deja el mensaje original antes que perderlo
-    try:  # un NaN en el cuerpo recibido no se puede devolver como JSON
+            pass  # keep the original message rather than lose it
+    try:  # a NaN in the received body cannot be returned as JSON
         error["input"] = clean(error.get("input"))
     except TypeError:
         error["input"] = str(error.get("input"))
 
 
-class SpanishErrorsRoute(APIRoute):
-    """Ruta cuyos errores de validación del cuerpo (422) salen con el mensaje en español."""
+class ReadableErrorsRoute(APIRoute):
+    """Route whose body validation errors (422) come out with a readable message."""
 
     def get_route_handler(self) -> Callable:
         original = super().get_route_handler()
@@ -129,21 +147,21 @@ class SpanishErrorsRoute(APIRoute):
                 return await original(request)
             except RequestValidationError as exc:
                 for error in exc.errors():
-                    _in_spanish(error)
+                    _readable(error)
                 raise
 
         return handler
 
 
-router = APIRouter(prefix="/api/model", tags=["Modelo en vivo"], route_class=SpanishErrorsRoute)
+router = APIRouter(prefix="/api/model", tags=["Live model"], route_class=ReadableErrorsRoute)
 
 
 class DomainError(BaseModel):
-    detail: str = Field(description="Qué no cuadra en los datos enviados, en español.")
+    detail: str = Field(description="What is inconsistent in the data sent.")
 
 
 _ERROR_400: dict[int | str, dict[str, Any]] = {
-    400: {"model": DomainError, "description": "Los datos tienen buena forma pero no cuadran entre sí."}
+    400: {"model": DomainError, "description": "The data are well formed but inconsistent with each other."}
 }
 
 
@@ -152,29 +170,29 @@ def _bad_request(message: str) -> HTTPException:
 
 
 # --------------------------------------------------------------------------------------
-# Entradas comunes
+# Common inputs
 # --------------------------------------------------------------------------------------
 
 Day = Annotated[dt.date, Field(ge=dt.date(1900, 1, 1), le=dt.date(2100, 12, 31))]
-Age = Annotated[float, Field(ge=18, le=100, description="Edad en años (de 18 a 100).")]
+Age = Annotated[float, Field(ge=18, le=100, description="Age in years (18 to 100).")]
 Population = Annotated[
     Literal["espana", "nhanes"],
     Field(
-        description="Población de referencia: «espana» usa los priors recalibrados a atención primaria "
-        "española; «nhanes», los modelos tal como se ajustaron."
+        description='Reference population: "espana" uses priors recalibrated to Spanish primary care; '
+        '"nhanes" uses the models as they were fitted.'
     ),
 ]
 SampleType = Literal["first_morning", "random"]
 
-_ROUNDING = 1e-9  # margen del error de redondeo al sumar masas en coma flotante
+_ROUNDING = 1e-9  # rounding-error margin when summing floating-point masses
 
 
 def _probability(value: float) -> float:
-    """Quita el error de redondeo de una probabilidad: 1.0000000000000002 -> 1.0; -1e-17 y -0.0 -> 0.0.
+    """Removes rounding error from a probability: 1.0000000000000002 -> 1.0; -1e-17 and -0.0 -> 0.0.
 
-    El modelo las obtiene sumando masas en coma flotante y a veces se pasa del 1 o queda por debajo
-    del 0 en el último decimal (en pantalla, «-0 %»). No cambia ningún valor más que ese margen: algo
-    claramente fuera de [0, 1] sería un fallo del modelo y se deja como está para que se vea.
+    The model gets them by summing floating-point masses and sometimes overshoots 1 or dips below
+    0 in the last digit (on screen, "-0%"). Nothing beyond that margin changes: a value clearly
+    outside [0, 1] would be a model bug and is left as is so it shows.
     """
     if -_ROUNDING < value <= 0.0:
         return 0.0
@@ -183,56 +201,56 @@ def _probability(value: float) -> float:
     return value
 
 
-# Probabilidad de salida, como fracción entre 0 y 1.
+# Output probability, as a fraction between 0 and 1.
 Probability = Annotated[float, AfterValidator(_probability)]
 
 
 class _Input(BaseModel):
-    """Cuerpo de una petición: no admite campos desconocidos ni números no finitos."""
+    """Request body: no unknown fields and no non-finite numbers."""
 
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
 
 class UrineLabSampleIn(_Input):
-    """Muestra de orina medida en el laboratorio (cuantitativa)."""
+    """Urine sample measured in the lab (quantitative)."""
 
-    kind: Literal["laboratorio"] = Field(description="Tipo de muestra: medida en el laboratorio.")
-    date: Day = Field(description="Fecha de la muestra (AAAA-MM-DD).")
+    kind: Literal["laboratorio"] = Field(description="Sample type: measured in the lab.")
+    date: Day = Field(description="Sample date (YYYY-MM-DD).")
     uacr: float = Field(
         gt=0,
         le=30000,
-        description="Cociente albúmina/creatinina en mg/g (mayor que 0, hasta 30000). Si «censored» es "
-        "verdadero, es el límite de detección: el resultado fue «menor que» este valor.",
+        description='Albumin/creatinine ratio in mg/g (greater than 0, up to 30000). If "censored" is true, '
+        'it is the detection limit: the result was "less than" this value.',
     )
     sample_type: SampleType = Field(
-        description="«first_morning»: primera orina de la mañana; «random»: muestra aleatoria."
+        description='"first_morning": first morning urine; "random": random sample.'
     )
     creatinine_mg_dl: float | None = Field(
-        None, gt=0, le=1000, description="Creatinina en orina de esa muestra, en mg/dl: dice lo diluida que estaba."
+        None, gt=0, le=1000, description="Urine creatinine of that sample, in mg/dl: tells how diluted it was."
     )
-    censored: bool = Field(False, description="El laboratorio solo informó «menor que» el valor de «uacr».")
+    censored: bool = Field(False, description='The lab only reported "less than" the "uacr" value.')
 
 
 class UrineStripSampleIn(_Input):
-    """Tira reactiva hecha en casa: nivel de color de las almohadillas de albúmina y creatinina."""
+    """Dipstick done at home: color level of the albumin and creatinine pads."""
 
-    kind: Literal["tira"] = Field(description="Tipo de muestra: tira reactiva hecha en casa.")
-    date: Day = Field(description="Fecha de la tira (AAAA-MM-DD).")
+    kind: Literal["tira"] = Field(description="Sample type: dipstick done at home.")
+    date: Day = Field(description="Strip date (YYYY-MM-DD).")
     albumin_mg_l: float = Field(
         gt=0,
         le=1000,
-        description="Nivel leído en la almohadilla de albúmina, en mg/l (la tira tiene 10, 30, 80 y 150; "
-        "otro valor se toma como el nivel más cercano).",
+        description="Level read on the albumin pad, in mg/l (the strip has 10, 30, 80 and 150; "
+        "any other value is taken as the nearest level).",
     )
     creatinine_mg_dl: float = Field(
         gt=0,
         le=1000,
-        description="Nivel leído en la almohadilla de creatinina, en mg/dl (la tira tiene 10, 50, 100, 200 y 300).",
+        description="Level read on the creatinine pad, in mg/dl (the strip has 10, 50, 100, 200 and 300).",
     )
     reader: Literal["movil", "ojo"] = Field(
-        "movil", description="Quién lee el color: «movil» (foto con la aplicación) u «ojo» (comparando con el bote)."
+        "movil", description='Who reads the color: "movil" (photo with the app) or "ojo" (by eye, against the chart on the bottle).'
     )
-    sample_type: SampleType = Field("first_morning", description="Tipo de orina con la que se hizo la tira.")
+    sample_type: SampleType = Field("first_morning", description="Type of urine the strip was done with.")
 
 
 UrineSampleIn = Annotated[UrineLabSampleIn | UrineStripSampleIn, Field(discriminator="kind")]
@@ -240,7 +258,7 @@ ModelSample = UrineSample | StripSample
 
 
 def _model_samples(samples: list[UrineLabSampleIn | UrineStripSampleIn]) -> list[ModelSample]:
-    """Muestras del modelo, en el orden de fechas en que el filtro las recorre."""
+    """Model samples, in the date order the filter walks through them."""
     out: list[ModelSample] = []
     for s in samples:
         if isinstance(s, UrineStripSampleIn):
@@ -250,35 +268,39 @@ def _model_samples(samples: list[UrineLabSampleIn | UrineStripSampleIn]) -> list
     return sorted(out, key=lambda s: s.date)
 
 
-def _check_as_of(as_of: dt.date, dates: list[dt.date], what: str) -> None:
-    """La fecha de evaluación no puede ser anterior a lo último medido (el modelo no lo descarta)."""
+def _check_as_of(as_of: dt.date, dates: list[dt.date], what: tuple[str, str]) -> None:
+    """The assessment date cannot be earlier than the last measurement (the model does not reject it)."""
     if dates and as_of < max(dates):
         raise _bad_request(
-            f"La fecha de evaluación (as_of, {as_of:%d/%m/%Y}) no puede ser anterior a la última {what} "
-            f"({max(dates):%d/%m/%Y})."
+            t(
+                f"La fecha de evaluación (as_of, {fmt_short_date(as_of)}) no puede ser anterior a la última "
+                f"{what[0]} ({fmt_short_date(max(dates))}).",
+                f"The assessment date (as_of, {fmt_short_date(as_of)}) cannot be earlier than the last "
+                f"{what[1]} ({fmt_short_date(max(dates))}).",
+            )
         )
 
 
 def _add_months(day: dt.date, months: int) -> dt.date:
-    """Misma fecha ``months`` meses después (el último día del mes si ese día no existe)."""
+    """Same date ``months`` months later (the last day of the month if that day does not exist)."""
     year, month = divmod(day.year * 12 + day.month - 1 + months, 12)
     return dt.date(year, month + 1, min(day.day, calendar.monthrange(year, month + 1)[1]))
 
 
 # --------------------------------------------------------------------------------------
-# 1. Filtro de albuminuria
+# 1. Albuminuria filter
 # --------------------------------------------------------------------------------------
 
 
 class AlbuminuriaPatientIn(_Input):
     age: Age
-    female: bool = Field(description="Verdadero si es mujer.")
-    diabetes: bool = Field(description="Diabetes diagnosticada.")
+    female: bool = Field(description="True if female.")
+    diabetes: bool = Field(description="Diagnosed diabetes.")
     egfr: float | None = Field(
         None,
         ge=5,
         le=150,
-        description="Filtrado glomerular medido, en ml/min/1,73 m² (de 5 a 150). Si falta, el filtro supone 90.",
+        description="Measured eGFR, in ml/min/1.73 m² (5 to 150). If missing, the filter assumes 90.",
     )
 
 
@@ -304,99 +326,99 @@ class AlbuminuriaIn(_Input):
         }
     )
 
-    patient: AlbuminuriaPatientIn = Field(description="Lo que el filtro sabe del paciente antes de medir.")
+    patient: AlbuminuriaPatientIn = Field(description="What the filter knows about the patient before measuring.")
     samples: list[UrineSampleIn] = Field(
-        default_factory=list, max_length=30, description="Muestras de orina, en cualquier orden (como mucho 30)."
+        default_factory=list, max_length=30, description="Urine samples, in any order (at most 30)."
     )
-    as_of: Day = Field(description="Fecha de evaluación (AAAA-MM-DD). No puede ser anterior a la última muestra.")
+    as_of: Day = Field(description="Assessment date (YYYY-MM-DD). Cannot be earlier than the last sample.")
     population: Population = "espana"
 
 
 class AlbuminuriaPointOut(BaseModel):
-    date: dt.date = Field(description="Fecha de la muestra.")
-    median: float = Field(description="Mediana del UACR verdadero ese día, en mg/g (con todas las muestras).")
-    low: float = Field(description="Percentil 10, en mg/g.")
-    high: float = Field(description="Percentil 90, en mg/g.")
-    p_a2_plus: Probability = Field(description="P(UACR verdadero ≥ 30 mg/g) ese día.")
+    date: dt.date = Field(description="Sample date.")
+    median: float = Field(description="Median true UACR that day, in mg/g (using all samples).")
+    low: float = Field(description="10th percentile, in mg/g.")
+    high: float = Field(description="90th percentile, in mg/g.")
+    p_a2_plus: Probability = Field(description="P(true UACR ≥ 30 mg/g) that day.")
 
 
 class AlbuminuriaProjectionOut(BaseModel):
-    months: int = Field(description="Meses desde la fecha de evaluación.")
-    date: dt.date = Field(description="Fecha a la que corresponde el punto.")
-    median: float = Field(description="Mediana del UACR verdadero, en mg/g.")
-    low: float = Field(description="Percentil 10, en mg/g.")
-    high: float = Field(description="Percentil 90, en mg/g.")
-    p_a2_plus: Probability = Field(description="P(UACR verdadero ≥ 30 mg/g).")
+    months: int = Field(description="Months since the assessment date.")
+    date: dt.date = Field(description="Date the point refers to.")
+    median: float = Field(description="Median true UACR, in mg/g.")
+    low: float = Field(description="10th percentile, in mg/g.")
+    high: float = Field(description="90th percentile, in mg/g.")
+    p_a2_plus: Probability = Field(description="P(true UACR ≥ 30 mg/g).")
 
 
 class NextSampleResolvesOut(BaseModel):
-    first_morning: Probability = Field(description="Con una muestra más de primera orina de la mañana.")
-    random: Probability = Field(description="Con una muestra aleatoria más.")
+    first_morning: Probability = Field(description="With one more first-morning urine sample.")
+    random: Probability = Field(description="With one more random sample.")
 
 
 class AlbuminuriaBeliefOut(BaseModel):
-    uacr: list[float] = Field(description="Centro de cada celda de la rejilla, en mg/g (escala logarítmica).")
-    mass: list[Probability] = Field(description="Probabilidad de que el UACR verdadero esté en esa celda. Suma 1.")
+    uacr: list[float] = Field(description="Center of each grid cell, in mg/g (log scale).")
+    mass: list[Probability] = Field(description="Probability that the true UACR is in that cell. Sums to 1.")
 
 
 class UrineSampleOut(BaseModel):
-    kind: Literal["laboratorio", "tira"] = Field(description="Tipo de muestra.")
-    date: dt.date = Field(description="Fecha de la muestra.")
-    label: str = Field(description="Nombre que el modelo da a ese tipo de muestra o de tira.")
+    kind: Literal["laboratorio", "tira"] = Field(description="Sample type.")
+    date: dt.date = Field(description="Sample date.")
+    label: str = Field(description="Name the model gives that sample or strip type.")
     value_mg_g: float = Field(
-        description="UACR en mg/g: el medido en el laboratorio (o su límite de detección si «censored») o el "
-        "aproximado que sugiere la lectura de la tira."
+        description='UACR in mg/g: the one measured in the lab (or its detection limit if "censored") or the '
+        "approximate one suggested by the strip reading."
     )
-    sample_type: SampleType = Field(description="Primera orina de la mañana o muestra aleatoria.")
+    sample_type: SampleType = Field(description="First morning urine or random sample.")
     censored: bool = Field(
-        description="El laboratorio solo informó «menor que»: «value_mg_g» es entonces el límite de detección, "
-        "no una medida. Siempre falso en las tiras."
+        description='The lab only reported "less than": "value_mg_g" is then the detection limit, '
+        "not a measurement. Always false for strips."
     )
 
 
 class AlbuminuriaSummaryOut(BaseModel):
-    """Estado de la albuminuria tal como lo devuelve el filtro."""
+    """Albuminuria status as returned by the filter."""
 
-    as_of: dt.date = Field(description="Fecha de evaluación.")
+    as_of: dt.date = Field(description="Assessment date.")
     status: Literal["sin_medir", "descartada", "dudosa", "pendiente_cronicidad", "confirmada"] = Field(
-        description="Estado de la albuminuria."
+        description="Albuminuria status."
     )
-    status_label: str = Field(description="Nombre del estado para mostrarlo.")
-    category: Literal["A1", "A2", "A3"] = Field(description="Categoría KDIGO más probable.")
-    p_a1: Probability = Field(description="P(UACR verdadero < 30 mg/g).")
-    p_a2: Probability = Field(description="P(UACR verdadero entre 30 y 300 mg/g).")
-    p_a3: Probability = Field(description="P(UACR verdadero > 300 mg/g).")
-    p_a2_plus: Probability = Field(description="P(UACR verdadero ≥ 30 mg/g): la probabilidad de albuminuria.")
-    median: float = Field(description="Mediana del UACR verdadero, en mg/g.")
-    low: float = Field(description="Percentil 10, en mg/g.")
-    high: float = Field(description="Percentil 90, en mg/g.")
-    action: str = Field(description="Qué hacer, con las palabras del modelo.")
-    chronicity_met: bool = Field(description="Se cumple el criterio de cronicidad (más de tres meses).")
+    status_label: str = Field(description="Display name of the status.")
+    category: Literal["A1", "A2", "A3"] = Field(description="Most likely KDIGO category.")
+    p_a1: Probability = Field(description="P(true UACR < 30 mg/g).")
+    p_a2: Probability = Field(description="P(true UACR between 30 and 300 mg/g).")
+    p_a3: Probability = Field(description="P(true UACR > 300 mg/g).")
+    p_a2_plus: Probability = Field(description="P(true UACR ≥ 30 mg/g): the probability of albuminuria.")
+    median: float = Field(description="Median true UACR, in mg/g.")
+    low: float = Field(description="10th percentile, in mg/g.")
+    high: float = Field(description="90th percentile, in mg/g.")
+    action: str = Field(description="What to do, in the model's words.")
+    chronicity_met: bool = Field(description="The chronicity criterion (more than three months) is met.")
     repeat_from: dt.date | None = Field(
-        description="Fecha desde la que una muestra alta cumple la cronicidad; nulo si ninguna muestra ha salido alta."
+        description="Date from which a high sample meets chronicity; null if no sample has come out high."
     )
     next_sample_resolves: NextSampleResolvesOut | None = Field(
-        description="Probabilidad de que una muestra más confirme o descarte la albuminuria. Solo si el estado es "
-        "«sin_medir» o «dudosa»; si no, nulo."
+        description="Probability that one more sample confirms or rules out albuminuria. Only if the status is "
+        '"sin_medir" or "dudosa"; otherwise null.'
     )
-    trajectory: list[AlbuminuriaPointOut] = Field(description="Un punto por muestra, por fecha (suavizado).")
+    trajectory: list[AlbuminuriaPointOut] = Field(description="One point per sample, by date (smoothed).")
     samples: list[UrineSampleOut] = Field(
-        description="Las muestras recibidas, en el mismo orden que la trayectoria, con su valor para dibujarlas."
+        description="The samples received, in the same order as the trajectory, with their value for plotting."
     )
 
 
 class AlbuminuriaOut(AlbuminuriaSummaryOut):
     projection: list[AlbuminuriaProjectionOut] = Field(
-        description="Incertidumbre a 0, 3, 6 y 12 meses si no se vuelve a medir. No es un pronóstico: la banda se "
-        "ensancha porque el dato envejece."
+        description="Uncertainty at 0, 3, 6 and 12 months if not measured again. Not a forecast: the band "
+        "widens because the data get older."
     )
-    belief: AlbuminuriaBeliefOut = Field(description="Lo que el filtro cree hoy sobre el UACR verdadero.")
-    prior: AlbuminuriaBeliefOut = Field(description="Lo que creía antes de ver ninguna muestra.")
+    belief: AlbuminuriaBeliefOut = Field(description="What the filter believes today about the true UACR.")
+    prior: AlbuminuriaBeliefOut = Field(description="What it believed before seeing any sample.")
 
 
 @lru_cache(maxsize=None)
 def _filter(population: str) -> AlbuminuriaFilter:
-    """Filtro de cada población, cargado una sola vez."""
+    """Filter for each population, loaded only once."""
     return load_default_filter(population)
 
 
@@ -421,7 +443,7 @@ def _sample_echo(sample: ModelSample) -> UrineSampleOut:
 
 
 def _albuminuria_fields(a: AlbuminuriaAssessment, samples: list[ModelSample]) -> dict[str, Any]:
-    """Campos comunes a ``/albuminuria`` y a la parte de albuminuria de ``/assess``."""
+    """Fields shared by ``/albuminuria`` and the albuminuria part of ``/assess``."""
     return {
         "as_of": a.as_of,
         "status": a.status,
@@ -444,18 +466,18 @@ def _albuminuria_fields(a: AlbuminuriaAssessment, samples: list[ModelSample]) ->
 
 
 def _reduce_belief(filt: AlbuminuriaFilter, mass: np.ndarray, points: int = BELIEF_POINTS) -> AlbuminuriaBeliefOut:
-    """Agrupa celdas vecinas de la rejilla para enviar unos ``points`` puntos sin perder masa."""
+    """Groups neighboring grid cells to send about ``points`` points without losing mass."""
     step = max(1, math.ceil(filt.x.size / points))
     starts = np.arange(0, filt.x.size, step)
     sizes = np.diff(np.r_[starts, filt.x.size])
-    centers = np.add.reduceat(filt.x, starts) / sizes  # centro de cada grupo, en log
+    centers = np.add.reduceat(filt.x, starts) / sizes  # center of each group, in log
     grouped = np.add.reduceat(np.asarray(mass, dtype=float), starts)
     return AlbuminuriaBeliefOut(uacr=np.exp(centers).tolist(), mass=grouped.tolist())
 
 
 def _compute_albuminuria(body: AlbuminuriaIn) -> AlbuminuriaOut:
     samples = _model_samples(body.samples)
-    _check_as_of(body.as_of, [s.date for s in samples], "muestra")
+    _check_as_of(body.as_of, [s.date for s in samples], ("muestra", "sample"))
     filt = _filter(body.population)
     patient = Patient(body.patient.age, body.patient.female, body.patient.diabetes, body.patient.egfr, samples)
     with _FILTER_LOCK:
@@ -463,8 +485,8 @@ def _compute_albuminuria(body: AlbuminuriaIn) -> AlbuminuriaOut:
         projection = []
         for months in PROJECTION_MONTHS:
             day = _add_months(body.as_of, months)
-            # Sin muestras no hay nada que envejezca: el punto no cambia. La acción y el estado
-            # proyectados no se exponen, así que no hace falta el cálculo lento (detail).
+            # Without samples nothing gets older: the point does not change. The projected action
+            # and status are not exposed, so the slow computation (detail) is not needed.
             future = current if (months == 0 or not samples) else filt.assess(patient, as_of=day, detail=False)
             projection.append(
                 AlbuminuriaProjectionOut(
@@ -486,42 +508,43 @@ def _compute_albuminuria(body: AlbuminuriaIn) -> AlbuminuriaOut:
 
 
 @lru_cache(maxsize=256)
-def _albuminuria_cached(key: str) -> AlbuminuriaOut:
-    return _compute_albuminuria(AlbuminuriaIn.model_validate_json(key))
+def _albuminuria_cached(key: str, lang_code: str = "en") -> AlbuminuriaOut:
+    with use_lang(lang_code):
+        return _compute_albuminuria(AlbuminuriaIn.model_validate_json(key))
 
 
 @router.post(
     "/albuminuria",
     response_model=AlbuminuriaOut,
     responses=_ERROR_400,
-    summary="Filtro bayesiano de la albuminuria",
+    summary="Bayesian albuminuria filter",
 )
 def albuminuria(body: AlbuminuriaIn) -> AlbuminuriaOut:
-    """Combina las muestras de orina de un paciente (laboratorio y tiras de casa) y devuelve lo que se
-    sabe de su albuminuria verdadera: probabilidades, estado, qué hacer, la creencia completa sobre
-    la rejilla y cómo envejece esa creencia si no se vuelve a medir."""
-    return _albuminuria_cached(body.model_dump_json())
+    """Combines a patient's urine samples (lab and home strips) and returns what is known about
+    their true albuminuria: probabilities, status, what to do, the full belief over the grid and
+    how that belief ages if not measured again."""
+    return _albuminuria_cached(body.model_dump_json(), lang())
 
 
 # --------------------------------------------------------------------------------------
-# 2. Tendencia del filtrado glomerular
+# 2. eGFR trend
 # --------------------------------------------------------------------------------------
 
 
 class EgfrMeasurementIn(_Input):
-    date: Day = Field(description="Fecha de la analítica (AAAA-MM-DD).")
-    egfr: float = Field(ge=5, le=150, description="Filtrado glomerular estimado, en ml/min/1,73 m² (de 5 a 150).")
+    date: Day = Field(description="Blood test date (YYYY-MM-DD).")
+    egfr: float = Field(ge=5, le=150, description="Estimated GFR, in ml/min/1.73 m² (5 to 150).")
     source: Literal["laboratorio", "capilar"] = Field(
-        "laboratorio", description="«laboratorio» o «capilar» (punción en el dedo, con más ruido)."
+        "laboratorio", description='"laboratorio" (lab) or "capilar" (finger prick, noisier).'
     )
     above: bool = Field(
-        False, description="El informe solo dice «mayor que» ese valor (muchos laboratorios cortan en 90)."
+        False, description='The report only says "greater than" that value (many labs cap at 90).'
     )
 
 
 class TreatmentStartIn(_Input):
-    date: Day = Field(description="Fecha en que empezó el tratamiento (AAAA-MM-DD).")
-    kind: Literal["isglt2", "ieca_ara2"] = Field(description="«isglt2» o «ieca_ara2» (IECA o ARA-II).")
+    date: Day = Field(description="Date the treatment started (YYYY-MM-DD).")
+    kind: Literal["isglt2", "ieca_ara2"] = Field(description='"isglt2" (SGLT2 inhibitor) or "ieca_ara2" (ACE inhibitor or ARB).')
 
 
 class EgfrTrendIn(_Input):
@@ -546,86 +569,86 @@ class EgfrTrendIn(_Input):
     )
 
     age: Age
-    female: bool = Field(description="Verdadero si es mujer.")
-    diabetes: bool = Field(False, description="Diabetes diagnosticada: hace más probable un descenso rápido.")
-    p_a2: float = Field(0.0, ge=0, le=1, description="Probabilidad de albuminuria de 30 a 300 mg/g (del filtro).")
-    p_a3: float = Field(0.0, ge=0, le=1, description="Probabilidad de albuminuria de más de 300 mg/g.")
+    female: bool = Field(description="True if female.")
+    diabetes: bool = Field(False, description="Diagnosed diabetes: makes a rapid decline more likely.")
+    p_a2: float = Field(0.0, ge=0, le=1, description="Probability of albuminuria of 30 to 300 mg/g (from the filter).")
+    p_a3: float = Field(0.0, ge=0, le=1, description="Probability of albuminuria above 300 mg/g.")
     measurements: list[EgfrMeasurementIn] = Field(
-        default_factory=list, max_length=40, description="Analíticas de filtrado, en cualquier orden (como mucho 40)."
+        default_factory=list, max_length=40, description="eGFR lab tests, in any order (at most 40)."
     )
     treatments: list[TreatmentStartIn] = Field(
         default_factory=list,
         max_length=10,
-        description="Inicios de tratamiento: explican una caída inicial del filtrado que no es un deterioro.",
+        description="Treatment starts: they explain an initial eGFR dip that is not a decline.",
     )
     as_of: Day | None = Field(
         None,
-        description="Fecha de evaluación (AAAA-MM-DD). Si falta, la de la última analítica. "
-        "No puede ser anterior a ella.",
+        description="Assessment date (YYYY-MM-DD). If missing, that of the last lab test. "
+        "Cannot be earlier than it.",
     )
 
 
 class EgfrTrendPointOut(BaseModel):
-    date: dt.date = Field(description="Fecha de la analítica.")
-    level: float = Field(description="Filtrado estimado ese día (suavizado), en ml/min/1,73 m².")
-    low: float = Field(description="Límite inferior del intervalo del 80 %.")
-    high: float = Field(description="Límite superior del intervalo del 80 %.")
+    date: dt.date = Field(description="Blood test date.")
+    level: float = Field(description="Estimated eGFR that day (smoothed), in ml/min/1.73 m².")
+    low: float = Field(description="Lower bound of the 80% interval.")
+    high: float = Field(description="Upper bound of the 80% interval.")
 
 
 class EgfrProjectionOut(BaseModel):
-    years: int = Field(description="Años desde la fecha de evaluación.")
-    date: dt.date = Field(description="Fecha a la que corresponde el punto.")
-    level: float = Field(description="Filtrado esperado si la tendencia sigue, en ml/min/1,73 m² (nunca menos de 0).")
-    low: float = Field(description="Percentil 10 (nunca menos de 0).")
-    high: float = Field(description="Percentil 90 (nunca menos de 0).")
+    years: int = Field(description="Years since the assessment date.")
+    date: dt.date = Field(description="Date the point refers to.")
+    level: float = Field(description="Expected eGFR if the trend continues, in ml/min/1.73 m² (never below 0).")
+    low: float = Field(description="10th percentile (never below 0).")
+    high: float = Field(description="90th percentile (never below 0).")
 
 
 class EgfrMeasurementOut(BaseModel):
-    date: dt.date = Field(description="Fecha de la analítica.")
-    egfr: float = Field(description="Valor informado, en ml/min/1,73 m².")
-    source: Literal["laboratorio", "capilar"] = Field(description="Laboratorio o punción capilar.")
-    above: bool = Field(description="El informe solo decía «mayor que» ese valor.")
+    date: dt.date = Field(description="Blood test date.")
+    egfr: float = Field(description="Reported value, in ml/min/1.73 m².")
+    source: Literal["laboratorio", "capilar"] = Field(description="Lab or finger prick.")
+    above: bool = Field(description='The report only said "greater than" that value.')
 
 
 class EgfrTrendOut(BaseModel):
-    as_of: dt.date = Field(description="Fecha de evaluación.")
-    n: int = Field(description="Analíticas usadas.")
-    span_years: float = Field(description="Años entre la primera y la última analítica.")
-    level: float = Field(description="Filtrado actual estimado, en ml/min/1,73 m².")
-    level_low: float = Field(description="Límite inferior del intervalo del 80 % del nivel.")
-    level_high: float = Field(description="Límite superior del intervalo del 80 % del nivel.")
-    slope: float = Field(description="Pendiente, en ml/min/1,73 m² por año (negativa si baja).")
-    slope_low: float = Field(description="Límite inferior del intervalo del 80 % de la pendiente.")
-    slope_high: float = Field(description="Límite superior del intervalo del 80 % de la pendiente.")
-    p_decline: Probability = Field(description="P(pierde más de 3 ml/min/1,73 m² al año).")
-    p_rapid: Probability = Field(description="P(pierde más de 5 al año): descenso rápido según KDIGO.")
-    p_below_60: Probability = Field(description="P(filtrado actual < 60).")
-    p_below_30_in_5y: Probability = Field(description="P(filtrado < 30 dentro de cinco años).")
+    as_of: dt.date = Field(description="Assessment date.")
+    n: int = Field(description="Blood tests used.")
+    span_years: float = Field(description="Years between the first and the last lab test.")
+    level: float = Field(description="Estimated current eGFR, in ml/min/1.73 m².")
+    level_low: float = Field(description="Lower bound of the 80% interval of the level.")
+    level_high: float = Field(description="Upper bound of the 80% interval of the level.")
+    slope: float = Field(description="Slope, in ml/min/1.73 m² per year (negative if falling).")
+    slope_low: float = Field(description="Lower bound of the 80% interval of the slope.")
+    slope_high: float = Field(description="Upper bound of the 80% interval of the slope.")
+    p_decline: Probability = Field(description="P(loses more than 3 ml/min/1.73 m² per year).")
+    p_rapid: Probability = Field(description="P(loses more than 5 per year): rapid decline per KDIGO.")
+    p_below_60: Probability = Field(description="P(current eGFR < 60).")
+    p_below_30_in_5y: Probability = Field(description="P(eGFR < 30 within five years).")
     status: Literal["sin_datos", "insuficiente", "estable", "descenso", "descenso_rapido", "incierto"] = Field(
-        description="Lectura de la tendencia."
+        description="Reading of the trend."
     )
-    status_label: str = Field(description="Nombre del estado para mostrarlo.")
+    status_label: str = Field(description="Display name of the status.")
     chronic_below_60: bool = Field(
-        description="Dos analíticas separadas más de tres meses con filtrado menor de 60 muy probable."
+        description="Two lab tests more than three months apart with eGFR below 60 very likely."
     )
     measured_drop_explained: float = Field(
-        description="Caída esperada por los tratamientos iniciados, en ml/min/1,73 m² (0 si no hay ninguno)."
+        description="Expected dip from the treatments started, in ml/min/1.73 m² (0 if none)."
     )
-    trajectory: list[EgfrTrendPointOut] = Field(description="Un punto por analítica, por fecha (suavizado).")
+    trajectory: list[EgfrTrendPointOut] = Field(description="One point per lab test, by date (smoothed).")
     projection: list[EgfrProjectionOut] = Field(
-        description="A 1, 2, 3 y 5 años con la fórmula del propio modelo. Vacía si no hay ninguna analítica."
+        description="At 1, 2, 3 and 5 years with the model's own formula. Empty if there are no lab tests."
     )
-    measurements: list[EgfrMeasurementOut] = Field(description="Las analíticas recibidas, por fecha.")
+    measurements: list[EgfrMeasurementOut] = Field(description="The lab tests received, by date.")
 
 
 Mixture = list[tuple[float, float, float]]
 
 
 def _level_ahead(trend: kidney_trend.EgfrTrend, years: float, params: kidney_trend.TrendParams | None = None) -> Mixture:
-    """Nivel del filtrado dentro de ``years`` años: (peso, media, desviación) de cada grupo de la mezcla.
+    """eGFR level in ``years`` years: (weight, mean, sd) of each mixture component.
 
-    Es la fórmula con la que ``fit_trend`` calcula ``p_below_30_in_5y``: media ``m0 + m1·t`` y
-    varianza ``[1, t]·P·[1, t]ᵀ`` más el ruido del proceso acumulado en ``t`` años.
+    It is the formula ``fit_trend`` uses for ``p_below_30_in_5y``: mean ``m0 + m1·t`` and
+    variance ``[1, t]·P·[1, t]ᵀ`` plus the process noise accumulated over ``t`` years.
     """
     params = params or kidney_trend.TrendParams()
     ahead = np.array([1.0, float(years)])
@@ -638,10 +661,10 @@ def _mixture_cdf(mixture: Mixture, value: float) -> float:
 
 
 def _mixture_quantile(mixture: Mixture, q: float) -> float:
-    """Cuantil de una mezcla de normales: está entre los cuantiles de sus componentes."""
+    """Quantile of a normal mixture: it lies between the quantiles of its components."""
     candidates = [mean + float(ndtri(q)) * sd for _, mean, sd in mixture]
     lo, hi = min(candidates), max(candidates)
-    if _mixture_cdf(mixture, lo) >= q:  # un solo grupo con peso: el cuantil es el suyo
+    if _mixture_cdf(mixture, lo) >= q:  # a single weighted component: the quantile is its own
         return lo
     if _mixture_cdf(mixture, hi) <= q:
         return hi
@@ -654,7 +677,7 @@ def _trend_projection(trend: kidney_trend.EgfrTrend, years: int) -> EgfrProjecti
     return EgfrProjectionOut(
         years=years,
         date=_add_months(trend.as_of, 12 * years),
-        level=max(mean, 0.0),  # un filtrado negativo no existe
+        level=max(mean, 0.0),  # a negative eGFR does not exist
         low=max(_mixture_quantile(mixture, 0.1), 0.0),
         high=max(_mixture_quantile(mixture, 0.9), 0.0),
     )
@@ -666,11 +689,21 @@ def _compute_egfr_trend(body: EgfrTrendIn) -> EgfrTrendOut:
         key=lambda m: m.date,
     )
     if body.as_of is None and not measurements:
-        raise _bad_request("Sin analíticas hay que indicar la fecha de evaluación (as_of).")
+        raise _bad_request(
+            t(
+                "Sin analíticas hay que indicar la fecha de evaluación (as_of).",
+                "Without lab tests the assessment date (as_of) must be given.",
+            )
+        )
     as_of = body.as_of or measurements[-1].date
-    _check_as_of(as_of, [m.date for m in measurements], "analítica")
+    _check_as_of(as_of, [m.date for m in measurements], ("analítica", "lab test"))
     if body.p_a2 + body.p_a3 > 1.0 + 1e-9:
-        raise _bad_request("Las probabilidades de albuminuria p_a2 y p_a3 no pueden sumar más de 1.")
+        raise _bad_request(
+            t(
+                "Las probabilidades de albuminuria p_a2 y p_a3 no pueden sumar más de 1.",
+                "The albuminuria probabilities p_a2 and p_a3 cannot add up to more than 1.",
+            )
+        )
     treatments = [kidney_trend.TreatmentStart(t.date, t.kind) for t in body.treatments]
     trend = kidney_trend.fit_trend(
         measurements, body.age, body.female, body.diabetes, body.p_a2, body.p_a3, treatments, as_of
@@ -696,48 +729,49 @@ def _compute_egfr_trend(body: EgfrTrendIn) -> EgfrTrendOut:
         chronic_below_60=bool(trend.chronic_below_60),
         measured_drop_explained=trend.measured_drop_explained,
         trajectory=[clean(point) for point in trend.trajectory],
-        # Sin ninguna analítica solo hay prior: no hay nada que proyectar.
+        # With no lab tests there is only the prior: nothing to project.
         projection=[_trend_projection(trend, years) for years in PROJECTION_YEARS] if measurements else [],
         measurements=[clean(m) for m in measurements],
     )
 
 
 @lru_cache(maxsize=256)
-def _egfr_trend_cached(key: str) -> EgfrTrendOut:
-    return _compute_egfr_trend(EgfrTrendIn.model_validate_json(key))
+def _egfr_trend_cached(key: str, lang_code: str = "en") -> EgfrTrendOut:
+    with use_lang(lang_code):
+        return _compute_egfr_trend(EgfrTrendIn.model_validate_json(key))
 
 
 @router.post(
     "/egfr-trend",
     response_model=EgfrTrendOut,
     responses=_ERROR_400,
-    summary="Tendencia del filtrado glomerular",
+    summary="eGFR trend",
 )
 def egfr_trend(body: EgfrTrendIn) -> EgfrTrendOut:
-    """Nivel y pendiente del filtrado con las analíticas previas, separando el descenso real del ruido
-    de la creatinina y descontando la caída esperada al empezar un tratamiento. Con menos de dos
-    analíticas devuelve el estado «sin_datos» o «insuficiente». Los parámetros del modelo son
-    supuestos de la literatura: está comprobado solo en simulación."""
-    return _egfr_trend_cached(body.model_dump_json())
+    """eGFR level and slope from previous lab tests, separating real decline from creatinine
+    noise and discounting the expected dip when a treatment starts. With fewer than two blood
+    tests it returns the status "sin_datos" or "insuficiente". The model parameters are
+    assumptions from the literature: it has only been checked in simulation."""
+    return _egfr_trend_cached(body.model_dump_json(), lang())
 
 
 # --------------------------------------------------------------------------------------
-# 3. Evaluación completa de un paciente
+# 3. Full patient assessment
 # --------------------------------------------------------------------------------------
 
 
 class MeasuredLabsIn(_Input):
-    """Analítica reciente. Lo medido siempre sustituye a la estimación del modelo."""
+    """Recent lab test. What is measured always replaces the model's estimate."""
 
-    egfr: float | None = Field(None, ge=5, le=150, description="Filtrado glomerular, en ml/min/1,73 m² (de 5 a 150).")
-    hba1c: float | None = Field(None, ge=3, le=20, description="HbA1c, en % (de 3 a 20).")
-    glucose: float | None = Field(None, ge=20, le=1000, description="Glucosa sin ayuno, en mg/dl.")
-    potassium: float | None = Field(None, ge=1.5, le=9, description="Potasio, en mmol/l.")
-    non_hdl: float | None = Field(None, ge=20, le=600, description="Colesterol no-HDL, en mg/dl.")
-    hemoglobin: float | None = Field(None, ge=3, le=25, description="Hemoglobina, en g/dl.")
-    nt_probnp: float | None = Field(None, gt=0, le=100000, description="NT-proBNP, en pg/ml.")
-    total_cholesterol: float | None = Field(None, ge=50, le=700, description="Colesterol total, en mg/dl.")
-    hdl: float | None = Field(None, ge=5, le=200, description="Colesterol HDL, en mg/dl.")
+    egfr: float | None = Field(None, ge=5, le=150, description="eGFR, in ml/min/1.73 m² (5 to 150).")
+    hba1c: float | None = Field(None, ge=3, le=20, description="HbA1c, in % (3 to 20).")
+    glucose: float | None = Field(None, ge=20, le=1000, description="Non-fasting glucose, in mg/dl.")
+    potassium: float | None = Field(None, ge=1.5, le=9, description="Potassium, in mmol/l.")
+    non_hdl: float | None = Field(None, ge=20, le=600, description="Non-HDL cholesterol, in mg/dl.")
+    hemoglobin: float | None = Field(None, ge=3, le=25, description="Hemoglobin, in g/dl.")
+    nt_probnp: float | None = Field(None, gt=0, le=100000, description="NT-proBNP, in pg/ml.")
+    total_cholesterol: float | None = Field(None, ge=50, le=700, description="Total cholesterol, in mg/dl.")
+    hdl: float | None = Field(None, ge=5, le=200, description="HDL cholesterol, in mg/dl.")
 
 
 class AssessIn(_Input):
@@ -772,30 +806,30 @@ class AssessIn(_Input):
     )
 
     age: Age
-    female: bool = Field(description="Verdadero si es mujer.")
-    bmi: float | None = Field(None, ge=10, le=80, description="Índice de masa corporal, en kg/m².")
-    waist: float | None = Field(None, ge=40, le=200, description="Perímetro de cintura, en cm.")
-    sbp: float | None = Field(None, ge=60, le=260, description="Tensión sistólica media en consulta, en mmHg.")
-    dbp: float | None = Field(None, ge=30, le=160, description="Tensión diastólica media en consulta, en mmHg.")
-    diabetes: bool = Field(False, description="Diabetes diagnosticada.")
-    prediabetes: bool = Field(False, description="Prediabetes diagnosticada.")
-    insulin: bool = Field(False, description="En tratamiento con insulina.")
-    diabetes_pills: bool = Field(False, description="Toma antidiabéticos orales.")
-    hypertension: bool = Field(False, description="Hipertensión diagnosticada.")
-    bp_meds: bool = Field(False, description="Toma fármacos para la tensión.")
-    high_cholesterol: bool = Field(False, description="Colesterol alto diagnosticado.")
-    cholesterol_meds: bool = Field(False, description="Toma fármacos para el colesterol.")
-    heart_failure: bool = Field(False, description="Insuficiencia cardíaca diagnosticada.")
-    coronary: bool = Field(False, description="Cardiopatía isquémica.")
-    stroke: bool = Field(False, description="Ictus previo.")
-    kidney_disease: bool = Field(False, description="Enfermedad renal crónica ya registrada.")
-    smoker_now: bool = Field(False, description="Fuma ahora.")
-    smoker_ever: bool = Field(False, description="Ha fumado alguna vez.")
-    measured: MeasuredLabsIn = Field(default_factory=MeasuredLabsIn, description="Analítica reciente (solo lo que haya).")
+    female: bool = Field(description="True if female.")
+    bmi: float | None = Field(None, ge=10, le=80, description="Body mass index, in kg/m².")
+    waist: float | None = Field(None, ge=40, le=200, description="Waist circumference, in cm.")
+    sbp: float | None = Field(None, ge=60, le=260, description="Mean office systolic blood pressure, in mmHg.")
+    dbp: float | None = Field(None, ge=30, le=160, description="Mean office diastolic blood pressure, in mmHg.")
+    diabetes: bool = Field(False, description="Diagnosed diabetes.")
+    prediabetes: bool = Field(False, description="Diagnosed prediabetes.")
+    insulin: bool = Field(False, description="On insulin.")
+    diabetes_pills: bool = Field(False, description="Takes oral diabetes medication.")
+    hypertension: bool = Field(False, description="Diagnosed hypertension.")
+    bp_meds: bool = Field(False, description="Takes blood pressure medication.")
+    high_cholesterol: bool = Field(False, description="Diagnosed high cholesterol.")
+    cholesterol_meds: bool = Field(False, description="Takes cholesterol medication.")
+    heart_failure: bool = Field(False, description="Diagnosed heart failure.")
+    coronary: bool = Field(False, description="Ischemic heart disease.")
+    stroke: bool = Field(False, description="Previous stroke.")
+    kidney_disease: bool = Field(False, description="Chronic kidney disease already on record.")
+    smoker_now: bool = Field(False, description="Currently smokes.")
+    smoker_ever: bool = Field(False, description="Has ever smoked.")
+    measured: MeasuredLabsIn = Field(default_factory=MeasuredLabsIn, description="Recent lab test (only what is available).")
     urine_samples: list[UrineSampleIn] = Field(
-        default_factory=list, max_length=30, description="Muestras de orina, en cualquier orden (como mucho 30)."
+        default_factory=list, max_length=30, description="Urine samples, in any order (at most 30)."
     )
-    as_of: Day = Field(description="Fecha de evaluación (AAAA-MM-DD). No puede ser anterior a la última muestra de orina.")
+    as_of: Day = Field(description="Assessment date (YYYY-MM-DD). Cannot be earlier than the last urine sample.")
     population: Population = "espana"
 
 
@@ -805,78 +839,78 @@ _RECORD_FIELDS = tuple(
 
 
 class BloodEstimateOut(BaseModel):
-    key: str = Field(description="Clave de la variable (egfr, hba1c, glucose, potassium, non_hdl, hemoglobin, nt_probnp).")
-    name: str = Field(description="Nombre para mostrar.")
-    unit: str = Field(description="Unidad.")
-    median: float = Field(description="Valor medido o mediana de la estimación.")
-    low: float = Field(description="Percentil 10 (igual al valor si está medido).")
-    high: float = Field(description="Percentil 90 (igual al valor si está medido).")
-    measured: bool = Field(description="Verdadero si viene de la analítica; falso si lo estima el modelo.")
-    decimals: int = Field(description="Decimales con los que conviene mostrarlo.")
-    source: str = Field(description="De dónde sale el valor: «medido», «estimado»...")
+    key: str = Field(description="Variable key (egfr, hba1c, glucose, potassium, non_hdl, hemoglobin, nt_probnp).")
+    name: str = Field(description="Display name.")
+    unit: str = Field(description="Unit.")
+    median: float = Field(description="Measured value or median of the estimate.")
+    low: float = Field(description="10th percentile (equal to the value if measured).")
+    high: float = Field(description="90th percentile (equal to the value if measured).")
+    measured: bool = Field(description="True if it comes from the lab test; false if the model estimates it.")
+    decimals: int = Field(description="Decimals to display it with.")
+    source: str = Field(description="Where the value comes from (measured, estimated...), in the model's words.")
 
 
 class KdigoCellOut(BaseModel):
-    a: Literal["A1", "A2", "A3"] = Field(description="Categoría de albuminuria.")
-    p: Probability = Field(description="Probabilidad de que el paciente esté en esa casilla.")
-    risk: Literal["bajo", "moderado", "alto", "muy alto"] = Field(description="Nivel de riesgo KDIGO de la casilla.")
+    a: Literal["A1", "A2", "A3"] = Field(description="Albuminuria category.")
+    p: Probability = Field(description="Probability that the patient is in that cell.")
+    risk: Literal["bajo", "moderado", "alto", "muy alto"] = Field(description="KDIGO risk level of the cell, as a machine value: bajo (low), moderado (moderate), alto (high), muy alto (very high).")
 
 
 class KdigoRowOut(BaseModel):
-    g: Literal["G1", "G2", "G3a", "G3b", "G4", "G5"] = Field(description="Categoría de filtrado glomerular.")
-    cells: list[KdigoCellOut] = Field(description="Las tres casillas de la fila: A1, A2 y A3.")
+    g: Literal["G1", "G2", "G3a", "G3b", "G4", "G5"] = Field(description="eGFR category.")
+    cells: list[KdigoCellOut] = Field(description="The three cells of the row: A1, A2 and A3.")
 
 
 class CvRiskOut(BaseModel):
-    score: Probability = Field(description="SCORE2 o SCORE2-OP a 10 años (mediana si faltan datos), como fracción.")
-    score_low: Probability = Field(description="Percentil 10 del SCORE2 con lo que falta por medir.")
-    score_high: Probability = Field(description="Percentil 90.")
-    probs: list[Probability] = Field(description="Probabilidad de cada categoría real: bajo o moderado, alto, muy alto.")
-    recorded: int = Field(description="Categoría con lo que ya consta en la historia: 0, 1 o 2 (mismo orden).")
-    recorded_label: str = Field(description="Nombre de esa categoría.")
-    category: int = Field(description="Categoría real más probable: 0, 1 o 2.")
-    category_label: str = Field(description="Nombre de esa categoría.")
-    approximate: bool = Field(description="Se han supuesto datos que faltan (tensión o HDL).")
+    score: Probability = Field(description="10-year SCORE2 or SCORE2-OP (median if data are missing), as a fraction.")
+    score_low: Probability = Field(description="10th percentile of SCORE2 given what is still unmeasured.")
+    score_high: Probability = Field(description="90th percentile.")
+    probs: list[Probability] = Field(description="Probability of each true category: low or moderate, high, very high.")
+    recorded: int = Field(description="Category from what is already on record: 0, 1 or 2 (same order).")
+    recorded_label: str = Field(description="Name of that category.")
+    category: int = Field(description="Most likely true category: 0, 1 or 2.")
+    category_label: str = Field(description="Name of that category.")
+    approximate: bool = Field(description="Missing data were assumed (blood pressure or HDL).")
 
 
 class RecommendationOut(BaseModel):
-    test: str = Field(description="Prueba que merece la pena pedir.")
-    reason: str = Field(description="Por qué, con las palabras del modelo.")
+    test: str = Field(description="Test worth ordering.")
+    reason: str = Field(description="Why, in the model's words.")
 
 
 class AssessOut(BaseModel):
-    albuminuria: AlbuminuriaSummaryOut = Field(description="Estado de la albuminuria (el filtro, dentro de la evaluación).")
-    blood: list[BloodEstimateOut] = Field(description="Panel de sangre: lo medido y lo estimado con la historia y la orina.")
-    p_egfr_below_60: Probability = Field(description="P(filtrado glomerular < 60).")
-    kdigo_g: dict[str, Probability] = Field(description="Probabilidad de cada categoría de filtrado: G1, G2, G3a, G3b, G4 y G5.")
+    albuminuria: AlbuminuriaSummaryOut = Field(description="Albuminuria status (the filter, inside the assessment).")
+    blood: list[BloodEstimateOut] = Field(description="Blood panel: what is measured and what is estimated from the record and the urine.")
+    p_egfr_below_60: Probability = Field(description="P(eGFR < 60).")
+    kdigo_g: dict[str, Probability] = Field(description="Probability of each eGFR category: G1, G2, G3a, G3b, G4 and G5.")
     kdigo_risk: dict[str, Probability] = Field(
-        description="Probabilidad de cada nivel de riesgo KDIGO: bajo, moderado, alto y «muy alto»."
+        description='Probability of each KDIGO risk level, keyed "bajo" (low), "moderado" (moderate), "alto" (high) and "muy alto" (very high).'
     )
     kdigo_joint: list[KdigoRowOut] = Field(
-        description="Mapa KDIGO: probabilidad conjunta de filtrado (6 filas) y albuminuria (3 columnas). Suma 1."
+        description="KDIGO map: joint probability of eGFR (6 rows) and albuminuria (3 columns). Sums to 1."
     )
-    p_ckd: Probability = Field(description="P(filtrado < 60 o albuminuria ≥ 30 mg/g), sin exigir aún la cronicidad.")
-    diabetes: str = Field(description="«diagnosticada», «probable», «posible» o «poco probable».")
-    p_diabetes: Probability | None = Field(description="P(diabetes sin diagnosticar); nulo si ya está diagnosticada.")
-    heart_failure: str = Field(description="«diagnosticada», «a descartar» o «poco probable».")
-    p_nt_probnp_high: Probability | None = Field(description="P(NT-proBNP ≥ 125 pg/ml); nulo si ya está diagnosticada.")
-    cv: CvRiskOut | None = Field(description="Riesgo cardiovascular con la incertidumbre de lo que falta por medir.")
-    p_new_finding: Probability = Field(description="Probabilidad de un hallazgo nuevo si se completan las pruebas pendientes.")
-    finding_by_test: dict[str, Probability] = Field(description="Esa probabilidad si solo se hiciera cada prueba.")
-    recommendations: list[RecommendationOut] = Field(description="Pruebas que merece la pena pedir, por orden.")
-    alerts: list[str] = Field(description="Hallazgos que ya piden actuar, con las palabras del modelo.")
+    p_ckd: Probability = Field(description="P(eGFR < 60 or albuminuria ≥ 30 mg/g), without requiring chronicity yet.")
+    diabetes: str = Field(description="Diabetes reading, in the model's words (diagnosed, likely, possible or unlikely).")
+    p_diabetes: Probability | None = Field(description="P(undiagnosed diabetes); null if already diagnosed.")
+    heart_failure: str = Field(description="Heart failure reading, in the model's words (diagnosed, to rule out or unlikely).")
+    p_nt_probnp_high: Probability | None = Field(description="P(NT-proBNP ≥ 125 pg/ml); null if already diagnosed.")
+    cv: CvRiskOut | None = Field(description="Cardiovascular risk with the uncertainty of what is still unmeasured.")
+    p_new_finding: Probability = Field(description="Probability of a new finding if the pending tests are completed.")
+    finding_by_test: dict[str, Probability] = Field(description="That probability if only each test were done.")
+    recommendations: list[RecommendationOut] = Field(description="Tests worth ordering, in order.")
+    alerts: list[str] = Field(description="Findings that already call for action, in the model's words.")
 
 
 def _compute_assess(body: AssessIn) -> AssessOut:
     samples = _model_samples(body.urine_samples)
-    _check_as_of(body.as_of, [s.date for s in samples], "muestra de orina")
+    _check_as_of(body.as_of, [s.date for s in samples], ("muestra de orina", "urine sample"))
     record = panel.ClinicalRecord(
         **{name: getattr(body, name) for name in _RECORD_FIELDS},
         urine_samples=samples,
         measured=body.measured.model_dump(exclude_none=True),
     )
-    # Con un solo paciente, repartir los árboles del panel entre hilos cuesta más de lo que
-    # ahorra (medido: de 500-800 ms a unos 420). El resultado es el mismo.
+    # With a single patient, spreading the panel's trees across threads costs more than it
+    # saves (measured: from 500-800 ms to about 420). The result is the same.
     with _PANEL_LOCK, threadpool_limits(limits=1, user_api="openmp"):
         a = panel.assess(record, as_of=body.as_of, population=body.population, detail=True)
 
@@ -885,7 +919,7 @@ def _compute_assess(body: AssessIn) -> AssessOut:
         KdigoRowOut(
             g=g,
             cells=[
-                # Con el FG medido el modelo deja ceros negativos: los limpia el tipo ``Probability``.
+                # With a measured eGFR the model leaves negative zeros: the ``Probability`` type cleans them.
                 KdigoCellOut(a=label, p=float(joint[i, j]), risk=panel.KDIGO_RISK[g][j])
                 for j, label in enumerate(cvrisk.A_LABELS)
             ],
@@ -926,49 +960,50 @@ def _compute_assess(body: AssessIn) -> AssessOut:
 
 
 @lru_cache(maxsize=256)
-def _assess_cached(key: str) -> AssessOut:
-    return _compute_assess(AssessIn.model_validate_json(key))
+def _assess_cached(key: str, lang_code: str = "en") -> AssessOut:
+    with use_lang(lang_code):
+        return _compute_assess(AssessIn.model_validate_json(key))
 
 
 @router.post(
     "/assess",
     response_model=AssessOut,
     responses=_ERROR_400,
-    summary="Evaluación completa de un paciente",
+    summary="Full patient assessment",
 )
 def assess(body: AssessIn) -> AssessOut:
-    """Une el filtro de albuminuria, el panel virtual de sangre y el riesgo cardiovascular: probabilidad
-    de cada categoría KDIGO, de diabetes y de insuficiencia cardíaca, hallazgos que ya piden actuar y
-    qué pruebas merece la pena pedir. Apoyo a la decisión con datos sintéticos: no diagnostica."""
-    return _assess_cached(body.model_dump_json())
+    """Combines the albuminuria filter, the virtual blood panel and cardiovascular risk: probability
+    of each KDIGO category, of diabetes and of heart failure, findings that already call for action
+    and which tests are worth ordering. Decision support on synthetic data: it does not diagnose."""
+    return _assess_cached(body.model_dump_json(), lang())
 
 
 # --------------------------------------------------------------------------------------
-# 4. Ejemplos
+# 4. Examples
 # --------------------------------------------------------------------------------------
 
 
 class PatientExampleOut(BaseModel):
-    id: str = Field(description="Identificador estable del ejemplo: p1 a p5.")
-    title: str = Field(description="Descripción del paciente inventado.")
-    assess: AssessIn = Field(description="Cuerpo listo para POST /api/model/assess.")
-    albuminuria: AlbuminuriaIn = Field(description="Cuerpo listo para POST /api/model/albuminuria.")
+    id: str = Field(description="Stable example identifier: p1 to p5.")
+    title: str = Field(description="Description of the made-up patient.")
+    assess: AssessIn = Field(description="Body ready for POST /api/model/assess.")
+    albuminuria: AlbuminuriaIn = Field(description="Body ready for POST /api/model/albuminuria.")
 
 
 class TrendExampleOut(BaseModel):
-    id: str = Field(description="Identificador estable del ejemplo.")
-    title: str = Field(description="Descripción de la serie.")
-    egfr_trend: EgfrTrendIn = Field(description="Cuerpo listo para POST /api/model/egfr-trend.")
+    id: str = Field(description="Stable example identifier.")
+    title: str = Field(description="Description of the series.")
+    egfr_trend: EgfrTrendIn = Field(description="Body ready for POST /api/model/egfr-trend.")
 
 
 class ExamplesOut(BaseModel):
-    as_of: dt.date = Field(description="Fecha de evaluación de todos los ejemplos.")
-    patients: list[PatientExampleOut] = Field(description="Los cinco pacientes inventados de scripts/demo.py.")
-    egfr_trends: list[TrendExampleOut] = Field(description="Dos series de filtrado: una que baja deprisa y una estable.")
+    as_of: dt.date = Field(description="Assessment date of all the examples.")
+    patients: list[PatientExampleOut] = Field(description="The five made-up patients from scripts/demo.py.")
+    egfr_trends: list[TrendExampleOut] = Field(description="Two eGFR series: one falling fast and one stable.")
 
 
 def _demo_patients() -> dict[str, panel.ClinicalRecord]:
-    """Pacientes de ``scripts/demo.py``. Importarlo no ejecuta nada: solo define el diccionario."""
+    """Patients from ``scripts/demo.py``. Importing it runs nothing: it only defines the dict."""
     spec = importlib.util.spec_from_file_location("latenthealth_web_demo_patients", DEMO_SCRIPT)
     if spec is None or spec.loader is None:
         raise FileNotFoundError(DEMO_SCRIPT)
@@ -978,11 +1013,13 @@ def _demo_patients() -> dict[str, panel.ClinicalRecord]:
 
 
 def _sample_in(sample: ModelSample) -> UrineLabSampleIn | UrineStripSampleIn:
-    """Muestra del modelo -> muestra de la API (lo contrario de ``_model_samples``)."""
+    """Model sample -> API sample (the reverse of ``_model_samples``)."""
     if isinstance(sample, StripSample):
         reader = next((name for name, spec in STRIPS.items() if spec == sample.spec), None)
         if reader is None:
-            raise ValueError(f"La API no admite la tira «{sample.spec.name}».")
+            raise ValueError(
+                t(f"La API no admite la tira «{sample.spec.name}».", f'The API does not support the strip "{sample.spec.name}".')
+            )
         return UrineStripSampleIn(
             kind="tira",
             date=sample.date,
@@ -1002,13 +1039,18 @@ def _sample_in(sample: ModelSample) -> UrineLabSampleIn | UrineStripSampleIn:
 
 
 def _yearly(values: list[float], last: dt.date) -> list[EgfrMeasurementIn]:
-    """Una analítica al año (cada 365 días) que termina en ``last``."""
+    """One lab test a year (every 365 days) ending on ``last``."""
     n = len(values)
     return [EgfrMeasurementIn(date=last - dt.timedelta(days=365 * (n - 1 - i)), egfr=v) for i, v in enumerate(values)]
 
 
-@lru_cache(maxsize=1)
-def _examples() -> ExamplesOut:
+@lru_cache(maxsize=2)
+def _examples(lang_code: str = "en") -> ExamplesOut:
+    with use_lang(lang_code):
+        return _build_examples()
+
+
+def _build_examples() -> ExamplesOut:
     patients = []
     for number, (title, record) in enumerate(_demo_patients().items(), start=1):
         samples = [_sample_in(s) for s in record.urine_samples]
@@ -1036,8 +1078,16 @@ def _examples() -> ExamplesOut:
         )
     last = dt.date(2026, 10, 27)
     series = [
-        ("descenso_rapido", "Mujer de 68 años, diabética: el filtrado baja año tras año", [88, 79, 68, 60, 49]),
-        ("estable", "Mujer de 68 años, diabética: el filtrado se mantiene", [75, 77, 74, 76, 75]),
+        (
+            "descenso_rapido",
+            t("Mujer de 68 años, diabética: el filtrado baja año tras año", "Woman aged 68 with diabetes: eGFR falls year after year"),
+            [88, 79, 68, 60, 49],
+        ),
+        (
+            "estable",
+            t("Mujer de 68 años, diabética: el filtrado se mantiene", "Woman aged 68 with diabetes: eGFR holds steady"),
+            [75, 77, 74, 76, 75],
+        ),
     ]
     trends = [
         TrendExampleOut(
@@ -1054,33 +1104,37 @@ def _examples() -> ExamplesOut:
     "/examples",
     response_model=ExamplesOut,
     response_model_exclude_none=True,
-    summary="Entradas de ejemplo para las rutas del modelo",
+    summary="Example inputs for the model routes",
 )
 def examples() -> ExamplesOut:
-    """Cinco pacientes inventados (no son pacientes reales) con su cuerpo para ``/assess`` y para
-    ``/albuminuria``, y dos series de filtrado para ``/egfr-trend``. Todos con fecha 14/11/2026."""
+    """Five made-up patients (not real patients) with their body for ``/assess`` and for
+    ``/albuminuria``, and two eGFR series for ``/egfr-trend``. All dated November 14, 2026."""
     try:
-        return _examples()
+        return _examples(lang())
     except (OSError, ImportError, AttributeError, ValueError) as exc:
-        raise HTTPException(status_code=503, detail="No se han podido cargar los ejemplos de scripts/demo.py.") from exc
+        detail = t(
+            "No se han podido cargar los ejemplos de scripts/demo.py.",
+            "The examples from scripts/demo.py could not be loaded.",
+        )
+        raise HTTPException(status_code=503, detail=detail) from exc
 
 
 # --------------------------------------------------------------------------------------
-# Precarga
+# Warm-up
 # --------------------------------------------------------------------------------------
 
 
 def warm_up() -> None:
-    """Carga el filtro y los modelos del panel evaluando los ejemplos.
+    """Loads the filter and the panel models by evaluating the examples.
 
-    Así la primera petición de la demo tarda lo normal y los ejemplos, que es lo primero que se
-    pulsa, ya están calculados. Va de lo rápido a lo lento para que el filtro esté disponible
-    mientras se cargan los modelos del panel.
+    That way the demo's first request takes the usual time and the examples, the first thing
+    people click, are already computed. Goes from fast to slow so the filter is available while
+    the panel models load.
     """
-    loaded = _examples()
+    loaded = _examples("en")
     for patient in loaded.patients:
-        _albuminuria_cached(patient.albuminuria.model_dump_json())
+        _albuminuria_cached(patient.albuminuria.model_dump_json(), "en")
     for trend in loaded.egfr_trends:
-        _egfr_trend_cached(trend.egfr_trend.model_dump_json())
+        _egfr_trend_cached(trend.egfr_trend.model_dump_json(), "en")
     for patient in loaded.patients:
-        _assess_cached(patient.assess.model_dump_json())
+        _assess_cached(patient.assess.model_dump_json(), "en")

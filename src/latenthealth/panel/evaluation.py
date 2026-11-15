@@ -1,4 +1,7 @@
-"""Métricas para evaluar las distribuciones predichas del panel."""
+"""Metrics for evaluating the panel's predicted distributions.
+
+Result keys of ``evaluate`` are kept in Spanish: scripts/fit_panel.py looks them up by name.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +12,7 @@ from .model import BinnedDistributionRegressor
 
 
 def event_probability(model, X, d, decision, pmf=None):
-    """Probabilidad predicha y ocurrencia real de una decisión ``(etiqueta, umbral(d), por_debajo)``."""
+    """Predicted probability and threshold of a decision ``(label, threshold(d), below)``."""
     label, thr, below = decision
     pmf = model.predict_pmf(X) if pmf is None else pmf
     t = np.broadcast_to(np.asarray(thr(d), dtype=float), (pmf.shape[0],))
@@ -39,7 +42,7 @@ def evaluate(model, X, d, y, decisions) -> dict:
 
 
 def marginal_crps(y_train, y_test, n_bins: int = 24) -> float:
-    """CRPS de predecir siempre la distribución de la población (sin mirar al paciente)."""
+    """CRPS of always predicting the population distribution (ignoring the patient)."""
     m = BinnedDistributionRegressor()
     m.lo_, m.hi_ = float(np.quantile(y_train, 0.0005)), float(np.quantile(y_train, 0.9995))
     m.edges_ = np.unique(np.quantile(y_train, np.linspace(0, 1, n_bins + 1)[1:-1]))

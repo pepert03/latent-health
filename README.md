@@ -5,55 +5,55 @@
   <img src="web/site/img/logos/01-carta-logotipo.svg" alt="LatentHealth" width="360">
 </picture>
 
-### El aviso del riñón y del corazón, medido en casa.
+### The kidney and heart warning, measured at home.
 
-**Infraestructura de detección precoz cardio-renal-metabólica para atención primaria.**<br>
-Recorre el cupo, decide qué falta medir a cada paciente, se lo mide en casa y le entrega al médico una lista ya ordenada.
+**Early-detection infrastructure for cardio-renal-metabolic disease in primary care.**<br>
+It scans the practice list, decides what each patient is missing, measures it at home and hands the doctor a ranked worklist.
 
-Hackathon Boehringer · Reto 1, «Automatizar lo repetitivo»
+Boehringer Hackathon · Challenge 1, "Automate the repetitive"
 
 </div>
 
 ---
 
-## En una frase
+## In one sentence
 
-LatentHealth no es un kit ni una app: es **el circuito que une la historia clínica, el paciente en su casa y el médico**, con modelos que saben cuánto fiarse de cada medida. El kit, la app, el reloj o la farmacia son solo los sensores; lo que cambia la consulta es que **nadie tenga que acordarse de pedir la prueba, repetirla ni escribir la nota**.
+LatentHealth is not a kit or an app: it is **the loop that connects the health record, the patient at home and the doctor**, with models that know how much to trust each measurement. The kit, the app, the watch and the pharmacy are just the sensors; what changes the visit is that **nobody has to remember to order the test, repeat it or write the note**.
 
-## El problema
+## The problem
 
-La diabetes, la hipertensión, la enfermedad renal y la insuficiencia cardíaca se alimentan entre sí, y la primera señal, la albúmina en la orina, sale años antes que cualquier síntoma. Pero:
+Diabetes, hypertension, kidney disease and heart failure feed each other, and the first sign, albumin in the urine, shows up years before any symptom. But:
 
 | | |
 |---|---|
-| **4 de cada 100** | hipertensos se hacen la prueba de orina en dos años. En diabéticos, 35 de cada 100 (Shin, *Hypertension* 2021, 3,7 millones de adultos). |
-| **La mitad** | de los positivos de una muestra aislada no se repiten en la primera orina de la mañana (NHANES). Sin repetir, no hay diagnóstico. |
-| **Más del 80 %** | de los pacientes con enfermedad renal en estadio 3 según su analítica no la tienen registrada (REVEAL-CKD). |
-| **10 a 33 %** | de quienes deberían tomar un iSGLT2 lo toman. |
+| **4 in 100** | people with hypertension get the urine test within two years. In diabetes, 35 in 100 (Shin, *Hypertension* 2021, 3.7 million adults). |
+| **Half** | of positives from a random sample do not repeat in the first morning urine (NHANES). Without a repeat, there is no diagnosis. |
+| **Over 80%** | of patients with stage 3 kidney disease by their lab results do not have it recorded (REVEAL-CKD). |
+| **10 to 33%** | of those who should be on an SGLT2 inhibitor are taking one. |
 
-No faltan análisis: falta que la prueba **llegue a casa**, que **repetirla sirva de algo** y que el resultado **acabe en la historia**.
+Lab tests are not what is missing: what is missing is for the test to **reach the home**, for **repeating it to mean something**, and for the result to **end up in the record**.
 
-## La infraestructura
+## The infrastructure
 
-<p align="center"><img src="docs/img/circuito.png" alt="El circuito: la historia clínica del cupo, el motor de modelos, las medidas en casa y la lista del médico; cada medida vuelve al motor y estrecha la duda" width="900"></p>
+<p align="center"><img src="docs/img/circuito.png" alt="The loop: the practice list's health records, the model engine, measurements at home and the doctor's worklist; each measurement goes back to the engine and narrows the uncertainty" width="900"></p>
 
-1. **El cupo.** Cada noche el sistema recorre la historia clínica de los 1.500 pacientes de un médico y calcula, para cada uno, la probabilidad de que las pruebas que le faltan den un hallazgo nuevo.
-2. **El motor.** Un conjunto de modelos entrenados y validados con datos reales (NHANES, PhysioNet, Zenodo, cohortes españolas MUSIC y PREDIMED) que combinan todas las medidas con su incertidumbre y deciden **qué medir, a quién, por qué canal y cuándo parar**.
-3. **En casa, sin cita.** Al paciente le llega solo lo que su ficha dice que falta: la tira de orina con la app, el reloj que ya tiene, un tensiómetro prestado una semana, una glucosa en la farmacia o un tubo al laboratorio. Sin móvil, la misma lógica funciona por carta, en la farmacia o en enfermería.
-4. **En la consulta.** El médico abre una lista, no cien alertas: arriba lo que ya está claro y no consta; debajo, a quién le falta una prueba y cuál pedir primero. La petición, la nota y el código ya vienen escritos.
+1. **The practice list.** Every night the system goes through the health records of a doctor's 1,500 patients and computes, for each one, the probability that the tests they are missing would produce a new finding.
+2. **The engine.** A set of models trained and validated on real data (NHANES, PhysioNet, Zenodo, the Spanish cohorts MUSIC and PREDIMED) that combine every measurement with its uncertainty and decide **what to measure, in whom, through which channel and when to stop**.
+3. **At home, no appointment.** The patient receives only what their record says is missing: the urine strip with the app, the watch they already own, a blood pressure monitor on loan for a week, a glucose test at the pharmacy or a lab tube. Without a smartphone, the same logic works by mail, at the pharmacy or with the nurse.
+4. **In the clinic.** The doctor opens one worklist, not a hundred alerts: at the top, what is already clear but not recorded; below, who is missing a test and which one to order first. The order, the note and the code come pre-written.
 
-Cada medida que vuelve estrecha la duda y el motor decide si hace falta otra. **Solo repite quien sale dudoso.**
+Each measurement that comes back narrows the uncertainty, and the engine decides whether another one is needed. **Only borderline results get repeated.**
 
-## En casa: el paciente
+## At home: the patient
 
 <table>
 <tr>
-<td width="50%" align="center"><img src="docs/img/kit.webp" alt="El kit en 3D: la caja se abre, salen los sobres, el vaso, la plantilla y los tubos; la tira se moja y se posa en la plantilla; después, el tensiómetro y el reloj" width="100%"></td>
+<td width="50%" align="center"><img src="docs/img/kit.webp" alt="The kit in 3D: the box opens, out come the sachets, the cup, the color card and the tubes; the strip is dipped and laid on the card; then the blood pressure monitor and the watch" width="100%"></td>
 <td width="50%">
 
-**El kit, a la medida de cada ficha.** Una cajita como la de un medicamento con tres tiras en sobres, un vaso plegable, la plantilla de color y dos tubos. La propia caja vuelve al laboratorio con el franqueo pagado. Si hace falta, se suma un tensiómetro prestado o el reloj del paciente.
+**The kit, tailored to each record.** A small box like a medicine pack with three strips in sachets, a collapsible cup, the color card and two tubes. The box itself goes back to the lab with prepaid postage. If needed, a loaned blood pressure monitor or the patient's own watch is added.
 
-Quitar el manguito no pierde nada medible (AUC 0,844 con y sin él), así que solo se presta a quien sale con la tensión alta. → [kit_en_casa.md](reports/kit_en_casa.md)
+Leaving out the cuff loses nothing measurable (AUC 0.844 with and without it), so it is only loaned to people whose blood pressure comes out high. → [kit_en_casa.md](reports/kit_en_casa.md)
 
 </td>
 </tr>
@@ -61,73 +61,73 @@ Quitar el manguito no pierde nada medible (AUC 0,844 con y sin él), así que so
 
 <table>
 <tr>
-<td align="center" width="33%"><img src="docs/img/preguntas.webp" alt="El asistente hace las preguntas de antes de la prueba en un chat" width="240"></td>
-<td align="center" width="33%"><img src="docs/img/camara.webp" alt="La cámara encuentra la plantilla, corrige la luz y lee las dos almohadillas de la tira" width="240"></td>
+<td align="center" width="33%"><img src="docs/img/preguntas.webp" alt="The assistant asks the pre-test questions in a chat" width="240"></td>
+<td align="center" width="33%"><img src="docs/img/camara.webp" alt="The camera finds the color card, corrects the lighting and reads the strip's two pads" width="240"></td>
 <td width="34%">
 
-**Pregunta antes, como una persona.** Ejercicio intenso, fiebre, regla o escozor al orinar disparan la albúmina sin que haya daño; si hay alguno, la prueba se aplaza.
+**Asks first, like a person would.** Intense exercise, fever, a period or burning when urinating push albumin up without any damage; if any applies, the test is postponed.
 
-**Lee la tira con la cámara.** Las cuatro marcas de la plantilla dan la posición; los parches de color y de grises corrigen la luz de cada casa antes de leer la albúmina y la creatinina.
+**Reads the strip with the camera.** The card's four markers give the position; the color and gray patches correct each home's lighting before reading albumin and creatinine.
 
-**Contesta qué hacer, no un número:** «ya está», «repite mañana» o «manda el tubo».
+**Answers what to do, not a number:** "you're done", "repeat tomorrow" or "send the tube".
 
 </td>
 </tr>
 </table>
 
-<p align="center"><img src="docs/img/app.webp" alt="Pantallas de la app: inicio con la tarjeta del reloj, elegir reloj, lectura de la tira, resultado y asistente" width="880"></p>
+<p align="center"><img src="docs/img/app.webp" alt="App screens: home with the watch card, choosing a watch, reading the strip, result and assistant" width="880"></p>
 
-La app conecta **Apple Watch y otros relojes** (Galaxy, Pixel, Fitbit, Garmin, Withings) para el pulso diario y un ECG de 30 segundos; sin reloj, el pulso se mide con la cámara. Un **asistente** explica cada resultado y no diagnostica, y el paciente puede escribir a su médico con sus pruebas adjuntas.
+The app connects **Apple Watch and other watches** (Galaxy, Pixel, Fitbit, Garmin, Withings) for daily pulse and a 30-second ECG; without a watch, pulse is measured with the camera. An **assistant** explains each result without diagnosing, and the patient can message their doctor with their tests attached.
 
-## En la consulta: el médico
+## In the clinic: the doctor
 
-<p align="center"><img src="docs/img/medico.webp" alt="Panel del médico: lista del cupo ordenada, ficha del paciente con la rejilla KDIGO, la creencia sobre la albuminuria y las acciones preparadas" width="880"></p>
+<p align="center"><img src="docs/img/medico.webp" alt="Doctor's dashboard: the ranked practice worklist, the patient record with the KDIGO grid, the belief about albuminuria and the prepared actions" width="880"></p>
 
-- **Hoy:** el cupo ordenado por **lo que cambiaría**, no por quién está peor. *Actuar* recoge hallazgos claros sin diagnóstico registrado (albuminuria repetida, tensión alta en casa, pulso irregular dos días…). *Medir* ordena por probabilidad de hallazgo nuevo, con la prueba que más aporta y cómo hacerla desde casa.
-- **La ficha:** por qué está en la lista, la rejilla KDIGO con la probabilidad de cada casilla, la tendencia del filtrado, las tiras, la tensión de la semana y el ECG del reloj.
-- **Ya preparado:** la petición, la nota clínica con su código CIE-10-ES, las sugerencias de la guía *a valorar* y el mensaje al paciente. Un clic y queda en la historia.
-- **Mensajes, kits e indicadores del cupo:** cobertura de la prueba de orina antes y ahora, y el embudo de kits enviados a diagnósticos nuevos.
+- **Today:** the practice list ranked by **what would change**, not by who is sickest. *Act* collects clear findings with no recorded diagnosis (repeated albuminuria, high blood pressure at home, irregular pulse on two days…). *Measure* ranks by probability of a new finding, with the most informative test and how to do it from home.
+- **The record:** why the patient is on the list, the KDIGO grid with the probability of each cell, the eGFR trend, the strips, the week's blood pressure and the watch ECG.
+- **Ready to go:** the order, the clinical note with its ICD-10 code, the guideline suggestions *to consider* and the message to the patient. One click and it is in the record.
+- **Messages, kits and practice indicators:** urine test coverage before and now, and the funnel from kits sent to new diagnoses.
 
-## El motor
+## The engine
 
-| Modelo | Qué hace | Con qué datos |
+| Model | What it does | Data |
 |---|---|---|
-| **Filtro bayesiano de la albuminuria** | Estima el cociente albúmina/creatinina verdadero combinando tiras y laboratorio, con dilución, elevaciones pasajeras y censura | NHANES 2009-2010 |
-| **Panel virtual de sangre** | FG, HbA1c, glucosa, potasio, colesterol no-HDL, hemoglobina y NT-proBNP con su incertidumbre, desde la historia y la orina | NHANES |
-| **Riesgo cardiovascular con desenlaces** | Muerte cardiovascular sin analítica de sangre, frente a SCORE2 | NHANES enlazado con mortalidad; PREDIMED |
-| **Fibrilación auricular** | Irregularidad del pulso entre latidos | 8.528 registros de PhysioNet 2017 |
-| **Fracción de eyección baja** | 30 s de ECG de una derivación (y sonido del corazón) | 620 personas con ecocardiograma (Zenodo) |
-| **Diabetes oculta** | Circuito de glucosa en la farmacia y HbA1c solo si sigue la duda | NHANES 2005-2018 |
-| **Tendencia del FG** | Nivel y pendiente separando el descenso real del ruido | Simulación |
-| **Lista del cupo y decisión** | Umbrales por utilidad clínica y la prueba que más información aporta | NHANES; recalibrado a España con ONDAAS |
+| **Albuminuria Bayesian filter** | Estimates the true albumin-to-creatinine ratio by combining strips and lab results, accounting for dilution, transient elevations and censoring | NHANES 2009-2010 |
+| **Virtual blood panel** | eGFR, HbA1c, glucose, potassium, non-HDL cholesterol, hemoglobin and NT-proBNP with their uncertainty, from the record and the urine | NHANES |
+| **Cardiovascular risk with outcomes** | Cardiovascular death without a blood test, compared with SCORE2 | NHANES linked to mortality; PREDIMED |
+| **Atrial fibrillation** | Beat-to-beat pulse irregularity | 8,528 recordings from PhysioNet 2017 |
+| **Low ejection fraction** | 30 s of single-lead ECG (and heart sound) | 620 people with echocardiogram (Zenodo) |
+| **Undiagnosed diabetes** | Pharmacy glucose pathway, with HbA1c only if doubt remains | NHANES 2005-2018 |
+| **eGFR trend** | Level and slope, separating true decline from noise | Simulation |
+| **Practice worklist and decisions** | Thresholds based on clinical utility and the most informative test | NHANES; recalibrated to Spain with ONDAAS |
 
-## Resultados
+## Results
 
 | | |
 |:---:|---|
-| **75 de 100** | diabetes ocultas encontradas con una glucosa en la farmacia; el cuestionario FINDRISC encuentra 52 con los mismos análisis. → [diabetes_en_casa.md](reports/diabetes_en_casa.md) |
-| **0,88** | AUC para detectar un corazón que bombea poco con 30 s de ECG de una derivación, frente al ecocardiograma (0,91 con el sonido). → [fraccion_eyeccion.md](reports/fraccion_eyeccion.md) |
-| **0,97** | AUC del detector de fibrilación auricular por el ritmo del pulso. → [ritmo.md](reports/ritmo.md) |
-| **+0,054** | AUC sobre SCORE2 al ordenar el riesgo de muerte cardiovascular en diabéticos e hipertensos, sin sacar sangre. → [riesgo_en_casa.md](reports/riesgo_en_casa.md) |
-| **≈ 1.200** | muertes menos al año en España si se usara (rango 103 a 3.886). Es una **estimación con supuestos explícitos**, no un resultado medido. → [vidas_salvadas.md](reports/vidas_salvadas.md) |
+| **75 in 100** | cases of undiagnosed diabetes found with one pharmacy glucose test; the FINDRISC questionnaire finds 52 with the same number of lab tests. → [diabetes_en_casa.md](reports/diabetes_en_casa.md) |
+| **0.88** | AUC for detecting a weakly pumping heart from 30 s of single-lead ECG, against echocardiography (0.91 with heart sound). → [fraccion_eyeccion.md](reports/fraccion_eyeccion.md) |
+| **0.97** | AUC of the atrial fibrillation detector based on pulse rhythm. → [ritmo.md](reports/ritmo.md) |
+| **+0.054** | AUC over SCORE2 when ranking cardiovascular death risk in people with diabetes or hypertension, without drawing blood. → [riesgo_en_casa.md](reports/riesgo_en_casa.md) |
+| **≈ 1,200** | fewer deaths per year in Spain if it were used (range 103 to 3,886). This is an **estimate with explicit assumptions**, not a measured result. → [vidas_salvadas.md](reports/vidas_salvadas.md) |
 
-**Lo que falta, dicho claro:** calibrar la lectura de la tira con muestras reales pareadas y validar en pacientes españoles con seguimiento. Los modelos se entrenaron con datos de EE. UU. y China. El detalle de qué está ajustado con datos y qué es un supuesto está en [docs/solucion.md](docs/solucion.md), apartado 5.
+**What is still missing, plainly:** calibrating the strip reading with real paired samples and validating in Spanish patients with follow-up. The models were trained on data from the US and China. What is fitted to data and what is an assumption is detailed in [docs/solution.md](docs/solution.md), section 5.
 
-## Pruébalo
+## Try it
 
-<p align="center"><img src="docs/img/modelo.jpg" alt="Página «El modelo, en vivo»: el filtro de albuminuria respondiendo en tiempo real" width="880"></p>
+<p align="center"><img src="docs/img/modelo.jpg" alt="The &quot;The model, live&quot; page: the albuminuria filter responding in real time" width="880"></p>
 
-La web trae **«Pruébala»**, la app del paciente con pacientes de ejemplo en la que cada pantalla le pregunta al modelo de verdad, y **«El modelo, en vivo»** (arriba): añade tiras o muestras de laboratorio y mira cómo se estrecha la duda.
+The website includes **"Try it"**, the patient app with sample patients where every screen queries the real model, and **"The model, live"** (above): add strips or lab samples and watch the uncertainty narrow.
 
-**La web** (un solo proceso sirve el sitio y las rutas `/api` que llaman a los modelos):
+**The website** (a single process serves the site and the `/api` routes that call the models):
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File web\start.ps1
 ```
 
-Abre <http://127.0.0.1:8000>. La documentación de la API está en `/api/docs`. Datos sintéticos; el asistente usa Claude si existe `ANTHROPIC_API_KEY` y, si no, contesta en modo guiado con los mismos datos del modelo.
+Open <http://127.0.0.1:8000>. The API documentation is at `/api/docs`. Synthetic data; the assistant uses Claude if `ANTHROPIC_API_KEY` is set and otherwise answers in guided mode with the same model data.
 
-**Los modelos desde la consola:**
+**The models from the command line:**
 
 ```bash
 uv sync
@@ -141,60 +141,60 @@ uv run python scripts/demo_casa.py
 uv run pytest
 ```
 
-`demo_casa.py` recorre el circuito entero (el paciente en casa y la lista del médico); `scripts/demo.py`, la ficha de cinco pacientes. Para rehacer modelos e informes desde los datos públicos, sigue el apartado 4 de [docs/solucion.md](docs/solucion.md).
+`demo_casa.py` runs the whole loop (the patient at home and the doctor's worklist); `scripts/demo.py`, the records of five patients. To rebuild models and reports from the public data, follow section 4 of [docs/solution.md](docs/solution.md).
 
 <details>
-<summary><b>Todos los informes</b></summary>
+<summary><b>All reports</b></summary>
 
-| Informe | Qué comprueba | Con qué |
+| Report | What it checks | Data |
 |---|---|---|
-| [validacion_albuminuria.md](reports/validacion_albuminuria.md) | El filtro de albuminuria | NHANES |
-| [panel_sangre.md](reports/panel_sangre.md) | El panel virtual | NHANES |
-| [robustez.md](reports/robustez.md) | FG y albuminuria juntos, calibración por grupos, umbrales | NHANES |
-| [lista_cupo.md](reports/lista_cupo.md) | El orden de la lista del cupo | NHANES |
-| [riesgo_en_casa.md](reports/riesgo_en_casa.md) | El riesgo con lo medido en casa frente a SCORE2 | NHANES y mortalidad |
-| [kit_en_casa.md](reports/kit_en_casa.md) | Qué se pierde al quitar cada pieza del kit | NHANES y mortalidad |
-| [insuficiencia_cardiaca.md](reports/insuficiencia_cardiaca.md) | Qué se sabe de la insuficiencia cardíaca desde casa | Personas con seguimiento |
-| [fraccion_eyeccion.md](reports/fraccion_eyeccion.md) | Fracción de eyección baja con pulso, ECG y sonido | 620 personas con ecocardiograma |
-| [pulso_insuficiencia_cardiaca.md](reports/pulso_insuficiencia_cardiaca.md) | Por qué el pulso solo no basta | PhysioNet y pacientes españoles |
-| [insuficiencia_cardiaca_espana.md](reports/insuficiencia_cardiaca_espana.md) | Cuánto de la gravedad se ve desde casa | 992 pacientes españoles (MUSIC) |
-| [diabetes_en_casa.md](reports/diabetes_en_casa.md) | Diabetes oculta: farmacia y glucómetro frente a FINDRISC | NHANES |
-| [ritmo.md](reports/ritmo.md) | El detector de fibrilación auricular | 8.528 registros reales |
-| [validacion_espana.md](reports/validacion_espana.md) | El riesgo cardiovascular en españoles | PREDIMED |
-| [recalibracion_espana.md](reports/recalibracion_espana.md) | El ajuste a la primaria española | ONDAAS |
-| [cribado_en_casa.md](reports/cribado_en_casa.md) | El protocolo en casa | Simulación |
-| [tendencia_fg.md](reports/tendencia_fg.md) | La tendencia del filtrado | Simulación |
-| [vidas_salvadas.md](reports/vidas_salvadas.md) | Muertes evitables al año | Supuestos explícitos |
+| [validacion_albuminuria.md](reports/validacion_albuminuria.md) | The albuminuria filter | NHANES |
+| [panel_sangre.md](reports/panel_sangre.md) | The virtual panel | NHANES |
+| [robustez.md](reports/robustez.md) | eGFR and albuminuria together, calibration by subgroup, thresholds | NHANES |
+| [lista_cupo.md](reports/lista_cupo.md) | The ranking of the practice worklist | NHANES |
+| [riesgo_en_casa.md](reports/riesgo_en_casa.md) | Risk from home measurements compared with SCORE2 | NHANES and mortality |
+| [kit_en_casa.md](reports/kit_en_casa.md) | What is lost by removing each piece of the kit | NHANES and mortality |
+| [insuficiencia_cardiaca.md](reports/insuficiencia_cardiaca.md) | What can be known about heart failure from home | People with follow-up |
+| [fraccion_eyeccion.md](reports/fraccion_eyeccion.md) | Low ejection fraction from pulse, ECG and heart sound | 620 people with echocardiogram |
+| [pulso_insuficiencia_cardiaca.md](reports/pulso_insuficiencia_cardiaca.md) | Why pulse alone is not enough | PhysioNet and Spanish patients |
+| [insuficiencia_cardiaca_espana.md](reports/insuficiencia_cardiaca_espana.md) | How much of the severity can be seen from home | 992 Spanish patients (MUSIC) |
+| [diabetes_en_casa.md](reports/diabetes_en_casa.md) | Undiagnosed diabetes: pharmacy and glucometer vs. FINDRISC | NHANES |
+| [ritmo.md](reports/ritmo.md) | The atrial fibrillation detector | 8,528 real recordings |
+| [validacion_espana.md](reports/validacion_espana.md) | Cardiovascular risk in Spanish people | PREDIMED |
+| [recalibracion_espana.md](reports/recalibracion_espana.md) | Adjustment to Spanish primary care | ONDAAS |
+| [cribado_en_casa.md](reports/cribado_en_casa.md) | The home protocol | Simulation |
+| [tendencia_fg.md](reports/tendencia_fg.md) | The eGFR trend | Simulation |
+| [vidas_salvadas.md](reports/vidas_salvadas.md) | Preventable deaths per year | Explicit assumptions |
 
 </details>
 
 <details>
-<summary><b>Estructura del repositorio</b></summary>
+<summary><b>Repository structure</b></summary>
 
-| Ruta | Contenido |
+| Path | Contents |
 |---|---|
-| `web/site/` | La web: portada, kit 3D, app del paciente, panel del médico y modelo en vivo (HTML, CSS y JavaScript sin compilar) |
-| `web/server/` | Servidor FastAPI que envuelve los modelos en rutas `/api` |
-| `src/latenthealth/albuminuria/` | Filtro de la albuminuria, tira, preguntas de contexto y protocolo en casa |
-| `src/latenthealth/panel/` | Panel virtual de sangre |
-| `src/latenthealth/outcomes/` | Cohorte con mortalidad y modelo de riesgo |
-| `src/latenthealth/assessment.py`, `worklist.py` | Evaluación de cada paciente y lista del cupo |
-| `src/latenthealth/kit.py`, `home.py` | El kit de cada paciente y las medidas de casa |
-| `src/latenthealth/rhythm.py`, `ejection.py`, `diabetes.py` | Fibrilación auricular, fracción de eyección y diabetes |
-| `src/latenthealth/cvrisk.py`, `kidney_trend.py`, `decision.py`, `recalibration.py` | SCORE2, tendencia del FG, umbrales y ajuste a España |
-| `scripts/` | Descarga de datos, ajuste, validación, simulación y demos |
-| `models/`, `reports/`, `tests/` | Modelos entrenados, informes generados y tests |
-| `docs/` | La solución completa, la marca, el guion del vídeo y las imágenes de este README |
-| `video/` | Proyecto Remotion del vídeo |
+| `web/site/` | The website: home page, 3D kit, patient app, doctor's dashboard and live model (uncompiled HTML, CSS and JavaScript) |
+| `web/server/` | FastAPI server that wraps the models in `/api` routes |
+| `src/latenthealth/albuminuria/` | Albuminuria filter, strip, context questions and home protocol |
+| `src/latenthealth/panel/` | Virtual blood panel |
+| `src/latenthealth/outcomes/` | Mortality cohort and risk model |
+| `src/latenthealth/assessment.py`, `worklist.py` | Per-patient assessment and practice worklist |
+| `src/latenthealth/kit.py`, `home.py` | Each patient's kit and home measurements |
+| `src/latenthealth/rhythm.py`, `ejection.py`, `diabetes.py` | Atrial fibrillation, ejection fraction and diabetes |
+| `src/latenthealth/cvrisk.py`, `kidney_trend.py`, `decision.py`, `recalibration.py` | SCORE2, eGFR trend, thresholds and adjustment to Spain |
+| `scripts/` | Data download, fitting, validation, simulation and demos |
+| `models/`, `reports/`, `tests/` | Trained models, generated reports and tests |
+| `docs/` | The full solution, the brand, the video script and the images in this README |
+| `video/` | Remotion project for the video |
 
 </details>
 
-<sub>Prototipo de apoyo a la decisión: no diagnostica ni pauta tratamientos. Pacientes y datos de la web, sintéticos.</sub>
+<sub>Decision-support prototype: it does not diagnose or prescribe treatment. Patients and data on the website are synthetic.</sub>
 
 ---
 
 <details>
-<summary><b>Entrega del hackathon (instrucciones de la organización)</b></summary>
+<summary><b>Hackathon submission (organisers' instructions)</b></summary>
 
 Welcome! This is your team's repository for developing and delivering your hackathon project.
 

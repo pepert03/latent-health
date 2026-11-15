@@ -1,1 +1,1 @@
-"""Servidor local del sitio de LatentHealth: envuelve los modelos de src/latenthealth sin modificarlos."""
+"""Local server for the LatentHealth site: wraps the models in src/latenthealth without modifying them."""

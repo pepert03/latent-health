@@ -1758,7 +1758,7 @@ function select(id, { focusRow = false } = {}) {
 
 // --- Modelo en vivo ----------------------------------------------------------------------------
 async function post(path, body, signal) {
-  const response = await fetch(`/api${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal })
+  const response = await fetch(`/api${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Lang': document.documentElement.lang || 'es' }, body: JSON.stringify(body), signal })
   if (!response.ok) throw new Error(`HTTP ${response.status}`)
   return response.json()
 }

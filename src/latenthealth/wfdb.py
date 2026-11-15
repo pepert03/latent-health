@@ -1,8 +1,8 @@
-"""Lector mínimo de anotaciones de latidos en formato MIT (PhysioNet), sin dependencias.
+"""Minimal, dependency-free reader for MIT-format (PhysioNet) beat annotations.
 
-Un fichero de anotaciones es una lista de palabras de 16 bits: los 6 bits altos dicen el tipo
-y los 10 bajos, las muestras transcurridas desde la anotación anterior. Hay códigos especiales
-para saltos largos y texto. Aquí solo interesa cuándo cae cada latido y de qué tipo es.
+An annotation file is a sequence of 16-bit words: the top 6 bits give the type and the low 10
+the samples elapsed since the previous annotation. Special codes handle long skips and text.
+Here we only care about when each beat occurs and what type it is.
 """
 
 from __future__ import annotations
@@ -13,13 +13,13 @@ from pathlib import Path
 import numpy as np
 
 SKIP, NUM, SUB, CHN, AUX = 59, 60, 61, 62, 63
-# Tipos que son un latido (complejo QRS) en la tabla de PhysioNet.
+# Types that are a beat (QRS complex) in the PhysioNet table.
 BEAT_CODES = frozenset({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 25, 30, 34, 35, 38, 41})
 NORMAL = 1
 
 
 def read_annotations(path) -> tuple[np.ndarray, np.ndarray]:
-    """Muestra y tipo de cada anotación de un fichero en formato MIT."""
+    """Sample index and type of each annotation in an MIT-format file."""
     words = np.frombuffer(Path(path).read_bytes(), dtype="<u2")
     samples, codes = [], []
     time = 0
@@ -29,7 +29,7 @@ def read_annotations(path) -> tuple[np.ndarray, np.ndarray]:
         code, interval = word >> 10, word & 0x3FF
         i += 1
         if code == 0 and interval == 0:
-            break  # fin del fichero
+            break  # end of file
         if code == SKIP:
             if i + 1 >= words.size:
                 break
@@ -37,9 +37,9 @@ def read_annotations(path) -> tuple[np.ndarray, np.ndarray]:
             time += jump - (1 << 32) if jump >= (1 << 31) else jump
             i += 2
         elif code in (NUM, SUB, CHN):
-            continue  # modifican la anotación vecina, no avanzan el tiempo
+            continue  # modify the neighbouring annotation, do not advance time
         elif code == AUX:
-            i += (interval + 1) // 2  # texto adjunto, relleno a longitud par
+            i += (interval + 1) // 2  # attached text, padded to even length
         else:
             time += interval
             samples.append(time)
@@ -48,14 +48,14 @@ def read_annotations(path) -> tuple[np.ndarray, np.ndarray]:
 
 
 def read_beats(path, fs: float) -> tuple[np.ndarray, np.ndarray]:
-    """Instante (s) de cada latido y si es normal."""
+    """Time (s) of each beat and whether it is normal."""
     samples, codes = read_annotations(path)
     keep = np.isin(codes, list(BEAT_CODES))
     return samples[keep] / fs, codes[keep] == NORMAL
 
 
 def read_header(path) -> dict:
-    """Frecuencia de muestreo y los datos de la persona que traen los comentarios de la cabecera."""
+    """Sampling rate and the subject data found in the header comments."""
     lines = Path(path).read_text(encoding="ascii", errors="replace").splitlines()
     fields = lines[0].split()
     out: dict = {"record": fields[0], "fs": float(fields[2].split("/")[0]) if len(fields) > 2 else None}

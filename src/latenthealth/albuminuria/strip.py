@@ -1,23 +1,23 @@
-"""Tira reactiva semicuantitativa de albúmina y creatinina, leída en casa.
+"""Semi-quantitative albumin and creatinine dipstick, read at home.
 
-La tira no da un UACR: da el nivel de color de la almohadilla de albúmina (mg/l) y el de la
-de creatinina (mg/dl). Aquí se calcula la probabilidad de cada lectura dado el UACR verdadero,
-para que el filtro la use igual que una muestra de laboratorio:
+The strip does not give a UACR: it gives the color level of the albumin pad (mg/l) and of
+the creatinine pad (mg/dl). Here we compute the probability of each reading given the true
+UACR, so the filter can use it just like a lab sample:
 
-    P(lectura | x) = Σ_u p(u) · P(creatinina leída | u) · P(albúmina leída | x, u)
+    P(reading | x) = Σ_u p(u) · P(creatinine read | u) · P(albumin read | x, u)
 
-- ``u`` es la dilución de la orina (creatinina real), que no se conoce: se integra con su
-  distribución en ese tipo de muestra. La almohadilla de creatinina informa de ella.
-- La albúmina real de la muestra es UACR de la muestra × creatinina, y el UACR de la muestra
-  sigue el modelo de medida del filtro (variación habitual y elevaciones transitorias).
-- Cada almohadilla se lee con un error en escala logarítmica (sesgo y desviación típica).
+- ``u`` is the urine dilution (actual creatinine), which is unknown: it is integrated over
+  its distribution for that sample type. The creatinine pad informs about it.
+- The sample's actual albumin is the sample UACR × creatinine, and the sample UACR follows
+  the filter's measurement model (usual variation and transient elevations).
+- Each pad is read with an error on the log scale (bias and standard deviation).
 
-Leer las dos almohadillas por separado da mucha más resolución que la categoría del cociente
-(< 30, 30-300, > 300), que también se admite para tiras o aplicaciones que solo dan eso.
+Reading the two pads separately gives much more resolution than the ratio category
+(< 30, 30-300, > 300), which is also supported for strips or apps that only give that.
 
-Los errores por defecto son **supuestos**. Antes de usar una tira concreta hay que estimarlos
-con ``fit_strip_spec`` y muestras leídas a la vez con la tira y en el laboratorio: un filtro
-que cree que la tira es mejor de lo que es deja de estar calibrado.
+The default errors are **assumptions**. Before using a given strip they must be estimated
+with ``fit_strip_spec`` and samples read both with the strip and in the lab: a filter that
+believes the strip is better than it is is no longer calibrated.
 """
 
 from __future__ import annotations
@@ -29,6 +29,7 @@ import numpy as np
 from scipy.optimize import minimize
 from scipy.special import ndtr
 
+from ..i18n import t
 from .context import SampleContext
 from .model import FIRST_MORNING, AlbuminuriaParams, new_sample_survival
 
@@ -37,24 +38,29 @@ _LOG_100 = np.log(100.0)
 
 @dataclass(frozen=True)
 class StripSpec:
-    """Niveles de color de la tira y error de lectura de cada almohadilla (escala log)."""
+    """Strip color levels and reading error of each pad (log scale)."""
 
-    name: str
+    names: str | tuple[str, str]  # display name: plain text or (es, en)
     albumin_levels: tuple[float, ...] = (10.0, 30.0, 80.0, 150.0)  # mg/l
     creatinine_levels: tuple[float, ...] = (10.0, 50.0, 100.0, 200.0, 300.0)  # mg/dl
     albumin_log_sd: float = 0.35
     albumin_log_bias: float = 0.0
     creatinine_log_sd: float = 0.30
     creatinine_log_bias: float = 0.0
-    # Tira (o aplicación) que solo devuelve la categoría del cociente.
+    # Strip (or app) that only returns the ratio category.
     ratio_only: bool = False
     ratio_edges: tuple[float, ...] = (30.0, 300.0)  # mg/g
     ratio_log_sd: float = 0.35
     ratio_log_bias: float = 0.0
 
+    @property
+    def name(self) -> str:
+        """Display name in the current language."""
+        return self.names if isinstance(self.names, str) else t(*self.names)
+
     @staticmethod
     def _edges(levels) -> np.ndarray:
-        """Fronteras entre niveles contiguos: su media geométrica (en log)."""
+        """Boundaries between adjacent levels: their geometric mean (in log)."""
         logs = np.log(np.asarray(levels, dtype=float))
         return (logs[:-1] + logs[1:]) / 2.0
 
@@ -77,84 +83,99 @@ class StripSpec:
         return self._index(self.creatinine_levels, value_mg_dl)
 
 
-# Lectura con la cámara del móvil y una tarjeta de color: menos error que a ojo.
-PHONE_STRIP = StripSpec("tira leída con el móvil", albumin_log_sd=0.30, creatinine_log_sd=0.25)
-# Lectura a ojo comparando con la escala de color del bote (paciente, farmacia o enfermería).
-EYE_STRIP = StripSpec("tira leída a ojo", albumin_log_sd=0.45, creatinine_log_sd=0.40)
-# Solo la categoría del cociente (< 30, 30-300, > 300 mg/g).
-RATIO_STRIP = StripSpec("tira de 3 categorías", ratio_only=True)
+# Read with the phone camera and a color card: less error than by eye.
+PHONE_STRIP = StripSpec(("tira leída con el móvil", "strip read with the phone"), albumin_log_sd=0.30, creatinine_log_sd=0.25)
+# Read by eye against the color scale on the bottle (patient, pharmacy or nurse).
+EYE_STRIP = StripSpec(("tira leída a ojo", "strip read by eye"), albumin_log_sd=0.45, creatinine_log_sd=0.40)
+# Only the ratio category (< 30, 30-300, > 300 mg/g).
+RATIO_STRIP = StripSpec(("tira de 3 categorías", "3-category strip"), ratio_only=True)
 
 
 def _fine_levels(low: float, high: float, n: int) -> tuple[float, ...]:
     return tuple(float(v) for v in np.geomspace(low, high, n))
 
 
-# Lectura continua del color con un modelo de visión. El color de la almohadilla cambia de forma
-# gradual con la concentración; los 4 o 5 niveles son para el ojo. Se representa como una tira
-# con muchos niveles dentro del mismo rango químico (10-150 mg/l y 10-300 mg/dl): desaparece el
-# error de cuantizar y queda solo el de lectura. Con el mismo error que la foto de hoy...
+# Continuous color reading with a vision model. The pad color changes gradually with
+# concentration; the 4 or 5 levels are for the eye. It is represented as a strip with many
+# levels within the same chemical range (10-150 mg/l and 10-300 mg/dl): the quantization error
+# disappears and only the reading error remains. With the same error as today's photo...
 VISION_STRIP = StripSpec(
-    "tira leída en continuo",
+    ("tira leída en continuo", "strip read continuously"),
     albumin_levels=_fine_levels(10.0, 150.0, 13),
     creatinine_levels=_fine_levels(10.0, 300.0, 11),
     albumin_log_sd=0.30,
     creatinine_log_sd=0.25,
 )
-# ... y con la mitad, lo que daría un buen modelo con tarjeta de color y tiempo controlado.
-SHARP_VISION_STRIP = replace(VISION_STRIP, name="tira leída en continuo, mitad de error", albumin_log_sd=0.15, creatinine_log_sd=0.125)
+# ... and with half of it, what a good model with a color card and controlled timing would give.
+SHARP_VISION_STRIP = replace(
+    VISION_STRIP,
+    names=("tira leída en continuo, mitad de error", "strip read continuously, half the error"),
+    albumin_log_sd=0.15,
+    creatinine_log_sd=0.125,
+)
 
 
 @dataclass
 class StripSample:
-    """Una tira hecha en casa. Se da la lectura de las dos almohadillas o la categoría del cociente."""
+    """A strip done at home. Gives either the reading of both pads or the ratio category."""
 
     date: date
     spec: StripSpec = PHONE_STRIP
-    albumin_mg_l: float | None = None  # nivel de color leído en la almohadilla de albúmina
-    creatinine_mg_dl: float | None = None  # nivel de color leído en la de creatinina
-    ratio_category: int | None = None  # 0: < 30, 1: 30-300, 2: > 300 (tiras de solo cociente)
+    albumin_mg_l: float | None = None  # color level read on the albumin pad
+    creatinine_mg_dl: float | None = None  # color level read on the creatinine pad
+    ratio_category: int | None = None  # 0: < 30, 1: 30-300, 2: > 300 (ratio-only strips)
     sample_type: str = FIRST_MORNING
     context: SampleContext | None = None
 
     def __post_init__(self) -> None:
         if self.spec.ratio_only:
             if self.ratio_category is None:
-                raise ValueError("Esta tira solo da la categoría del cociente: falta ratio_category.")
+                raise ValueError(
+                    t(
+                        "Esta tira solo da la categoría del cociente: falta ratio_category.",
+                        "This strip only gives the ratio category: ratio_category is missing.",
+                    )
+                )
         elif self.albumin_mg_l is None or self.creatinine_mg_dl is None:
-            raise ValueError("Faltan las lecturas de las almohadillas de albúmina y creatinina.")
+            raise ValueError(
+                t(
+                    "Faltan las lecturas de las almohadillas de albúmina y creatinina.",
+                    "The albumin and creatinine pad readings are missing.",
+                )
+            )
 
     @property
     def outcome(self) -> tuple[int, int]:
-        """Índices de la lectura en la tabla de ``outcome_table``."""
+        """Indices of the reading in the ``outcome_table`` table."""
         if self.spec.ratio_only:
             return int(self.ratio_category), 0
         return self.spec.albumin_index(self.albumin_mg_l), self.spec.creatinine_index(self.creatinine_mg_dl)
 
     @property
     def nominal_uacr(self) -> float:
-        """UACR aproximado que sugiere la lectura (mg/g); solo para mostrarlo."""
+        """Approximate UACR suggested by the reading (mg/g); for display only."""
         if self.spec.ratio_only:
             edges = [3.0, *self.spec.ratio_edges, 10.0 * self.spec.ratio_edges[-1]]
             k = min(int(self.ratio_category), len(edges) - 2)
-            return float(np.sqrt(edges[k] * edges[k + 1]))  # centro geométrico de la categoría
+            return float(np.sqrt(edges[k] * edges[k + 1]))  # geometric center of the category
         return 100.0 * self.albumin_mg_l / self.creatinine_mg_dl
 
 
 def dilution_grid(p: AlbuminuriaParams, sample_type: str, n: int = 20) -> np.ndarray:
-    """Valores equiprobables de la dilución u = log(creatinina / 100 mg/dl) de ese tipo de muestra."""
+    """Equiprobable values of the dilution u = log(creatinine / 100 mg/dl) for that sample type."""
     q = np.asarray(p.dilution_quantiles[sample_type], dtype=float)
     if q.size < 2:
         return q
     probs = (np.arange(q.size) + 0.5) / q.size
     wanted = (np.arange(n) + 0.5) / n
-    # Fuera del rango guardado se extrapola con la pendiente de los extremos.
+    # Outside the stored range, extrapolate with the slope at the ends.
     lo = q[0] + (wanted - probs[0]) * (q[1] - q[0]) / (probs[1] - probs[0])
     hi = q[-1] + (wanted - probs[-1]) * (q[-1] - q[-2]) / (probs[-1] - probs[-2])
     return np.where(wanted < probs[0], lo, np.where(wanted > probs[-1], hi, np.interp(wanted, probs, q)))
 
 
 def _category_probs(survival: np.ndarray) -> np.ndarray:
-    """De P(valor ≥ frontera_k) (K-1, ...) a la probabilidad de cada una de las K categorías."""
+    """From P(value ≥ boundary_k) (K-1, ...) to the probability of each of the K categories."""
     ones, zeros = np.ones_like(survival[:1]), np.zeros_like(survival[:1])
     upper = np.concatenate([ones, survival, zeros], axis=0)
     return upper[:-1] - upper[1:]
@@ -170,10 +191,10 @@ def outcome_table(
     n_u: int = 20,
     n_gh: int = 7,
 ) -> np.ndarray:
-    """P(lectura | x) para todas las lecturas posibles de la tira de un paciente.
+    """P(reading | x) for every possible strip reading of a patient.
 
-    Devuelve (niveles de albúmina, niveles de creatinina, G), o (categorías, 1, G) si la tira
-    solo da el cociente. ``z`` son las covariables del paciente, (1, 4).
+    Returns (albumin levels, creatinine levels, G), or (categories, 1, G) if the strip only
+    gives the ratio. ``z`` are the patient's covariates, (1, 4).
     """
     nodes, weights = np.polynomial.hermite.hermgauss(n_gh)
     weights = weights / np.sqrt(np.pi)
@@ -187,7 +208,7 @@ def outcome_table(
 
     u = dilution_grid(p, sample_type, n_u)
     a_edges, c_edges = spec.albumin_edges, spec.creatinine_edges
-    # Albúmina leída = log UACR de la muestra + u + sesgo + error. Umbral sobre el UACR de la muestra:
+    # Albumin read = sample log UACR + u + bias + error. Threshold on the sample UACR:
     thresholds = (
         a_edges[None, :, None]
         - u[:, None, None]
@@ -200,7 +221,7 @@ def outcome_table(
     surv = new_sample_survival(p, Z, sample_type, thresholds.ravel(), x, u=u_rows, spike_offset=spike_offset)
     surv = (surv.reshape(*shape, x.size) * weights[None, None, :, None]).sum(axis=2)  # (U, K-1, G)
     p_alb = _category_probs(np.moveaxis(surv, 1, 0))  # (K, U, G)
-    # Creatinina leída = log(creatinina) + sesgo + error, con log(creatinina) = u + log 100.
+    # Creatinine read = log(creatinine) + bias + error, with log(creatinine) = u + log 100.
     c_surv = ndtr((u[None, :] + _LOG_100 + spec.creatinine_log_bias - c_edges[:, None]) / spec.creatinine_log_sd)
     p_creat = _category_probs(c_surv)  # (J, U)
     table = np.einsum("kug,ju->kjg", p_alb, p_creat) / u.size
@@ -208,9 +229,9 @@ def outcome_table(
 
 
 def simulate_reading(spec: StripSpec, log_uacr_sample, u, rng) -> tuple[np.ndarray, np.ndarray]:
-    """Lectura de la tira para muestras con ese log-UACR y esa dilución.
+    """Strip reading for samples with that log-UACR and that dilution.
 
-    Devuelve los índices (albúmina, creatinina) o (categoría del cociente, 0).
+    Returns the (albumin, creatinine) indices or (ratio category, 0).
     """
     y = np.atleast_1d(np.asarray(log_uacr_sample, dtype=float))
     u = np.broadcast_to(np.asarray(u, dtype=float), y.shape)
@@ -226,10 +247,10 @@ def simulate_reading(spec: StripSpec, log_uacr_sample, u, rng) -> tuple[np.ndarr
 
 
 def fit_pad(true_log, category, edges) -> tuple[float, float]:
-    """Sesgo y desviación típica (en log) de una almohadilla, por máxima verosimilitud.
+    """Bias and standard deviation (in log) of one pad, by maximum likelihood.
 
-    ``true_log`` es el log del valor de laboratorio de cada muestra y ``category`` el nivel
-    que se leyó en la tira (índice). Es un probit ordenado con las fronteras conocidas.
+    ``true_log`` is the log of each sample's lab value and ``category`` the level read on
+    the strip (index). It is an ordered probit with known boundaries.
     """
     true_log = np.asarray(true_log, dtype=float)
     category = np.asarray(category, dtype=int)
@@ -247,9 +268,9 @@ def fit_pad(true_log, category, edges) -> tuple[float, float]:
 
 
 def fit_strip_spec(spec: StripSpec, albumin_mg_l, creatinine_mg_dl, albumin_read, creatinine_read) -> StripSpec:
-    """Calibra una tira con muestras medidas a la vez en el laboratorio y con la tira.
+    """Calibrates a strip with samples measured both in the lab and with the strip.
 
-    ``albumin_read`` y ``creatinine_read`` son los niveles de color leídos (en mg/l y mg/dl).
+    ``albumin_read`` and ``creatinine_read`` are the color levels read (in mg/l and mg/dl).
     """
     a_idx = [spec.albumin_index(v) for v in albumin_read]
     c_idx = [spec.creatinine_index(v) for v in creatinine_read]

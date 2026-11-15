@@ -1,20 +1,20 @@
-"""Riesgo acumulado de morir por una causa, con peligros anuales (supervivencia en tiempo discreto).
+"""Cumulative risk of dying from a cause, from yearly hazards (discrete-time survival).
 
-Cada persona se convierte en una fila por año de seguimiento. Dos clasificadores estiman, para
-cada año, la probabilidad de morir por la causa de interés y la de morir por cualquier otra
-(riesgos competitivos). El riesgo a 10 años es la suma, año a año, de morir por la causa
-habiendo sobrevivido hasta entonces:
+Each person becomes one row per year of follow-up. Two classifiers estimate, for each year,
+the probability of dying from the cause of interest and of dying from anything else
+(competing risks). The 10-year risk is the sum, year by year, of dying from the cause having
+survived until then:
 
-    riesgo(H) = Σ_k  h_causa(k) · Π_{j<k} (1 - h_causa(j) - h_otra(j))
+    risk(H) = sum_k  h_cause(k) * prod_{j<k} (1 - h_cause(j) - h_other(j))
 
-Ventajas frente a una ecuación de riesgo clásica:
-- Aprovecha a quien tiene un seguimiento más corto (cuenta los años que sí se le observaron).
-- Con gradient boosting admite predictores que faltan: **da la mejor estimación con lo que
-  haya**, sea solo un cuestionario o todo el kit. No hace falta un modelo por combinación.
-- No supone efectos lineales ni proporcionales.
+Advantages over a classic risk equation:
+- Uses people with shorter follow-up (counts the years they were actually observed).
+- With gradient boosting it accepts missing predictors: **it gives the best estimate with
+  whatever is available**, from just a questionnaire to the whole kit. No model per combination.
+- Assumes neither linear nor proportional effects.
 
-``kind="linear"`` usa una regresión logística agrupada (equivale a una ecuación tipo Cox con
-interacciones con la edad, como SCORE2) para reajustar las ecuaciones clásicas con los mismos datos.
+``kind="linear"`` uses pooled logistic regression (equivalent to a Cox-type equation with age
+interactions, like SCORE2) to refit the classic equations on the same data.
 """
 
 from __future__ import annotations
@@ -29,12 +29,12 @@ from sklearn.preprocessing import StandardScaler
 
 
 def person_periods(df: pd.DataFrame, causes: tuple[int, ...], horizon: int):
-    """Filas persona-año. Devuelve (índice de la persona, año, etiqueta): 0 sobrevive el año,
-    1 muere por la causa, 2 muere por otra. El año incompleto de quien sigue vivo se descarta."""
+    """Person-year rows. Returns (person index, year, label): 0 survives the year,
+    1 dies from the cause, 2 dies from another. The incomplete year of survivors is dropped."""
     years = df.months.to_numpy(float) / 12.0
     died = df.dead.to_numpy(float) == 1
     whole = np.floor(years).astype(int)
-    survived = np.minimum(whole, horizon)  # años completos sobrevividos dentro del horizonte
+    survived = np.minimum(whole, horizon)  # whole years survived within the horizon
     event_year = np.where(died & (whole < horizon), whole, -1)
     counts = survived + (event_year >= 0)
     person = np.repeat(np.arange(len(df)), counts)
@@ -47,7 +47,7 @@ def person_periods(df: pd.DataFrame, causes: tuple[int, ...], horizon: int):
 
 
 class HazardModel:
-    """Riesgo acumulado por una causa a partir de los predictores disponibles."""
+    """Cumulative risk for a cause from the available predictors."""
 
     def __init__(self, features, horizon: int = 10, kind: str = "boosting", age_interactions: bool = True, **params):
         self.features = list(features)
@@ -94,7 +94,7 @@ class HazardModel:
         return self
 
     def hazards(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
-        """Probabilidad anual de morir por la causa y por otra, (N, horizonte) cada una."""
+        """Yearly probability of dying from the cause and from another, (N, horizon) each."""
         n = len(df)
         person = np.repeat(np.arange(n), self.horizon)
         year = np.tile(np.arange(self.horizon), n)
@@ -104,7 +104,7 @@ class HazardModel:
         return cause, other
 
     def risk(self, df: pd.DataFrame, years: int | None = None) -> np.ndarray:
-        """Probabilidad de morir por la causa antes de ``years`` años (por defecto, el horizonte)."""
+        """Probability of dying from the cause within ``years`` years (default: the horizon)."""
         years = self.horizon if years is None else years
         cause, other = self.hazards(df)
         alive = np.cumprod(1.0 - cause - other, axis=1)

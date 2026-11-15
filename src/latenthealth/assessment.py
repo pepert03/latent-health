@@ -1,22 +1,22 @@
-"""Evaluación cardio-renal-metabólica de un paciente a partir de su historia clínica y lo medido en casa.
+"""Cardio-renal-metabolic assessment of a patient from their clinical record and home measurements.
 
-Une todas las piezas:
-- el filtro de albuminuria (muestras de laboratorio y tiras hechas en casa, con su incertidumbre),
-- el panel virtual (FG, HbA1c, glucosa, potasio, no-HDL, hemoglobina y NT-proBNP estimados
-  con la historia clínica y la última orina cuando no hay analítica reciente),
-- la tendencia del FG con las analíticas previas y los tratamientos,
-- las medidas hechas en casa (tensión, punción capilar, ritmo cardíaco), y
-- el riesgo cardiovascular (SCORE2 y categorías de la guía europea).
+Brings all the pieces together:
+- the albuminuria filter (lab samples and home strips, with their uncertainty),
+- the virtual panel (eGFR, HbA1c, glucose, potassium, non-HDL, hemoglobin and NT-proBNP estimated
+  from the clinical record and the last urine sample when there are no recent labs),
+- the eGFR trend from previous lab tests and treatments,
+- home measurements (blood pressure, finger-prick, heart rhythm), and
+- cardiovascular risk (SCORE2 and the European guideline categories).
 
-Devuelve probabilidades de cada diagnóstico del reto (ERC por categorías KDIGO, diabetes,
-insuficiencia cardíaca), la categoría de riesgo cardiovascular con lo que cambiaría cada
-prueba pendiente, los hallazgos que ya piden actuar y qué pruebas merece la pena pedir.
+Returns the probability of each diagnosis in the challenge (CKD by KDIGO category, diabetes,
+heart failure), the cardiovascular risk category and what each pending test would change, the
+findings that already call for action and which tests are worth ordering.
 
-Un valor de laboratorio reciente (``measured``) siempre sustituye a la estimación. Una medida
-capilar hecha en casa (``home_labs``) la actualiza, porque tiene más error.
+A recent lab value (``measured``) always replaces the estimate. A home finger-prick measurement
+(``home_labs``) updates it, because it has more error.
 
-El FG y la albuminuria **no se tratan como independientes**: cuando el FG no está medido, el
-filtro de albuminuria se resuelve para cada categoría de FG y se combinan.
+eGFR and albuminuria are **not treated as independent**: when eGFR is not measured, the
+albuminuria filter is solved for each eGFR category and the results are combined.
 """
 
 from __future__ import annotations
@@ -39,30 +39,62 @@ from .albuminuria.model import RANDOM
 from .decision import Thresholds
 from .diabetes import DIABETES_FASTING_GLUCOSE, GlucoseReading, fasting_days_above, summarize_glucose
 from .home import BPReading, HeartCheck, HomeBP, HomeLab, RhythmCheck, af_probability, low_ef_probability, summarize_home_bp, update_pmf
+from .i18n import Labels, fmt_num, is_es, t
 from .kidney_trend import EgfrMeasurement, EgfrTrend, TreatmentStart, fit_trend
 from .kidney_trend import describe as describe_trend
 from .outcomes import risk as outcome_risk
 from .recalibration import load_recalibration, shift_below
 
 PANEL_DIR = Path(__file__).resolve().parents[2] / "models" / "panel"
-# Pruebas de casa que puede recomendar la ficha; ``kit`` las lee para decidir qué se le manda.
-URINE_TEST = "UACR (primera orina de la mañana)"
-HOME_GLUCOSE_TEST = "Glucosa capilar en ayunas (en la farmacia o en casa)"
-HOME_BP_TEST = "Tensión en casa"
-HOME_BP_HOW = "Una semana de automedida con manguito validado."
+# Home tests the patient record can recommend; ``kit`` reads them to decide what to send.
+# Functions, not constants: the text depends on the request language (``i18n``).
 
-# variable -> (nombre del modelo, transformación inversa, unidad, etiqueta, decimales)
+
+def urine_test() -> str:
+    return t("UACR (primera orina de la mañana)", "UACR (first morning urine)")
+
+
+def home_glucose_test() -> str:
+    return t("Glucosa capilar en ayunas (en la farmacia o en casa)", "Fasting capillary glucose (at the pharmacy or at home)")
+
+
+def home_bp_test() -> str:
+    return t("Tensión en casa", "Home blood pressure")
+
+
+def home_bp_how() -> str:
+    return t("Una semana de automedida con manguito validado.", "One week of self-measurement with a validated cuff.")
+
+
+def egfr_unit() -> str:
+    return t("ml/min/1,73 m²", "ml/min/1.73 m²")
+
+
+# variable -> (model name, inverse transform, unit, label, decimals). The display label is taken
+# from ``BLOOD_LABELS`` and the eGFR unit from ``egfr_unit()`` (both depend on the language).
 BLOOD = {
-    "egfr": ("egfr", lambda v: v, "ml/min/1,73 m²", "FG", 0),
+    "egfr": ("egfr", lambda v: v, "ml/min/1.73 m²", "eGFR", 0),
     "hba1c": ("hba1c", lambda v: v, "%", "HbA1c", 1),
-    "glucose": ("glucose", lambda v: v, "mg/dl", "Glucosa (sin ayuno)", 0),
-    "potassium": ("potassium", lambda v: v, "mmol/l", "Potasio", 1),
-    "non_hdl": ("non_hdl", lambda v: v, "mg/dl", "Colesterol no-HDL", 0),
-    "hemoglobin": ("hemoglobin", lambda v: v, "g/dl", "Hemoglobina", 1),
+    "glucose": ("glucose", lambda v: v, "mg/dl", "Glucose (non-fasting)", 0),
+    "potassium": ("potassium", lambda v: v, "mmol/l", "Potassium", 1),
+    "non_hdl": ("non_hdl", lambda v: v, "mg/dl", "Non-HDL cholesterol", 0),
+    "hemoglobin": ("hemoglobin", lambda v: v, "g/dl", "Hemoglobin", 1),
     "nt_probnp": ("log_nt_probnp", np.exp, "pg/ml", "NT-proBNP", 0),
 }
+BLOOD_LABELS = Labels(
+    {
+        "egfr": ("FG", "eGFR"),
+        "hba1c": ("HbA1c", "HbA1c"),
+        "glucose": ("Glucosa (sin ayuno)", "Glucose (non-fasting)"),
+        "potassium": ("Potasio", "Potassium"),
+        "non_hdl": ("Colesterol no-HDL", "Non-HDL cholesterol"),
+        "hemoglobin": ("Hemoglobina", "Hemoglobin"),
+        "nt_probnp": ("NT-proBNP", "NT-proBNP"),
+    }
+)
 
-# Riesgo KDIGO por categorías de FG (filas) y albuminuria (columnas A1, A2, A3).
+# KDIGO risk by eGFR category (rows) and albuminuria (columns A1, A2, A3).
+# The level names are machine keys (``kdigo_risk`` in the API); ``KDIGO_RISK_LABELS`` gives the text.
 G_EDGES = [90, 60, 45, 30, 15]  # G1 ≥ 90, G2 60-89, G3a 45-59, G3b 30-44, G4 15-29, G5 < 15
 G_LABELS = ["G1", "G2", "G3a", "G3b", "G4", "G5"]
 G_RANGES = [(90.0, 200.0), (60.0, 90.0), (45.0, 60.0), (30.0, 45.0), (15.0, 30.0), (0.0, 15.0)]
@@ -74,20 +106,23 @@ KDIGO_RISK = {
     "G4": ["muy alto", "muy alto", "muy alto"],
     "G5": ["muy alto", "muy alto", "muy alto"],
 }
-# HDL si no está medido: mediana (mg/dl) y desviación del logaritmo en adultos de 40 años o
-# más de NHANES 2009-2018 (hombre, mujer). Se integra sobre esa distribución.
+KDIGO_RISK_LABELS = Labels(
+    {"bajo": ("bajo", "low"), "moderado": ("moderado", "moderate"), "alto": ("alto", "high"), "muy alto": ("muy alto", "very high")}
+)
+# HDL when not measured: median (mg/dl) and SD of the log in adults aged 40 or over in
+# NHANES 2009-2018 (men, women). The estimate integrates over that distribution.
 TYPICAL_HDL = {False: (46.6, 0.289), True: (56.3, 0.278)}
 
 
 @dataclass
 class ClinicalRecord:
-    """Lo que hay en la historia clínica de atención primaria y lo que el paciente mide en casa."""
+    """What is in the primary care clinical record and what the patient measures at home."""
 
     age: float
     female: bool
     bmi: float | None = None
     waist: float | None = None  # cm
-    sbp: float | None = None  # tensión sistólica media en consulta, mmHg
+    sbp: float | None = None  # mean office systolic blood pressure, mmHg
     dbp: float | None = None
     diabetes: bool = False
     prediabetes: bool = False
@@ -103,28 +138,28 @@ class ClinicalRecord:
     kidney_disease: bool = False
     smoker_now: bool = False
     smoker_ever: bool = False
-    urine_samples: list[Sample] = field(default_factory=list)  # de laboratorio o tiras de casa
-    # Analítica reciente: egfr, hba1c, glucose, potassium, non_hdl, hemoglobin, nt_probnp,
-    # total_cholesterol y hdl (mg/dl).
+    urine_samples: list[Sample] = field(default_factory=list)  # lab samples or home strips
+    # Recent labs: egfr, hba1c, glucose, potassium, non_hdl, hemoglobin, nt_probnp,
+    # total_cholesterol and hdl (mg/dl).
     measured: dict[str, float] = field(default_factory=dict)
     atrial_fibrillation: bool = False
-    diabetes_low_risk: bool = False  # menos de 10 años, bien controlada y sin otros factores
-    egfr_history: list[EgfrMeasurement] = field(default_factory=list)  # analíticas previas de FG
-    treatments: list[TreatmentStart] = field(default_factory=list)  # inicios de iSGLT2 o IECA/ARA-II
-    home_bp: list[BPReading] = field(default_factory=list)  # automedida de la tensión
-    home_labs: dict[str, HomeLab] = field(default_factory=dict)  # punción capilar: egfr, hba1c...
+    diabetes_low_risk: bool = False  # under 10 years, well controlled and no other risk factors
+    egfr_history: list[EgfrMeasurement] = field(default_factory=list)  # previous eGFR lab tests
+    treatments: list[TreatmentStart] = field(default_factory=list)  # SGLT2 inhibitor or ACEi/ARB starts
+    home_bp: list[BPReading] = field(default_factory=list)  # home blood pressure self-measurement
+    home_labs: dict[str, HomeLab] = field(default_factory=dict)  # finger-prick: egfr, hba1c...
     rhythm_checks: list[RhythmCheck] = field(default_factory=list)
-    heart_checks: list[HeartCheck] = field(default_factory=list)  # grabaciones del corazón en casa ya valoradas
+    heart_checks: list[HeartCheck] = field(default_factory=list)  # home heart recordings already scored
     has_smartphone: bool | None = None
-    home_glucose: list[GlucoseReading] = field(default_factory=list)  # glucómetro en casa
-    family_diabetes: bool | None = None  # padres o hermanos con diabetes
-    # Cuestionario de casa (None = no contestado) y pulso.
-    self_rated_health: int | None = None  # 1 excelente, 2 muy buena, 3 buena, 4 regular, 5 mala
-    dyspnea_on_stairs: bool | None = None  # le falta el aire al subir cuestas o escaleras
-    walk_difficulty: int | None = None  # caminar 400 m: 0 ninguna, 1 alguna, 2 mucha, 3 no puede
-    stairs_difficulty: int | None = None  # subir 10 escalones, misma escala
+    home_glucose: list[GlucoseReading] = field(default_factory=list)  # home glucose meter
+    family_diabetes: bool | None = None  # parents or siblings with diabetes
+    # Home questionnaire (None = not answered) and pulse.
+    self_rated_health: int | None = None  # 1 excellent, 2 very good, 3 good, 4 fair, 5 poor
+    dyspnea_on_stairs: bool | None = None  # short of breath walking uphill or on stairs
+    walk_difficulty: int | None = None  # walking 400 m: 0 none, 1 some, 2 much, 3 unable
+    stairs_difficulty: int | None = None  # climbing 10 steps, same scale
     hospitalized_last_year: bool | None = None
-    pulse: float | None = None  # latidos por minuto en reposo
+    pulse: float | None = None  # resting beats per minute
     pulse_irregular: bool | None = None
 
 
@@ -133,11 +168,11 @@ class BloodEstimate:
     name: str
     unit: str
     median: float
-    low: float  # percentil 10
-    high: float  # percentil 90
+    low: float  # 10th percentile
+    high: float  # 90th percentile
     measured: bool
     decimals: int = 0
-    source: str = "estimado"  # "medido", "capilar en casa" o "estimado"
+    source: str = "estimated"  # "measured", "finger-prick at home" or "estimated"
 
 
 @dataclass
@@ -151,27 +186,27 @@ class PatientAssessment:
     albuminuria: AlbuminuriaAssessment
     blood: dict[str, BloodEstimate]
     p_egfr_below_60: float
-    kdigo_g: dict[str, float]  # probabilidad de cada categoría G
-    kdigo_risk: dict[str, float]  # probabilidad de cada nivel de riesgo KDIGO
-    p_ckd: float  # FG < 60 o albuminuria ≥ 30 (sin exigir aún la cronicidad)
+    kdigo_g: dict[str, float]  # probability of each G category
+    kdigo_risk: dict[str, float]  # probability of each KDIGO risk level
+    p_ckd: float  # eGFR < 60 or albuminuria ≥ 30 (chronicity not yet required)
     diabetes: str
     p_diabetes: float | None
     heart_failure: str
     p_nt_probnp_high: float | None
     recommendations: list[Recommendation]
-    kdigo_joint: np.ndarray = field(default=None, repr=False)  # P(categoría G, categoría A), (6, 3)
+    kdigo_joint: np.ndarray = field(default=None, repr=False)  # P(G category, A category), (6, 3)
     egfr_trend: EgfrTrend | None = None
     cv: cvrisk.CvRisk | None = None
     home_bp: HomeBP | None = None
-    p_af: float | None = None  # fibrilación auricular, si hay comprobaciones del ritmo
-    p_low_ef: float | None = None  # fracción de eyección baja, si hay grabaciones del corazón
-    alerts: list[str] = field(default_factory=list)  # hallazgos que ya piden actuar
-    # Probabilidad de que las pruebas pendientes den un hallazgo nuevo (subir de categoría de
-    # riesgo, enfermedad renal que no consta o diabetes sin diagnosticar), y la de cada prueba.
+    p_af: float | None = None  # atrial fibrillation, if there are rhythm checks
+    p_low_ef: float | None = None  # low ejection fraction, if there are heart recordings
+    alerts: list[str] = field(default_factory=list)  # findings that already call for action
+    # Probability that the pending tests give a new finding (higher risk category, unrecorded
+    # kidney disease or undiagnosed diabetes), overall and per test.
     p_new_finding: float = 0.0
     finding_by_test: dict[str, float] = field(default_factory=dict)
-    channel: str = ""  # canal propuesto para las pruebas en casa
-    # Riesgo de muerte cardiovascular con lo medido en casa (modelo con desenlaces reales).
+    channel: str = ""  # proposed channel for the home tests
+    # Risk of cardiovascular death from home measurements (model fitted on real outcomes).
     home_risk: outcome_risk.HomeRisk | None = None
 
 
@@ -179,14 +214,14 @@ class PatientAssessment:
 def _panel_model(target: str, with_urine: bool):
     name = "historia_clínica_y_orina" if with_urine else "historia_clínica"
     if target == "log_nt_probnp":
-        # Si existe, el modelo que además usa los síntomas y el pulso que da el paciente
-        # (scripts/fit_heart_home.py). Sus predictores siguen las convenciones de la cohorte.
+        # If present, the model that also uses the patient's symptoms and pulse
+        # (scripts/fit_heart_home.py). Its predictors follow the cohort's conventions.
         home = PANEL_DIR / f"{target}__{'casa_y_orina' if with_urine else 'casa'}.joblib"
         if home.exists():
             return {**joblib.load(home), "home": True}
     if target == "hba1c":
-        # Si existe, el modelo que además usa la glucosa del glucómetro y los antecedentes
-        # familiares (scripts/fit_diabetes_home.py). Sirve con y sin orina y con y sin glucosa.
+        # If present, the model that also uses meter glucose and family history
+        # (scripts/fit_diabetes_home.py). Works with or without urine and glucose.
         home = PANEL_DIR / "hba1c__casa.joblib"
         if home.exists():
             return {**joblib.load(home), "home": True}
@@ -200,14 +235,14 @@ def _filter(population: str, confirm: float, discard: float):
 
 @lru_cache(maxsize=None)
 def _egfr_shift(population: str) -> float:
-    """Constante del suceso FG < 60 para la población (0 con los modelos tal cual, de NHANES)."""
+    """Offset of the eGFR < 60 event for the population (0 with the raw NHANES models)."""
     recal = load_recalibration() if population == "espana" else None
     return float(recal["egfr"]["constante_fg_menor_60"]) if recal else 0.0
 
 
-# Predicciones del panel ya calculadas: (variable, con orina, predictores) -> distribución.
-# Predecir paciente a paciente es lento (cientos de árboles por variable); ``warm_up`` las
-# calcula de una vez para todo un cupo.
+# Cached panel predictions: (variable, with urine, predictors) -> distribution.
+# Predicting patient by patient is slow (hundreds of trees per variable); ``warm_up``
+# computes them in one go for a whole practice list.
 _PMF_CACHE: dict = {}
 
 
@@ -221,7 +256,7 @@ def _predict_pmf(target: str, with_urine: bool, X: np.ndarray) -> np.ndarray:
 
 
 def _blood_pressure(record: ClinicalRecord) -> tuple[HomeBP | None, float | None, float | None]:
-    """Tensión que se usa: la automedida válida es más fiable que una lectura de consulta."""
+    """Blood pressure to use: valid home self-measurement is more reliable than an office reading."""
     home_bp = summarize_home_bp(record.home_bp)
     if home_bp is not None and home_bp.valid:
         return home_bp, home_bp.office_sbp, home_bp.office_dbp
@@ -229,9 +264,9 @@ def _blood_pressure(record: ClinicalRecord) -> tuple[HomeBP | None, float | None
 
 
 def warm_up(records, population: str = "espana") -> None:
-    """Calcula de una vez las predicciones del panel de muchos pacientes.
+    """Computes the panel predictions for many patients in one go.
 
-    Después, ``assess`` de cada uno es casi inmediato. Lo usa la lista del cupo.
+    Afterwards ``assess`` for each one is almost instant. Used by the practice-list worklist.
     """
     filt = _filter(population, 0.95, 0.05)
     rows: dict[tuple[str, bool], list[np.ndarray]] = {}
@@ -265,7 +300,7 @@ def _features(record: ClinicalRecord, filt, sbp: float | None, dbp: float | None
         "dx_diabetes": float(record.diabetes),
         "dx_prediabetes": float(record.prediabetes),
         "insulin": float(record.insulin),
-        # En NHANES el tratamiento solo se pregunta a quien tiene el diagnóstico.
+        # NHANES only asks about treatment when there is a diagnosis.
         "diabetes_pills": float(record.diabetes_pills) if record.diabetes else nan,
         "dx_hypertension": float(record.hypertension),
         "bp_meds": float(record.bp_meds) if record.hypertension else nan,
@@ -286,13 +321,13 @@ def _features(record: ClinicalRecord, filt, sbp: float | None, dbp: float | None
     }
     if record.urine_samples:
         last = max(record.urine_samples, key=lambda s: s.date)
-        if isinstance(last, StripSample):  # la tira da un valor aproximado
+        if isinstance(last, StripSample):  # a strip gives an approximate value
             uacr = last.nominal_uacr
             creatinine = None if last.spec.ratio_only else last.creatinine_mg_dl
         else:
             uacr, creatinine = last.uacr, last.creatinine_mg_dl
         log_uacr = np.log(uacr)
-        if last.sample_type != RANDOM:  # el panel se entrenó con muestras aleatorias
+        if last.sample_type != RANDOM:  # the panel was trained on random (spot) samples
             log_uacr = log_uacr + float(filt.p.bias_at(RANDOM, log_uacr))
         f["log_uacr"] = log_uacr
         if creatinine is not None:
@@ -302,10 +337,10 @@ def _features(record: ClinicalRecord, filt, sbp: float | None, dbp: float | None
 
 
 def _home_features(record: ClinicalRecord, feats: dict) -> dict:
-    """Predictores con las convenciones de la cohorte con seguimiento (``outcomes.data``).
+    """Predictors following the conventions of the follow-up cohort (``outcomes.data``).
 
-    Parte de los del panel y añade el cuestionario de casa y el pulso. Los fármacos valen 0 si
-    no se toman (en el panel quedan vacíos si no hay diagnóstico) y la edad se acota en 80.
+    Starts from the panel's and adds the home questionnaire and pulse. Drugs are 0 when not
+    taken (in the panel they are blank without a diagnosis) and age is capped at 80.
     """
     nan = np.nan
 
@@ -313,7 +348,7 @@ def _home_features(record: ClinicalRecord, feats: dict) -> dict:
         return nan if value is None else float(value)
 
     def difficulty(value) -> float:
-        # A los menores de 60 sin limitaciones NHANES no les pregunta: cuenta como ninguna.
+        # NHANES does not ask under-60s without limitations: counts as none.
         return float(value) if value is not None else (0.0 if record.age < 60 else nan)
 
     glucose = summarize_glucose(record.home_glucose)
@@ -327,7 +362,7 @@ def _home_features(record: ClinicalRecord, feats: dict) -> dict:
         "bp_meds": float(record.bp_meds),
         "cholesterol_meds": float(record.cholesterol_meds),
         "health": answer(record.self_rated_health),
-        "dyspnea": answer(record.dyspnea_on_stairs) if record.age >= 40 else nan,  # solo se preguntó desde los 40
+        "dyspnea": answer(record.dyspnea_on_stairs) if record.age >= 40 else nan,  # only asked from age 40
         "walk_difficulty": difficulty(record.walk_difficulty),
         "stairs_difficulty": difficulty(record.stairs_difficulty),
         "hospitalized": answer(record.hospitalized_last_year),
@@ -337,7 +372,7 @@ def _home_features(record: ClinicalRecord, feats: dict) -> dict:
 
 
 class _Variable:
-    """Distribución de una variable de la analítica para un paciente: medida, capilar o estimada."""
+    """Distribution of a lab variable for one patient: measured, finger-prick or estimated."""
 
     def __init__(
         self,
@@ -348,7 +383,9 @@ class _Variable:
         with_urine: bool | None = None,
         home_feats: dict | None = None,
     ):
-        target, self.inverse, unit, label, decimals = BLOOD[variable]
+        target, self.inverse, unit, _, decimals = BLOOD[variable]
+        label = BLOOD_LABELS[variable]
+        unit = egfr_unit() if variable == "egfr" else unit
         self.log = target.startswith("log_")
         with_urine = bool(record.urine_samples) if with_urine is None else with_urine
         bundle = _panel_model(target, with_urine)
@@ -360,14 +397,14 @@ class _Variable:
         if variable == "egfr" and _egfr_shift(population):
             self.pmf = shift_below(self.pmf, self.bounds, 60.0, _egfr_shift(population))
         self.value = record.measured.get(variable)
-        source = "medido" if self.value is not None else "estimado"
+        source = t("medido", "measured") if self.value is not None else t("estimado", "estimated")
         if self.value is None and variable in record.home_labs and not self.log:
             lab = record.home_labs[variable]
             error = {k: v for k, v in lab.error(variable).items() if v is not None}
             self.pmf = update_pmf(self.bounds, self.pmf[0], lab.value, **error)[None, :]
-            source = "capilar en casa"
+            source = t("capilar en casa", "finger-prick at home")
         if self.value is None and variable == "hba1c" and bundle.get("home") and record.home_glucose:
-            source = "estimado con la glucosa de casa"
+            source = t("estimado con la glucosa de casa", "estimated with home glucose")
         if self.value is not None:
             v = float(self.value)
             self.estimate = BloodEstimate(label, unit, v, v, v, True, decimals, source)
@@ -376,7 +413,7 @@ class _Variable:
             self.estimate = BloodEstimate(label, unit, float(q[1]), float(q[0]), float(q[2]), False, decimals, source)
 
     def p_below(self, threshold: float) -> float:
-        """P(variable < umbral); exacta (0 o 1) si el valor está medido en el laboratorio."""
+        """P(variable < threshold); exact (0 or 1) if the value was measured in the lab."""
         if self.value is not None:
             return float(self.value < threshold)
         t = np.log(threshold) if self.log else threshold
@@ -393,7 +430,7 @@ class _Variable:
         return mean, float(np.sqrt(self.pmf[0] @ (mids - mean) ** 2 + (np.diff(self.bounds) ** 2 / 12.0) @ self.pmf[0]))
 
     def range_mean(self, lo: float, hi: float) -> float:
-        """Media de la variable dentro de [lo, hi) (reparto uniforme dentro de cada tramo)."""
+        """Mean of the variable within [lo, hi) (uniform within each bin)."""
         a = np.clip(self.bounds[:-1], lo, hi)
         b = np.clip(self.bounds[1:], lo, hi)
         mass = self.pmf[0] * (b - a) / np.diff(self.bounds)
@@ -413,18 +450,17 @@ def assess(
     joint: str = "panel",
     detail: bool = True,
 ) -> PatientAssessment:
-    """Evaluación completa de un paciente.
+    """Full assessment of one patient.
 
-    - ``population``: ``"espana"`` usa los priors recalibrados a atención primaria española (si
-      existen; ver ``recalibration``); ``"nhanes"``, los modelos tal como se ajustaron.
-    - ``thresholds``: probabilidades a partir de las que se actúa (ver ``decision``).
-    - ``joint``: cómo se combinan FG y albuminuria cuando el FG no está medido. ``"panel"``
-      (por defecto): el panel da la distribución del FG y el filtro de albuminuria se resuelve
-      para cada categoría; ``"bayes"``: además, las muestras de orina actualizan esa
-      distribución; ``"independent"``: como si no tuvieran relación. En NHANES las tres dan
-      resultados que no se distinguen (``reports/robustez.md``); se usa la primera porque es
-      coherente y no empeora.
-    - ``detail=False`` omite cuánto ayudaría otra muestra de orina (más rápido, para todo un cupo).
+    - ``population``: ``"espana"`` uses the priors recalibrated to Spanish primary care (if
+      available; see ``recalibration``); ``"nhanes"``, the models as fitted.
+    - ``thresholds``: probabilities above which to act (see ``decision``).
+    - ``joint``: how eGFR and albuminuria are combined when eGFR is not measured. ``"panel"``
+      (default): the panel gives the eGFR distribution and the albuminuria filter is solved for
+      each category; ``"bayes"``: in addition, the urine samples update that distribution;
+      ``"independent"``: as if unrelated. On NHANES the three are indistinguishable
+      (``reports/robustez.md``); the first is used because it is coherent and no worse.
+    - ``detail=False`` skips how much another urine sample would help (faster, for a whole list).
     """
     thresholds = thresholds or Thresholds()
     filt = _filter(population, thresholds.albuminuria_confirm, thresholds.albuminuria_discard)
@@ -438,14 +474,14 @@ def assess(
     egfr = variables["egfr"]
     samples = list(record.urine_samples)
 
-    # --- Filtrado glomerular: medido, con historia (tendencia) o estimado ---
+    # --- eGFR: measured, from history (trend) or estimated ---
     trend = None
     measured_egfr = record.measured.get("egfr")
     history = list(record.egfr_history)
     if history:
         if measured_egfr is not None and as_of is not None and all(m.date != as_of for m in history):
             history.append(EgfrMeasurement(as_of, measured_egfr))
-        # Albuminuria provisional con la última analítica, solo para el prior de la pendiente.
+        # Provisional albuminuria with the latest lab test, only for the slope prior.
         last = max(history, key=lambda m: m.date)
         rough = filt.assess(Patient(record.age, record.female, record.diabetes, last.egfr, samples), as_of=as_of, detail=False)
         prior_var = _Variable("egfr", replace(record, measured={}, home_labs={}), feats, population)
@@ -461,22 +497,23 @@ def assess(
             prior_level=prior_var.mean_sd(),
         )
         g_probs = np.array([trend.category_probs()[g] for g in G_LABELS])
-        # Valor representativo de cada categoría: el más cercano al nivel estimado.
+        # Representative value of each category: the closest to the estimated level.
         g_values = [float(np.clip(trend.level, lo, hi - 0.5)) for lo, hi in G_RANGES]
         lo, hi = trend.interval("level")
-        blood["egfr"] = BloodEstimate("FG", "ml/min/1,73 m²", trend.level, lo, hi, False, 0, f"tendencia de {trend.n} analíticas")
+        source = t(f"tendencia de {trend.n} analíticas", f"trend from {trend.n} lab tests")
+        blood["egfr"] = BloodEstimate(BLOOD_LABELS["egfr"], egfr_unit(), trend.level, lo, hi, False, 0, source)
     elif measured_egfr is not None:
         g_probs = _g_probs([float(measured_egfr < e) for e in G_EDGES])
         g_values = [float(measured_egfr)] * 6
     else:
         source = egfr
         if joint == "bayes" and samples:
-            # Se parte del panel sin orina (con la punción capilar, si la hay) y la orina lo actualiza.
+            # Start from the panel without urine (with the finger-prick, if any) and let urine update it.
             source = _Variable("egfr", record, feats, population, with_urine=False)
         g_probs = _g_probs([source.p_below(e) for e in G_EDGES])
         g_values = [source.range_mean(lo, hi) for lo, hi in G_RANGES]
 
-    # --- Albuminuria, condicionada a cada categoría de FG ---
+    # --- Albuminuria, conditioned on each eGFR category ---
     known_g = measured_egfr is not None and not history
     if known_g or joint == "independent":
         center = float(measured_egfr) if known_g else float(np.dot(g_probs, g_values))
@@ -512,26 +549,31 @@ def assess(
 
     # --- Diabetes ---
     if record.diabetes:
-        diabetes, p_diabetes = "diagnosticada", None
+        diabetes, p_diabetes = t("diagnosticada", "diagnosed"), None
     else:
         p_diabetes = 1.0 - variables["hba1c"].p_below(6.5)
-        diabetes = "probable" if p_diabetes >= 0.5 else "posible" if p_diabetes >= 0.1 else "poco probable"
+        if p_diabetes >= 0.5:
+            diabetes = t("probable", "likely")
+        elif p_diabetes >= 0.1:
+            diabetes = t("posible", "possible")
+        else:
+            diabetes = t("poco probable", "unlikely")
 
-    # --- Insuficiencia cardíaca: NT-proBNP ≥ 125 pg/ml (umbral de exclusión en consulta) ---
+    # --- Heart failure: NT-proBNP ≥ 125 pg/ml (rule-out threshold in primary care) ---
     if record.heart_failure:
-        heart, p_bnp = "diagnosticada", None
+        heart, p_bnp = t("diagnosticada", "diagnosed"), None
     else:
         p_bnp = 1.0 - variables["nt_probnp"].p_below(125.0)
-        heart = "a descartar" if p_bnp >= thresholds.nt_probnp else "poco probable"
+        heart = t("a descartar", "to rule out") if p_bnp >= thresholds.nt_probnp else t("poco probable", "unlikely")
 
-    # --- Grabación del corazón en casa: fracción de eyección baja ---
+    # --- Home heart recording: low ejection fraction ---
     p_low_ef = None
     if record.heart_checks and not record.heart_failure:
         p_low_ef = low_ef_probability(record.heart_checks, record.age, coronary=record.coronary)
         if p_low_ef >= thresholds.echo:
-            heart = "a descartar"
+            heart = t("a descartar", "to rule out")
 
-    # --- Ritmo ---
+    # --- Rhythm ---
     p_af = None
     if record.rhythm_checks and not record.atrial_fibrillation:
         p_af = af_probability(record.rhythm_checks, record.age, female=record.female)
@@ -540,9 +582,10 @@ def assess(
     finding_by_test = dict(cv.finding_by_test)
     p_diabetes_pending = p_diabetes if (p_diabetes is not None and "hba1c" not in record.measured) else 0.0
     if p_diabetes_pending:
-        # Sin glucosa de casa, lo primero es el glucómetro; con ella, lo que queda es confirmar con la HbA1c.
+        # Without home glucose the first step is the meter; with it, what remains is confirming with HbA1c.
+        # (Keys of ``finding_by_test`` are machine values read by the web front end.)
         finding_by_test["HbA1c" if record.home_glucose else "glucosa"] = p_diabetes_pending
-    # La diabetes oculta se toma como independiente del hallazgo renal o cardiovascular.
+    # Hidden diabetes is taken as independent of the kidney or cardiovascular finding.
     p_new_finding = 1.0 - (1.0 - cv.p_finding) * (1.0 - p_diabetes_pending)
     if p_low_ef is not None and p_low_ef >= thresholds.echo:
         finding_by_test["ecocardiograma"] = p_low_ef
@@ -551,15 +594,19 @@ def assess(
     recs = _recommendations(record, alb, p_g3, p_diabetes, p_bnp, cv, home_bp, sbp, p_af, thresholds, bool(history), p_low_ef)
     channel = choose_channel(record.age, record.has_smartphone).value
     home = outcome_risk.home_risk(home_feats)
-    # Las preguntas sobre síntomas no cambian el orden del riesgo de muerte cardiovascular, pero sí
-    # afinan quién tendrá el NT-proBNP alto en mayores de 60 años (reports/insuficiencia_cardiaca.md).
+    # Symptom questions do not change the ranking of cardiovascular death risk, but they do
+    # sharpen who will have a high NT-proBNP over age 60 (reports/insuficiencia_cardiaca.md).
     symptoms_unknown = record.dyspnea_on_stairs is None or record.walk_difficulty is None
     if record.age >= 60 and p_bnp is not None and p_bnp >= thresholds.nt_probnp and symptoms_unknown:
         recs.append(
             Recommendation(
-                "Preguntas sobre síntomas",
-                "Falta de aire al subir cuestas y dificultad para caminar, contestadas desde casa: afinan la sospecha "
-                "de insuficiencia cardíaca antes de pedir el NT-proBNP.",
+                t("Preguntas sobre síntomas", "Symptom questions"),
+                t(
+                    "Falta de aire al subir cuestas y dificultad para caminar, contestadas desde casa: afinan la sospecha "
+                    "de insuficiencia cardíaca antes de pedir el NT-proBNP.",
+                    "Shortness of breath walking uphill and difficulty walking, answered from home: they sharpen the "
+                    "suspicion of heart failure before ordering NT-proBNP.",
+                ),
             )
         )
     return PatientAssessment(
@@ -570,8 +617,8 @@ def assess(
 
 
 def _cv_risk(record, variables, joint_ga, alb, sbp, egfr_known: bool) -> cvrisk.CvRisk:
-    """Categoría de riesgo cardiovascular con la incertidumbre de lo que falta por medir."""
-    approximate = record.age < 40  # SCORE2 empieza a los 40 años: por debajo se calcula como si los tuviera
+    """Cardiovascular risk category with the uncertainty of what is still unmeasured."""
+    approximate = record.age < 40  # SCORE2 starts at 40: younger patients are scored as if they were 40
     sbp_known = sbp is not None
     if not sbp_known:
         sbp, approximate = (140.0 if record.hypertension else 125.0), True
@@ -586,7 +633,7 @@ def _cv_risk(record, variables, joint_ga, alb, sbp, egfr_known: bool) -> cvrisk.
             non_hdl = non_hdl[:1]
         if "hdl" in m:
             hdl_values = np.array([m["hdl"]])
-        else:  # sin HDL medido: cinco valores equiprobables de su distribución por sexo
+        else:  # no measured HDL: five equally likely values from its sex-specific distribution
             median, sd_log = TYPICAL_HDL[bool(record.female)]
             hdl_values = median * np.exp(sd_log * ndtri((np.arange(5) + 0.5) / 5.0))
             approximate = True
@@ -622,141 +669,238 @@ def _cv_risk(record, variables, joint_ga, alb, sbp, egfr_known: bool) -> cvrisk.
 
 
 def _alerts(record, alb, trend, home_bp, variables, p_af, thresholds) -> list[str]:
-    """Hallazgos ya suficientemente claros como para actuar (no hace falta otra prueba para verlos)."""
+    """Findings already clear enough to act on (no further test is needed to see them)."""
     out = []
     if alb.status == "confirmada" and not record.kidney_disease:
-        out.append("Albuminuria persistente sin enfermedad renal crónica registrada.")
+        out.append(t("Albuminuria persistente sin enfermedad renal crónica registrada.", "Persistent albuminuria with no chronic kidney disease on record."))
     if not record.kidney_disease:
         if trend is not None and trend.chronic_below_60:
-            out.append("FG por debajo de 60 en analíticas separadas más de tres meses, sin enfermedad renal crónica registrada.")
+            out.append(
+                t(
+                    "FG por debajo de 60 en analíticas separadas más de tres meses, sin enfermedad renal crónica registrada.",
+                    "eGFR below 60 in lab tests more than three months apart, with no chronic kidney disease on record.",
+                )
+            )
     if trend is not None and trend.status == "descenso_rapido":
-        out.append(f"Descenso rápido del FG: {_num(trend.slope, 1)} ml/min/1,73 m² al año.")
+        slope = _num(trend.slope, 1)
+        out.append(t(f"Descenso rápido del FG: {slope} ml/min/1,73 m² al año.", f"Rapid eGFR decline: {slope} ml/min/1.73 m² per year."))
     elif trend is not None and trend.status == "descenso":
-        out.append(f"Descenso sostenido del FG: {_num(trend.slope, 1)} ml/min/1,73 m² al año.")
+        slope = _num(trend.slope, 1)
+        out.append(t(f"Descenso sostenido del FG: {slope} ml/min/1,73 m² al año.", f"Sustained eGFR decline: {slope} ml/min/1.73 m² per year."))
     if home_bp is not None and home_bp.valid and home_bp.p_high >= 0.9:
-        out.append(home_bp.message + (" Sin hipertensión registrada." if not record.hypertension else ""))
+        out.append(home_bp.message + (t(" Sin hipertensión registrada.", " No hypertension on record.") if not record.hypertension else ""))
     if not record.diabetes and fasting_days_above(record.home_glucose) >= 2:
         out.append(
-            f"Glucosa en ayunas de {DIABETES_FASTING_GLUCOSE:.0f} mg/dl o más en dos días distintos, medida en casa, sin "
-            "diabetes registrada: confirmar con HbA1c."
+            t(
+                f"Glucosa en ayunas de {DIABETES_FASTING_GLUCOSE:.0f} mg/dl o más en dos días distintos, medida en casa, sin "
+                "diabetes registrada: confirmar con HbA1c.",
+                f"Fasting glucose of {DIABETES_FASTING_GLUCOSE:.0f} mg/dl or more on two different days, measured at home, with no "
+                "diabetes on record: confirm with HbA1c.",
+            )
         )
     hba1c = record.measured.get("hba1c")
     if hba1c is not None and hba1c >= 6.5 and not record.diabetes:
-        out.append(f"HbA1c de {_num(hba1c, 1)} % sin diabetes registrada (confirmar con una segunda determinación).")
+        value = _num(hba1c, 1)
+        out.append(
+            t(
+                f"HbA1c de {value} % sin diabetes registrada (confirmar con una segunda determinación).",
+                f"HbA1c of {value}% with no diabetes on record (confirm with a second test).",
+            )
+        )
     bnp = record.measured.get("nt_probnp")
     if bnp is not None and bnp >= 125 and not record.heart_failure:
-        out.append(f"NT-proBNP de {_num(bnp)} pg/ml sin insuficiencia cardíaca registrada: pedir ecocardiograma.")
+        value = _num(bnp)
+        out.append(
+            t(
+                f"NT-proBNP de {value} pg/ml sin insuficiencia cardíaca registrada: pedir ecocardiograma.",
+                f"NT-proBNP of {value} pg/ml with no heart failure on record: order an echocardiogram.",
+            )
+        )
     if p_af is not None and p_af >= 0.5:
-        out.append(f"Pulso irregular repetido en casa (P(fibrilación auricular) = {p_af:.0%}).")
+        out.append(
+            t(
+                f"Pulso irregular repetido en casa (P(fibrilación auricular) = {p_af:.0%}).",
+                f"Repeated irregular pulse at home (P(atrial fibrillation) = {p_af:.0%}).",
+            )
+        )
     return out
 
 
 def _recommendations(record, alb, p_g3, p_diabetes, p_bnp, cv, home_bp, sbp, p_af, thresholds, has_history, p_low_ef=None) -> list[Recommendation]:
     recs = []
     if alb.status in ("sin_medir", "dudosa", "pendiente_cronicidad"):
-        recs.append(Recommendation(URINE_TEST, alb.action))
+        recs.append(Recommendation(urine_test(), alb.action))
     egfr_pending = "egfr" not in record.measured and not has_history
     if egfr_pending and p_g3 > thresholds.creatinine:
-        how = " Ya hay una punción capilar; conviene confirmarla en el laboratorio." if "egfr" in record.home_labs else ""
-        recs.append(Recommendation("Creatinina (FG)", f"P(FG < 60) estimada: {p_g3:.0%}; hay que medirlo para estadificar la ERC.{how}"))
+        how = (
+            t(" Ya hay una punción capilar; conviene confirmarla en el laboratorio.", " There is already a finger-prick result; it should be confirmed in the lab.")
+            if "egfr" in record.home_labs
+            else ""
+        )
+        recs.append(
+            Recommendation(
+                t("Creatinina (FG)", "Creatinine (eGFR)"),
+                t(
+                    f"P(FG < 60) estimada: {p_g3:.0%}; hay que medirlo para estadificar la ERC.{how}",
+                    f"Estimated P(eGFR < 60): {p_g3:.0%}; it must be measured to stage CKD.{how}",
+                ),
+            )
+        )
     single_egfr = record.measured.get("egfr")
     if single_egfr is not None and single_egfr < 60 and not has_history and not record.kidney_disease:
         recs.append(
             Recommendation(
-                "Repetir creatinina a los tres meses",
-                "Un FG por debajo de 60 aislado no basta para el diagnóstico: hay que confirmarlo pasados tres meses.",
+                t("Repetir creatinina a los tres meses", "Repeat creatinine in three months"),
+                t(
+                    "Un FG por debajo de 60 aislado no basta para el diagnóstico: hay que confirmarlo pasados tres meses.",
+                    "A single eGFR below 60 is not enough for the diagnosis: it must be confirmed after three months.",
+                ),
             )
         )
     if p_diabetes is not None and "hba1c" not in record.measured:
-        # Dos pasos: la glucosa capilar se mide con poca sospecha; el análisis se pide si esa glucosa la mantiene.
+        # Two steps: capillary glucose is measured on low suspicion; the lab test follows if that glucose keeps it up.
         if record.home_glucose:
             if p_diabetes > thresholds.hba1c:
                 recs.append(
-                    Recommendation("HbA1c", f"P(diabetes sin diagnosticar) con la glucosa capilar: {p_diabetes:.0%}. Confirmar con análisis.")
+                    Recommendation(
+                        "HbA1c",
+                        t(
+                            f"P(diabetes sin diagnosticar) con la glucosa capilar: {p_diabetes:.0%}. Confirmar con análisis.",
+                            f"P(undiagnosed diabetes) with the capillary glucose: {p_diabetes:.0%}. Confirm with a lab test.",
+                        ),
+                    )
                 )
         elif p_diabetes > thresholds.home_glucose:
             recs.append(
                 Recommendation(
-                    HOME_GLUCOSE_TEST,
-                    f"P(diabetes sin diagnosticar) estimada: {p_diabetes:.0%}. Una medida de glucosa lo aclara casi siempre sin análisis.",
+                    home_glucose_test(),
+                    t(
+                        f"P(diabetes sin diagnosticar) estimada: {p_diabetes:.0%}. Una medida de glucosa lo aclara casi siempre sin análisis.",
+                        f"Estimated P(undiagnosed diabetes): {p_diabetes:.0%}. A glucose reading almost always settles it without a lab test.",
+                    ),
                 )
             )
     if p_bnp is not None and "nt_probnp" not in record.measured and p_bnp >= thresholds.nt_probnp:
         recs.append(
-            Recommendation("NT-proBNP", f"P(NT-proBNP ≥ 125) estimada: {p_bnp:.0%}; si sale alto, ecocardiograma.")
+            Recommendation(
+                "NT-proBNP",
+                t(f"P(NT-proBNP ≥ 125) estimada: {p_bnp:.0%}; si sale alto, ecocardiograma.", f"Estimated P(NT-proBNP ≥ 125): {p_bnp:.0%}; if high, echocardiogram."),
+            )
         )
     treat_kidney = alb.status in ("confirmada", "pendiente_cronicidad") or p_g3 >= 0.5
     if treat_kidney and "potassium" not in record.measured:
-        recs.append(Recommendation("Potasio", "Antes de iniciar o subir IECA/ARA-II o finerenona."))
+        recs.append(
+            Recommendation(
+                t("Potasio", "Potassium"),
+                t("Antes de iniciar o subir IECA/ARA-II o finerenona.", "Before starting or increasing an ACE inhibitor/ARB or finerenone."),
+            )
+        )
     if cv is not None and cv.p_up_by_test.get("lípidos", 0.0) >= 0.05:
         recs.append(
             Recommendation(
-                "Colesterol total y HDL",
-                f"Sin ellos no se puede calcular el SCORE2; probabilidad de que suba de categoría: {cv.p_up_by_test['lípidos']:.0%}.",
+                t("Colesterol total y HDL", "Total and HDL cholesterol"),
+                t(
+                    f"Sin ellos no se puede calcular el SCORE2; probabilidad de que suba de categoría: {cv.p_up_by_test['lípidos']:.0%}.",
+                    f"SCORE2 cannot be calculated without them; probability of moving up a category: {cv.p_up_by_test['lípidos']:.0%}.",
+                ),
             )
         )
     if home_bp is not None and not home_bp.valid:
-        recs.append(Recommendation(HOME_BP_TEST, home_bp.message))
+        recs.append(Recommendation(home_bp_test(), home_bp.message))
     elif home_bp is None and (sbp is None or (sbp >= 135 and not record.hypertension) or (sbp >= 140 and record.hypertension)):
-        why = "No hay tensión registrada." if sbp is None else f"Tensión en consulta de {sbp:.0f} mmHg."
-        recs.append(Recommendation(HOME_BP_TEST, f"{why} {HOME_BP_HOW}"))
+        if sbp is None:
+            why = t("No hay tensión registrada.", "No blood pressure on record.")
+        else:
+            why = t(f"Tensión en consulta de {sbp:.0f} mmHg.", f"Office blood pressure of {sbp:.0f} mmHg.")
+        recs.append(Recommendation(home_bp_test(), f"{why} {home_bp_how()}"))
     if p_af is not None and p_af >= thresholds.ecg:
-        recs.append(Recommendation("ECG", f"P(fibrilación auricular) tras las comprobaciones en casa: {p_af:.0%}."))
+        recs.append(
+            Recommendation(
+                "ECG",
+                t(f"P(fibrilación auricular) tras las comprobaciones en casa: {p_af:.0%}.", f"P(atrial fibrillation) after the home checks: {p_af:.0%}."),
+            )
+        )
     if p_low_ef is not None and p_low_ef >= thresholds.echo:
         recs.append(
             Recommendation(
-                "Ecocardiograma",
-                f"P(fracción de eyección ≤ 40 %) tras la grabación del corazón en casa: {p_low_ef:.0%}. "
-                "Pedir antes el NT-proBNP si hay lista de espera: si sale alto, el ecocardiograma es preferente.",
+                t("Ecocardiograma", "Echocardiogram"),
+                t(
+                    f"P(fracción de eyección ≤ 40 %) tras la grabación del corazón en casa: {p_low_ef:.0%}. "
+                    "Pedir antes el NT-proBNP si hay lista de espera: si sale alto, el ecocardiograma es preferente.",
+                    f"P(ejection fraction ≤ 40%) after the home heart recording: {p_low_ef:.0%}. "
+                    "Order NT-proBNP first if there is a waiting list: if it is high, the echocardiogram is a priority.",
+                ),
             )
         )
     return recs
 
 
 def _num(v: float, decimals: int = 0) -> str:
-    """Número en formato español: coma decimal y punto de miles (3.333; 5,8)."""
-    return f"{v:,.{decimals}f}".translate(str.maketrans({",": ".", ".": ","}))
+    """Number in the current language: "3.333; 5,8" in Spanish, "3,333; 5.8" in English."""
+    return fmt_num(v, decimals)
 
 
 def describe(a: PatientAssessment) -> str:
-    """Resumen en texto para el médico."""
+    """Plain-text summary for the clinician."""
     lines = []
     if a.alerts:
-        lines += ["HALLAZGOS QUE PIDEN ACTUAR", *("  - " + alert for alert in a.alerts)]
+        lines += [t("HALLAZGOS QUE PIDEN ACTUAR", "FINDINGS THAT CALL FOR ACTION"), *("  - " + alert for alert in a.alerts)]
     lines += ["ALBUMINURIA", *("  " + line for line in describe_albuminuria(a.albuminuria).splitlines())]
-    lines.append("ANALÍTICA (medida o estimada con la historia y la orina; 80 % de probabilidad)")
+    lines.append(
+        t(
+            "ANALÍTICA (medida o estimada con la historia y la orina; 80 % de probabilidad)",
+            "LABS (measured, or estimated from the record and urine; 80% probability)",
+        )
+    )
     for est in a.blood.values():
         median, low, high = (_num(v, est.decimals) for v in (est.median, est.low, est.high))
+        unit = f" {est.unit}" if (est.unit != "%" or is_es()) else est.unit
         if est.measured:
-            lines.append(f"  {est.name}: {median} {est.unit} (medido)")
+            lines.append(f"  {est.name}: {median}{unit} " + t("(medido)", "(measured)"))
         else:
-            lines.append(f"  {est.name}: {median} {est.unit} (entre {low} y {high}, {est.source})")
+            lines.append(f"  {est.name}: {median}{unit} " + t(f"(entre {low} y {high}, {est.source})", f"(between {low} and {high}, {est.source})"))
     if a.egfr_trend is not None:
-        lines += ["TENDENCIA DEL FG", *("  " + line for line in describe_trend(a.egfr_trend).splitlines())]
+        lines += [t("TENDENCIA DEL FG", "eGFR TREND"), *("  " + line for line in describe_trend(a.egfr_trend).splitlines())]
     if a.home_bp is not None:
-        lines += ["EN CASA", f"  {a.home_bp.message}"]
-    risk = ", ".join(f"{k} {v:.0%}" for k, v in a.kdigo_risk.items())
+        lines += [t("EN CASA", "AT HOME"), f"  {a.home_bp.message}"]
+    risk = ", ".join(f"{KDIGO_RISK_LABELS.get(k, k)} {v:.0%}" for k, v in a.kdigo_risk.items())
+    p_dm = f" (P = {a.p_diabetes:.0%})" if a.p_diabetes is not None else ""
+    p_bnp = f" (P(NT-proBNP ≥ 125) = {a.p_nt_probnp_high:.0%})" if a.p_nt_probnp_high is not None else ""
     lines += [
-        "DIAGNÓSTICOS",
-        f"  Enfermedad renal crónica: P(FG < 60 o albuminuria ≥ 30) = {a.p_ckd:.0%}; riesgo KDIGO: {risk}",
-        f"  Diabetes: {a.diabetes}" + (f" (P = {a.p_diabetes:.0%})" if a.p_diabetes is not None else ""),
-        f"  Insuficiencia cardíaca: {a.heart_failure}"
-        + (f" (P(NT-proBNP ≥ 125) = {a.p_nt_probnp_high:.0%})" if a.p_nt_probnp_high is not None else ""),
+        t("DIAGNÓSTICOS", "DIAGNOSES"),
+        t(
+            f"  Enfermedad renal crónica: P(FG < 60 o albuminuria ≥ 30) = {a.p_ckd:.0%}; riesgo KDIGO: {risk}",
+            f"  Chronic kidney disease: P(eGFR < 60 or albuminuria ≥ 30) = {a.p_ckd:.0%}; KDIGO risk: {risk}",
+        ),
+        f"  Diabetes: {a.diabetes}" + p_dm,
+        t(f"  Insuficiencia cardíaca: {a.heart_failure}", f"  Heart failure: {a.heart_failure}") + p_bnp,
     ]
     if a.p_af is not None:
-        lines.append(f"  Fibrilación auricular: P = {a.p_af:.0%} tras las comprobaciones del ritmo en casa")
+        lines.append(
+            t(
+                f"  Fibrilación auricular: P = {a.p_af:.0%} tras las comprobaciones del ritmo en casa",
+                f"  Atrial fibrillation: P = {a.p_af:.0%} after the home rhythm checks",
+            )
+        )
     if a.p_low_ef is not None:
-        lines.append(f"  Fracción de eyección baja: P = {a.p_low_ef:.0%} tras la grabación del corazón en casa")
+        lines.append(
+            t(
+                f"  Fracción de eyección baja: P = {a.p_low_ef:.0%} tras la grabación del corazón en casa",
+                f"  Low ejection fraction: P = {a.p_low_ef:.0%} after the home heart recording",
+            )
+        )
     if a.cv is not None:
-        lines += ["RIESGO CARDIOVASCULAR", *("  " + line for line in cvrisk.describe(a.cv).splitlines())]
+        lines += [t("RIESGO CARDIOVASCULAR", "CARDIOVASCULAR RISK"), *("  " + line for line in cvrisk.describe(a.cv).splitlines())]
     if a.home_risk is not None:
-        lines += ["RIESGO CON LO MEDIDO EN CASA", *("  " + line for line in outcome_risk.describe(a.home_risk).splitlines())]
+        lines += [
+            t("RIESGO CON LO MEDIDO EN CASA", "RISK FROM HOME MEASUREMENTS"),
+            *("  " + line for line in outcome_risk.describe(a.home_risk).splitlines()),
+        ]
     if a.p_new_finding >= 0.005:
         by_test = sorted(a.finding_by_test.items(), key=lambda kv: -kv[1])
-        detail = ", ".join(f"{t} {p:.0%}" for t, p in by_test if p >= 0.005)
-        lines.append(
-            f"HALLAZGO NUEVO SI SE COMPLETAN LAS PRUEBAS: {a.p_new_finding:.0%}" + (f" ({detail})" if detail else "")
-        )
-    lines.append("PRUEBAS RECOMENDADAS")
-    lines += [f"  - {r.test}: {r.reason}" for r in a.recommendations] or ["  (ninguna)"]
+        detail = ", ".join(f"{cvrisk.TEST_LABELS.get(test, test)} {p:.0%}" for test, p in by_test if p >= 0.005)
+        heading = t("HALLAZGO NUEVO SI SE COMPLETAN LAS PRUEBAS", "NEW FINDING IF THE TESTS ARE COMPLETED")
+        lines.append(f"{heading}: {a.p_new_finding:.0%}" + (f" ({detail})" if detail else ""))
+    lines.append(t("PRUEBAS RECOMENDADAS", "RECOMMENDED TESTS"))
+    lines += [f"  - {r.test}: {r.reason}" for r in a.recommendations] or [t("  (ninguna)", "  (none)")]
     return "\n".join(lines)

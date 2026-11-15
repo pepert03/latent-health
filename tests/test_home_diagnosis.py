@@ -1,4 +1,4 @@
-"""Diagnóstico en casa: glucómetro, detector de ritmo y muestra española."""
+"""Home diagnosis: glucometer, rhythm detector and the Spanish sample."""
 
 from datetime import date, timedelta
 
@@ -28,11 +28,11 @@ def person(**overrides) -> pd.DataFrame:
 
 def test_findrisc_adds_the_published_points():
     assert findrisc(person())[0] == 0
-    # 58 años (3), IMC 31 (3), cintura de hombre 104 (4), sedentario (2), pastillas de tensión (2),
-    # glucosa alta alguna vez (5) y padre diabético (5) = 24.
+    # Age 58 (3), BMI 31 (3), male waist 104 (4), sedentary (2), blood pressure pills (2),
+    # high glucose at some point (5) and diabetic father (5) = 24.
     high = person(age=58, bmi=31, waist=104, active=0, bp_meds=1, told_high_glucose=1, family_diabetes=1)
     assert findrisc(high)[0] == 24
-    assert findrisc(person(female=1.0, waist=85))[0] == 3  # en mujeres la cintura puntúa desde 80 cm
+    assert findrisc(person(female=1.0, waist=85))[0] == 3  # in women the waist scores from 80 cm
     assert findrisc(person(age=70, bmi=27))[0] == 5
     assert np.isnan(findrisc(person(waist=np.nan))[0])
 
@@ -47,7 +47,7 @@ def test_fasting_readings_are_averaged_and_counted_by_day():
     readings = [
         GlucoseReading(D0, 130.0, 10.0),
         GlucoseReading(D0 + timedelta(days=1), 120.0, 9.0),
-        GlucoseReading(D0 + timedelta(days=1), 180.0, 1.5),  # después de comer: no entra en la media
+        GlucoseReading(D0 + timedelta(days=1), 180.0, 1.5),  # after eating: not included in the average
     ]
     value, hours = summarize_glucose(readings)
     assert value == pytest.approx(np.sqrt(130.0 * 120.0)) and hours == pytest.approx(9.5)
@@ -56,7 +56,7 @@ def test_fasting_readings_are_averaged_and_counted_by_day():
     assert fasting_days_above(readings + [GlucoseReading(D0 + timedelta(days=2), 131.0, 12.0)]) == 2
 
 
-@pytest.mark.skipif(not (PANEL_DIR / "hba1c__casa.joblib").exists(), reason="falta el modelo (scripts/fit_diabetes_home.py)")
+@pytest.mark.skipif(not (PANEL_DIR / "hba1c__casa.joblib").exists(), reason="model missing (scripts/fit_diabetes_home.py)")
 def test_home_glucose_moves_the_diabetes_estimate():
     base = ClinicalRecord(age=58, female=False, bmi=31, waist=106, sbp=138, hypertension=True, bp_meds=True)
     unknown = assess(base)
@@ -64,18 +64,18 @@ def test_home_glucose_moves_the_diabetes_estimate():
     high_days = [GlucoseReading(D0 - timedelta(days=i), 142.0 + i, 10.0) for i in range(3)]
     high = assess(ClinicalRecord(**{**base.__dict__, "home_glucose": high_days}))
     assert normal.p_diabetes < unknown.p_diabetes < high.p_diabetes
-    assert high.p_diabetes > 0.25 and normal.p_diabetes < 0.02  # la glucosa y la HbA1c no siempre coinciden
-    assert high.blood["hba1c"].source == "estimado con la glucosa de casa"
-    # Sin glucosa se pide el glucómetro; con ella alta, la HbA1c; y dos días en ayunas altos son un hallazgo.
-    assert any(r.test.startswith("Glucosa capilar") for r in unknown.recommendations)
+    assert high.p_diabetes > 0.25 and normal.p_diabetes < 0.02  # glucose and HbA1c do not always agree
+    assert high.blood["hba1c"].source == "estimated with home glucose"
+    # Without glucose the glucometer is requested; with high glucose, HbA1c; two high fasting days are a finding.
+    assert any(r.test.startswith("Fasting capillary glucose") for r in unknown.recommendations)
     assert any(r.test == "HbA1c" for r in high.recommendations)
-    assert not any(r.test in ("HbA1c",) or r.test.startswith("Glucosa capilar") for r in normal.recommendations)
-    assert any("Glucosa en ayunas" in alert for alert in high.alerts)
+    assert not any(r.test in ("HbA1c",) or r.test.startswith("Fasting capillary glucose") for r in normal.recommendations)
+    assert any("Fasting glucose" in alert for alert in high.alerts)
     assert "glucosa" in unknown.finding_by_test and "HbA1c" in high.finding_by_test
-    assert "con la glucosa de casa" in describe(high)
+    assert "with home glucose" in describe(high)
 
 
-# --- Ritmo ---
+# --- Rhythm ---
 
 
 def regular(n=40, rate=70.0, wobble=0.02, seed=0):
@@ -119,7 +119,7 @@ def test_camera_degradation_drops_and_blurs_beats():
     assert np.std(np.diff(worse)) > np.std(np.diff(beats))
 
 
-@pytest.mark.skipif(not rhythm.available(), reason="falta el detector (scripts/fit_rhythm.py)")
+@pytest.mark.skipif(not rhythm.available(), reason="detector missing (scripts/fit_rhythm.py)")
 def test_detector_flags_irregular_rhythm_and_feeds_the_patient_record():
     calm, chaotic = rhythm.classify_intervals(regular()), rhythm.classify_intervals(fibrillating())
     assert chaotic.probability > 0.5 > calm.probability
@@ -128,7 +128,7 @@ def test_detector_flags_irregular_rhythm_and_feeds_the_patient_record():
     assert calm.heart_rate == pytest.approx(70.0, rel=0.03)
     unusable = rhythm.classify_intervals([0.8, 0.9])
     assert not unusable.usable and unusable.likelihood_ratio == 1.0
-    # La ficha usa la razón de verosimilitud del detector, no un sí o no con valores fijos.
+    # The record uses the detector's likelihood ratio, not a yes/no with fixed values.
     check = rhythm.check_from_intervals(D0, fibrillating())
     assert check.likelihood_ratio == pytest.approx(chaotic.likelihood_ratio)
     assert af_probability([check], 76, female=False) > af_probability([], 76, female=False)
@@ -142,10 +142,10 @@ def test_plain_rhythm_checks_use_measured_sensitivity_and_specificity():
     assert af_probability([RhythmCheck(D0, True, likelihood_ratio=1.0)], 76, female=False) == pytest.approx(prior)
 
 
-# --- Muestra española ---
+# --- Spanish sample ---
 
 
-@pytest.mark.skipif(not PREDIMED_PATH.exists(), reason="falta la muestra PREDIMED (scripts/download_open_data.py)")
+@pytest.mark.skipif(not PREDIMED_PATH.exists(), reason="PREDIMED sample missing (scripts/download_open_data.py)")
 def test_predimed_sample_is_read_from_the_r_file():
     d = load_predimed()
     assert len(d) == 6324 and int(d.event.sum()) == 252
@@ -155,3 +155,15 @@ def test_predimed_sample_is_read_from_the_r_file():
     assert (d.smoker_ever >= d.smoker_now).all()
     followup = as_followup(d)
     assert followup.dead.sum() == 252 and followup.months.max() == pytest.approx(84.0, abs=0.2)
+
+
+def test_home_bp_messages_in_spanish():
+    from latenthealth.home import BPReading, summarize_home_bp
+    from latenthealth.i18n import use_lang
+
+    week = [BPReading(D0 + timedelta(days=d), 149.0, 91.0) for d in range(7) for _ in range(4)]
+    with use_lang("es"):
+        assert summarize_home_bp(week).message == "Tensión alta en casa: media 149/91 mmHg (límite 135/85)."
+        short = summarize_home_bp(week[:4])
+        assert short.message == "Faltan lecturas: hay 4 en 1 días (sin contar el primero). Hacen falta al menos 12 en 3 días."
+    assert summarize_home_bp(week).message == "High blood pressure at home: average 149/91 mmHg (limit 135/85)."

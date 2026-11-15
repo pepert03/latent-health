@@ -1,1 +1,1 @@
-"""LatentHealth: detección precoz del riesgo cardio-renal-metabólico en atención primaria."""
+"""LatentHealth: early detection of cardio-renal-metabolic risk in primary care."""

@@ -279,6 +279,19 @@ abbr[title] {
   padding: 0 13px;
 }
 
+.top .lang-switch,
+.top-nav .lang-switch {
+  flex: none;
+  min-width: 36px;
+  padding: 0 8px;
+  border-color: transparent;
+  font: 500 12px/1 var(--mono);
+  letter-spacing: 0.08em;
+}
+.top .lang-switch:hover {
+  border-color: rgb(13 34 38 / 0.16);
+}
+
 /* ------------------------------------------------------------------ título */
 .title {
   font: 700 28px/1.05 var(--sans);

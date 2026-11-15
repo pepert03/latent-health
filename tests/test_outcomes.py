@@ -1,4 +1,4 @@
-"""Modelo de riesgo con desenlaces: filas persona-año, riesgo acumulado y métricas."""
+"""Outcome risk model: person-year rows, cumulative risk and metrics."""
 
 import numpy as np
 import pandas as pd
@@ -7,6 +7,7 @@ from sklearn.metrics import roc_auc_score
 
 from latenthealth.albuminuria import PHONE_STRIP, VISION_STRIP
 from latenthealth.assessment import ClinicalRecord, assess, describe
+from latenthealth.i18n import use_lang
 from latenthealth.outcomes import BLOCKS, add_strip, complete_home, mask_blocks
 from latenthealth.outcomes import risk as outcome_risk
 from latenthealth.outcomes.data import _difficulty, _taking
@@ -21,10 +22,10 @@ def people(months, dead, cause):
 
 
 def test_person_periods_count_years_and_label_the_event_year():
-    # Vivo a los 3,5 años; muere del corazón a los 2,2; muere de otra cosa a los 0,4; vivo a los 12.
+    # Alive at 3.5 years; heart death at 2.2; other death at 0.4; alive at 12.
     d = people([42, 26, 5, 144], [0, 1, 1, 0], [np.nan, 1, 2, np.nan])
     person, year, label = person_periods(d, CV, horizon=10)
-    assert np.bincount(person).tolist() == [3, 3, 1, 10]  # el año incompleto del vivo no cuenta
+    assert np.bincount(person).tolist() == [3, 3, 1, 10]  # a survivor's incomplete year does not count
     assert year[person == 1].tolist() == [0, 1, 2] and label[person == 1].tolist() == [0, 0, 1]
     assert label[person == 2].tolist() == [2]
     assert label[person == 0].sum() == 0 and label[person == 3].sum() == 0
@@ -37,15 +38,15 @@ def test_deaths_after_the_horizon_are_not_events():
 
 
 def simulated(n, rng):
-    """Riesgo anual constante que depende de dos predictores; un tercero es ruido."""
+    """Constant yearly hazard driven by two predictors; a third is noise."""
     x = rng.standard_normal((n, 3))
-    x[rng.random((n, 3)) < 0.1] = np.nan  # faltan datos
+    x[rng.random((n, 3)) < 0.1] = np.nan  # missing data
     lp = np.nan_to_num(x[:, 0]) * 0.9 + np.nan_to_num(x[:, 1]) * 0.5
     h_cv = 0.012 * np.exp(lp)
     h_other = np.full(n, 0.02)
     t_cv = rng.exponential(1.0 / h_cv)
     t_other = rng.exponential(1.0 / h_other)
-    t_end = rng.uniform(4.0, 16.0, n)  # fin del seguimiento
+    t_end = rng.uniform(4.0, 16.0, n)  # end of follow-up
     t = np.minimum.reduce([t_cv, t_other, t_end])
     dead = (t < t_end).astype(float)
     cause = np.where(dead == 0, np.nan, np.where(t_cv < t_other, 1.0, 2.0))
@@ -63,7 +64,7 @@ def test_hazard_model_recovers_the_ten_year_risk(kind):
     risk = model.risk(test)
     assert np.all((risk >= 0) & (risk <= 1))
     assert np.corrcoef(risk, true_risk)[0, 1] > 0.85
-    assert risk.mean() == pytest.approx(true_risk.mean(), rel=0.2)  # calibrado con riesgos competitivos y censura
+    assert risk.mean() == pytest.approx(true_risk.mean(), rel=0.2)  # calibrated under competing risks and censoring
     assert np.all(np.diff([model.risk(test, years=y).mean() for y in (2, 5, 10)]) > 0)
 
 
@@ -83,7 +84,7 @@ def test_auc_matches_sklearn_and_helpers_behave():
 
 
 def test_c_index_counts_only_comparable_pairs():
-    # Quien muere antes debe tener más puntuación que quien sigue más tiempo en seguimiento.
+    # Whoever dies earlier should score higher than anyone followed up for longer.
     months = np.array([10.0, 20.0, 30.0, 40.0])
     event = np.array([True, False, True, False])
     assert c_index(months, event, np.array([4.0, 3.0, 2.0, 1.0])) == 1.0
@@ -93,7 +94,7 @@ def test_c_index_counts_only_comparable_pairs():
 
 def test_questionnaire_harmonisation_rules():
     age = np.array([45.0, 70.0, 70.0])
-    assert _difficulty(np.array([np.nan, np.nan, 3.0]), age).tolist()[0] == 0.0  # joven sin limitaciones: no se pregunta
+    assert _difficulty(np.array([np.nan, np.nan, 3.0]), age).tolist()[0] == 0.0  # young without limitations: not asked
     assert np.isnan(_difficulty(np.array([np.nan, np.nan, 3.0]), age)[1])
     assert _difficulty(np.array([np.nan, np.nan, 3.0]), age)[2] == 2.0
     assert _taking(np.array([1.0, 0.0, np.nan]), np.array([1.0, np.nan, np.nan])).tolist()[:2] == [1.0, 0.0]
@@ -104,9 +105,9 @@ def test_empty_answers_mean_not_provided_rather_than_frail():
     n = 400
     d = pd.DataFrame({c: rng.random(n) for cols in BLOCKS.values() for c in cols})
     d["age"] = rng.uniform(25, 80, n)
-    d.loc[0, "waist"] = np.nan  # no se le pudo medir: fuera del entrenamiento
+    d.loc[0, "waist"] = np.nan  # could not be measured: excluded from training
     d.loc[1, "dyspnea"] = np.nan
-    d.loc[1, "age"] = 30.0  # a los menores de 40 no se les pregunta la disnea: cuenta como completo
+    d.loc[1, "age"] = 30.0  # under-40s are not asked about dyspnea: counts as complete
     d.loc[2, "dyspnea"] = np.nan
     d.loc[2, "age"] = 60.0
     ok = complete_home(d)
@@ -114,7 +115,7 @@ def test_empty_answers_mean_not_provided_rather_than_frail():
     augmented = mask_blocks(d[ok], rng, copies=2, p=0.5)
     assert len(augmented) == 3 * ok.sum()
     copies = augmented.iloc[ok.sum() :]
-    for cols in BLOCKS.values():  # cada bloque se borra entero, en torno a la mitad de las veces
+    for cols in BLOCKS.values():  # each block is blanked whole, about half the time
         empty = copies[cols].isna()
         assert 0.35 < empty[cols[0]].mean() < 0.65
         assert (empty.nunique(axis=1) == 1).mean() > 0.99
@@ -134,7 +135,7 @@ def test_vision_strip_has_finer_levels_in_the_same_chemical_range():
     assert VISION_STRIP.albumin_levels[-1] == pytest.approx(PHONE_STRIP.albumin_levels[-1])
 
 
-@pytest.mark.skipif(not outcome_risk.available(), reason="faltan los modelos de riesgo (scripts/fit_outcomes.py)")
+@pytest.mark.skipif(not outcome_risk.available(), reason="risk models missing (scripts/fit_outcomes.py)")
 def test_home_risk_uses_what_the_patient_reports():
     base = ClinicalRecord(age=68, female=False, sbp=138, bmi=28)
     well = assess(ClinicalRecord(age=68, female=False, sbp=138, bmi=28, self_rated_health=1, dyspnea_on_stairs=False, walk_difficulty=0, hospitalized_last_year=False))
@@ -147,13 +148,41 @@ def test_home_risk_uses_what_the_patient_reports():
     unknown = assess(base)
     assert well.home_risk.ratio < unknown.home_risk.ratio < unwell.home_risk.ratio
     assert unwell.home_risk.ratio > 1.5 and well.home_risk.ratio < 1.0
-    assert "salud percibida" in unknown.home_risk.missing and "salud percibida" not in well.home_risk.missing
-    assert "RIESGO CON LO MEDIDO EN CASA" in describe(unwell)
-    # Un dato sin contestar no debe contar como señal de fragilidad: quien no ha aportado nada
-    # queda cerca del riesgo de su edad y sexo.
+    assert "self-rated health" in unknown.home_risk.missing and "self-rated health" not in well.home_risk.missing
+    assert "RISK FROM HOME MEASUREMENTS" in describe(unwell)
+    # An unanswered item must not count as a frailty signal: someone who provided nothing
+    # stays close to the risk for their age and sex.
     assert 0.6 < unknown.home_risk.ratio < 1.6
-    # Las preguntas de síntomas solo se piden a mayores con sospecha de insuficiencia cardíaca.
+    # Symptom questions are only requested from older people with suspected heart failure.
     older = ClinicalRecord(age=78, female=False, hypertension=True, bp_meds=True, coronary=True, sbp=150, bmi=31)
     asked = assess(older)
-    assert asked.p_nt_probnp_high >= 0.3 and any(r.test == "Preguntas sobre síntomas" for r in asked.recommendations)
-    assert not any(r.test == "Preguntas sobre síntomas" for r in unknown.recommendations + well.recommendations)
+    assert asked.p_nt_probnp_high >= 0.3 and any(r.test == "Symptom questions" for r in asked.recommendations)
+    assert not any(r.test == "Symptom questions" for r in unknown.recommendations + well.recommendations)
+
+
+def test_home_risk_text_in_english_by_default():
+    r = outcome_risk.HomeRisk(0.14, 0.07, [outcome_risk.HOME_ITEMS["health"], outcome_risk.HOME_ITEMS["log_uacr"]])
+    assert outcome_risk.describe(r).splitlines() == [
+        "Death from heart disease or stroke in 10 years: 2.0 times that of someone of the same age and sex",
+        "Absolute model risk (US population, not recalibrated to Spain): 14%; same age and sex: 7%",
+        "Still to answer or measure: self-rated health, urine.",
+    ]
+
+
+def test_home_risk_text_in_spanish():
+    with use_lang("es"):
+        r = outcome_risk.HomeRisk(0.14, 0.07, [outcome_risk.HOME_ITEMS["health"], outcome_risk.HOME_ITEMS["log_uacr"]])
+        assert dict(outcome_risk.HOME_ITEMS)["sbp"] == "tensión"
+        assert outcome_risk.describe(r).splitlines() == [
+            "Muerte por corazón o ictus en 10 años: 2,0 veces la de alguien de su edad y sexo",
+            "Riesgo absoluto del modelo (población de EE. UU., sin recalibrar a España): 14%; de su edad y sexo: 7%",
+            "Faltan por contestar o medir: salud percibida, orina.",
+        ]
+
+
+@pytest.mark.skipif(not outcome_risk.available(), reason="risk models missing (scripts/fit_outcomes.py)")
+def test_home_risk_missing_labels_in_spanish():
+    with use_lang("es"):
+        r = outcome_risk.home_risk({"age": 68.0, "female": 0.0, "sbp": 138.0, "bmi": 28.0})
+    assert "salud percibida" in r.missing and "falta de aire al subir cuestas" in r.missing
+    assert "tensión" not in r.missing

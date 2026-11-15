@@ -1,11 +1,11 @@
-"""Ajuste del modelo por máxima verosimilitud con las parejas de muestras de NHANES 2009-2010.
+"""Maximum-likelihood fit of the model on the NHANES 2009-2010 sample pairs.
 
-Cada persona aporta una muestra aleatoria y una primera orina de la mañana separadas por
-unos días. Se asume que en ese intervalo el nivel verdadero no cambia, así que su
-diferencia informa del sesgo por tipo de muestra, del ruido y de las elevaciones
-transitorias. La verosimilitud de cada persona integra el nivel verdadero en la rejilla::
+Each person contributes a random sample and a first morning urine a few days apart. The
+true level is assumed not to change in that interval, so their difference informs about
+the sample-type bias, the noise and the transient elevations. Each person's likelihood
+integrates the true level over the grid::
 
-    p(y_aleatoria, y_mañana | z) = ∫ p(x | z) p(y_aleatoria | x) p(y_mañana | x) dx
+    p(y_random, y_morning | z) = ∫ p(x | z) p(y_random | x) p(y_morning | x) dx
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ _BOUNDS = {
     "log_sigma_random": (np.log(0.02), np.log(3.0)),
     "eta_dilution": (-3.0, 3.0),
     "log_nu": (np.log(0.5), np.log(1000.0)),
-    "logit_spike_random": (-30.0, 0.0),  # ρ ≤ 0,5 de base: la elevación es la excepción
+    "logit_spike_random": (-30.0, 0.0),  # baseline ρ ≤ 0.5: the elevation is the exception
     "logit_spike_morning": (-30.0, 0.0),
     "kappa_dilution": (-5.0, 5.0),
     "log_spike_size": (np.log(0.05), np.log(5.0)),
@@ -57,6 +57,7 @@ _BOUNDS = {
 
 _NO_SAMPLE_COVARIATES = {"eta_dilution": 0.0, "kappa": [0.0] * N_COVARIATES, "kappa_dilution": 0.0}
 _LIGHT_SPIKES = {"log_nu_spike": float(np.log(1000.0))}
+# Variant names are CLI choices and file-name suffixes (scripts/fit_albuminuria.py); keep them.
 VARIANTS = {
     "completo": {},
     "picos_normales": dict(_LIGHT_SPIKES),
@@ -68,7 +69,7 @@ VARIANTS = {
 
 
 def nhanes_arrays(df: pd.DataFrame) -> dict:
-    """Covariables y observaciones en el formato del modelo."""
+    """Covariates and observations in the model format."""
     Z = covariates(df.age, df.female, df.diabetes, df.egfr)
     obs = [
         Observations(
@@ -83,7 +84,7 @@ def nhanes_arrays(df: pd.DataFrame) -> dict:
 
 
 def person_loglik(p: AlbuminuriaParams, data: dict, x: np.ndarray, dx: float) -> np.ndarray:
-    """Log-verosimilitud marginal de cada persona, (N,)."""
+    """Marginal log-likelihood of each person, (N,)."""
     lp = log_prior(p, data["Z"], x)
     for obs in data["obs"]:
         lp = lp + log_obs(p, obs, data["Z"], x)
@@ -107,7 +108,7 @@ def _t_dlognu(z, nu):
 
 
 def _obs_terms(p, obs: Observations, Z, x):
-    """log p(y|x) y sus derivadas (N, G) respecto a r, log s, log ν, logit ρ, log δ, log ω y log ν_e."""
+    """log p(y|x) and its derivatives (N, G) with respect to r, log s, log ν, logit ρ, log δ, log ω and log ν_e."""
     nu, nu_e, delta, omega = p.nu, p.nu_spike, p.spike_size, p.spike_sd
     X = x[None, :]
     s = noise_scale(p, Z, obs.sample_type, obs.u)[:, None]
@@ -118,9 +119,9 @@ def _obs_terms(p, obs: Observations, Z, x):
     v = (r - delta) / omega
     log_base = np.log1p(-rho) + _t_logpdf(z, nu) - np.log(s)
     log_spike = np.log(rho) + _t_logpdf(v, nu_e) - np.log(omega)
-    with np.errstate(invalid="ignore"):  # filas sin muestra (NaN): se ponen a 0 al final
+    with np.errstate(invalid="ignore"):  # rows without a sample (NaN): set to 0 at the end
         lo = np.logaddexp(log_base, log_spike)
-    q = np.exp(log_spike - lo)  # responsabilidad de la elevación transitoria
+    q = np.exp(log_spike - lo)  # responsibility of the transient elevation
     q0 = 1.0 - q
     psi = -(nu + 1.0) * z / (nu + z * z)  # d log t / dz
     psi_e = -(nu_e + 1.0) * v / (nu_e + v * v)
@@ -134,7 +135,7 @@ def _obs_terms(p, obs: Observations, Z, x):
         "log_nu_e": q * _t_dlognu(v, nu_e),
     }
     rows = np.flatnonzero(np.asarray(obs.censored, bool) & ~missing)
-    if rows.size:  # y < c: log[(1-ρ) T_ν(z) + ρ T_νe(v)] con z, v evaluados en el límite c
+    if rows.size:  # y < c: log[(1-ρ) T_ν(z) + ρ T_νe(v)] with z, v evaluated at the limit c
         zc, vc, sc, rc = z[rows], v[rows], s[rows], rho[rows]
         log_f0 = np.log1p(-rc) + _t_logcdf(zc, nu)
         log_f1 = np.log(rc) + _t_logcdf(vc, nu_e)
@@ -160,19 +161,19 @@ def _obs_terms(p, obs: Observations, Z, x):
 
 
 def loglik_and_grad(p: AlbuminuriaParams, data: dict, x: np.ndarray, dx: float):
-    """Log-verosimilitud total y su gradiente analítico respecto al vector de parámetros.
+    """Total log-likelihood and its analytic gradient with respect to the parameter vector.
 
-    Para cada persona, d log ∫ exp(ℓ(x)) dx / dθ = E_post[dℓ/dθ], con la posterior en la
-    rejilla. Así un gradiente cuesta lo mismo que unas pocas evaluaciones.
+    For each person, d log ∫ exp(ℓ(x)) dx / dθ = E_post[dℓ/dθ], with the posterior on the
+    grid. So a gradient costs the same as a few evaluations.
     """
     Z = data["Z"]
     X = x[None, :]
-    # Prior: mezcla de K normales.
+    # Prior: mixture of K normals.
     means, taus, log_w = prior_components(p, Z)
     dev = (X[:, None, :] - means[:, :, None]) / taus[None, :, None]  # (N, K, G)
     comp = log_w[:, :, None] - 0.5 * dev**2 - np.log(taus)[None, :, None] - 0.5 * _LOG_2PI
     lp = logsumexp(comp, axis=1)
-    resp = np.exp(comp - lp[:, None, :])  # responsabilidad de cada componente
+    resp = np.exp(comp - lp[:, None, :])  # responsibility of each component
     total = lp
     terms = []
     for obs in data["obs"]:
@@ -202,7 +203,7 @@ def loglik_and_grad(p: AlbuminuriaParams, data: dict, x: np.ndarray, dx: float):
     )
     for obs, d in terms:
         tag = "random" if obs.sample_type == RANDOM else "morning"
-        v_s = (w * d["log_s"]).sum(axis=1)  # por persona
+        v_s = (w * d["log_s"]).sum(axis=1)  # per person
         grad[f"log_sigma_{tag}"] += v_s.sum()
         grad["eta"] = grad["eta"] + Z.T @ v_s
         grad["eta_dilution"] += (v_s * obs.u).sum()
@@ -230,7 +231,7 @@ def _field_slices() -> dict[str, slice]:
 
 
 def dilution_quantiles(df: pd.DataFrame, n: int = 10) -> dict:
-    """Cuantiles de la dilución de cada tipo de muestra, para predecir muestras futuras."""
+    """Dilution quantiles of each sample type, to predict future samples."""
     qs = (np.arange(n) + 0.5) / n
     out = {}
     for tag, sample_type in (("random", RANDOM), ("morning", FIRST_MORNING)):
@@ -246,7 +247,7 @@ def fit(
     maxiter: int = 2000,
     verbose: bool = True,
 ) -> AlbuminuriaParams:
-    """Ajusta todos los parámetros salvo la dinámica y los de ``fixed`` (nombre -> valor o lista)."""
+    """Fits all parameters except the dynamics and those in ``fixed`` (name -> value or list)."""
     fixed = fixed or {}
     x, dx = make_grid(grid_n)
     data = nhanes_arrays(df)
@@ -270,7 +271,7 @@ def fit(
         loglik, grad = loglik_and_grad(unpack(theta), data, x, dx)
         calls[0] += 1
         if verbose and calls[0] % 50 == 0:
-            print(f"  {calls[0]} evaluaciones, -loglik por persona = {-loglik / n:.4f} ({time.time() - start:.0f} s)", flush=True)
+            print(f"  {calls[0]} evaluations, -loglik per person = {-loglik / n:.4f} ({time.time() - start:.0f} s)", flush=True)
         return -loglik / n, -grad[free] / n
 
     result = minimize(
@@ -283,8 +284,9 @@ def fit(
     )
     params = unpack(result.x)
     params.dilution_quantiles = dilution_quantiles(df)
+    # Keys are stored in the saved JSON and read by scripts; keep them.
     params.meta = {
-        "datos": "NHANES 2009-2010, adultos sin embarazo, partición de entrenamiento",
+        "datos": "NHANES 2009-2010, non-pregnant adults, training split",
         "n_personas": n,
         "loglik_por_persona": float(-result.fun),
         "convergencia": bool(result.success),

@@ -1,19 +1,18 @@
-"""Fracción de eyección baja a partir de 30 segundos de ECG de una derivación y sonido cardíaco.
+"""Low ejection fraction from 30 seconds of single-lead ECG and heart sound.
 
-La insuficiencia cardíaca con fracción de eyección reducida (el ventrículo izquierdo expulsa el
-40 % o menos de la sangre que contiene) se confirma con un ecocardiograma. Aquí se estima con
-lo que recoge un aparato de mano apoyado en el pecho: un electrocardiograma de una derivación
-y el sonido del corazón. De esas dos señales salen tres grupos de medidas, de menos a más
-aparato:
+Heart failure with reduced ejection fraction (the left ventricle ejects 40% or less of the
+blood it holds) is confirmed by echocardiogram. Here it is estimated from what a handheld device
+placed on the chest records: a single-lead electrocardiogram and the heart sound. These two
+signals give three groups of features, from less to more equipment:
 
-- **Pulso**: solo los intervalos entre latidos (lo que da la cámara del móvil o un reloj).
-- **ECG**: la forma del latido promedio (anchura y voltaje del QRS, onda T, segmento ST).
-- **Sonido**: el fonocardiograma promediado latido a latido con el ECG como reloj: cuánto
-  tarda el primer ruido tras el QRS, cuánto dura la sístole, la fuerza relativa de los ruidos
-  y la energía entre ellos (soplos y tercer ruido).
+- **Pulse**: only the inter-beat intervals (what a phone camera or a watch gives).
+- **ECG**: the shape of the average beat (QRS width and voltage, T wave, ST segment).
+- **Sound**: the phonocardiogram averaged beat by beat with the ECG as clock: how long the
+  first heart sound takes after the QRS, how long systole lasts, the relative loudness of the
+  sounds and the energy between them (murmurs and third heart sound).
 
-Datos: Zenodo 16934966 (CC-BY 4.0), 620 personas de dos hospitales de Wuhan con la fracción de
-eyección medida por ecocardiograma y cuatro grabaciones de 30 s con un Eko DUO. Ver
+Data: Zenodo 16934966 (CC-BY 4.0), 620 people from two hospitals in Wuhan with ejection fraction
+measured by echocardiogram and four 30 s recordings with an Eko DUO. See
 ``scripts/fit_ejection.py``.
 """
 
@@ -31,6 +30,7 @@ import numpy as np
 import pandas as pd
 from scipy.signal import butter, hilbert, sosfiltfilt
 
+from .i18n import t
 from .pulse import FEATURES as PULSE
 from .pulse import pulse_features
 from .rhythm import detect_beats
@@ -40,7 +40,7 @@ DATA = ROOT / "data" / "raw" / "hfref"
 MAIN_ZIP = DATA / "HFrEF_5_folds.zip"
 COMMUNITY_ZIP = DATA / "HFrEF_community_scenario_test_set.zip"
 MODEL_PATH = ROOT / "models" / "ritmo" / "fe_baja.joblib"
-SITES = ["APEX", "LLSB", "LUSB", "RUSB"]  # foco mitral, tricuspídeo, pulmonar y aórtico
+SITES = ["APEX", "LLSB", "LUSB", "RUSB"]  # mitral, tricuspid, pulmonary and aortic areas
 REDUCED = 0.40
 
 ECG = [
@@ -52,12 +52,12 @@ SOUND = [
     "s1_time", "s2_time", "systole", "s1_systole", "s1_rel", "systole_rel", "s1_s2", "s1_level", "s2_level", "s1_width",
     "s2_width", "murmur_mid", "murmur_high", "s3_low", "s4_low", "diastole_mid", "low_share", "high_share", "sound_quality",
 ]  # fmt: skip
-GROUPS = {"pulso": PULSE, "ecg": ECG, "sonido": SOUND}
-TEMPLATE = (-0.30, 0.50)  # ventana del latido promedio alrededor del pico R (s)
-GATE = (-0.20, 0.70)  # ventana del sonido promediado alrededor del pico R (s)
+GROUPS = {"pulso": PULSE, "ecg": ECG, "sonido": SOUND}  # tier keys (machine values, also in the saved model)
+TEMPLATE = (-0.30, 0.50)  # average-beat window around the R peak (s)
+GATE = (-0.20, 0.70)  # averaged-sound window around the R peak (s)
 
 
-# --- Lectura ---
+# --- Reading ---
 
 
 def read_wav(data: bytes) -> tuple[float, np.ndarray]:
@@ -70,9 +70,9 @@ def read_wav(data: bytes) -> tuple[float, np.ndarray]:
 
 
 def read_labels(path: Path) -> pd.DataFrame:
-    """Una fila por persona: identificador, fracción de eyección (0-1) y parte de la validación cruzada.
+    """One row per person: identifier, ejection fraction (0-1) and cross-validation fold.
 
-    En el conjunto comunitario la parte es -1.
+    In the community set the fold is -1.
     """
     rows = {}
     with zipfile.ZipFile(path) as archive:
@@ -88,12 +88,12 @@ def read_labels(path: Path) -> pd.DataFrame:
                 try:
                     rows[key.split("_")[0].strip()] = (float(value), fold)
                 except ValueError:
-                    continue  # cabecera
+                    continue  # header
     return pd.DataFrame([(k, *v) for k, v in rows.items()], columns=["subject", "lvef", "fold"])
 
 
 def recording_names(path: Path) -> dict[tuple[str, str], dict[str, str]]:
-    """Ficheros de cada grabación: {(persona, foco): {"ECG": nombre, "PCG": nombre}}."""
+    """Files of each recording: {(person, site): {"ECG": name, "PCG": name}}."""
     out: dict[tuple[str, str], dict[str, str]] = {}
     with zipfile.ZipFile(path) as archive:
         for member in archive.namelist():
@@ -105,7 +105,7 @@ def recording_names(path: Path) -> dict[tuple[str, str], dict[str, str]]:
     return out
 
 
-# --- Electrocardiograma ---
+# --- Electrocardiogram ---
 
 
 def clean_ecg(ecg, fs: float) -> np.ndarray:
@@ -114,10 +114,10 @@ def clean_ecg(ecg, fs: float) -> np.ndarray:
 
 
 def r_peaks(ecg: np.ndarray, fs: float) -> tuple[np.ndarray, float]:
-    """Muestra del pico del QRS de cada latido y su polaridad (+1 o -1).
+    """Sample index of each beat's QRS peak and its polarity (+1 or -1).
 
-    ``detect_beats`` da el centro de la energía del QRS; aquí se afina al extremo de la señal
-    para poder promediar latidos alineados.
+    ``detect_beats`` gives the centre of the QRS energy; here it is refined to the signal
+    extreme so aligned beats can be averaged.
     """
     beats = np.round(detect_beats(ecg, fs) * fs).astype(int)
     if beats.size < 3:
@@ -141,7 +141,7 @@ def _stack(signal: np.ndarray, peaks: np.ndarray, fs: float, window: tuple[float
 
 
 def ecg_features(ecg: np.ndarray, fs: float, peaks: np.ndarray, polarity: float) -> dict[str, float]:
-    """Medidas de la forma del latido promedio. ``ecg`` ya filtrado."""
+    """Features of the average beat shape. ``ecg`` already filtered."""
     out = dict.fromkeys(ECG, np.nan)
     beats = _stack(polarity * ecg, peaks, fs, TEMPLATE)
     if len(beats) < 5:
@@ -182,7 +182,7 @@ def ecg_features(ecg: np.ndarray, fs: float, peaks: np.ndarray, polarity: float)
     if t_window.stop - t_window.start > 5:
         segment = x[t_window]
         peak = int(np.argmax(np.abs(segment)))
-        out["t_amplitude"] = float(segment[peak] / amplitude)  # con signo: negativa si va contra el QRS
+        out["t_amplitude"] = float(segment[peak] / amplitude)  # signed: negative if opposite to the QRS
         out["t_time"] = float(t[t_window][peak])
         out["t_time_rel"] = out["t_time"] / np.sqrt(rr) if np.isfinite(rr) else np.nan
     out["st_level"] = float(np.mean(x[offset + int(0.04 * fs) : offset + int(0.08 * fs)]) / amplitude)
@@ -199,11 +199,11 @@ def ecg_features(ecg: np.ndarray, fs: float, peaks: np.ndarray, polarity: float)
     return out
 
 
-# --- Fonocardiograma ---
+# --- Phonocardiogram ---
 
 
 def envelopes(pcg, fs_pcg: float, fs_out: float) -> dict[str, np.ndarray]:
-    """Envolvente del sonido en tres bandas, muestreada como el ECG y en unidades de su mediana."""
+    """Sound envelope in three bands, sampled like the ECG and in units of its median."""
     step = int(round(fs_pcg / fs_out))
     smooth = butter(2, 25.0, btype="low", fs=fs_pcg, output="sos")
     out = {}
@@ -227,7 +227,7 @@ def _width(curve: np.ndarray, peak: int, fs: float) -> float:
 
 
 def sound_features(pcg, fs_pcg: float, peaks: np.ndarray, fs: float) -> dict[str, float]:
-    """Medidas del sonido cardíaco promediado alrededor de cada QRS."""
+    """Features of the heart sound averaged around each QRS."""
     out = dict.fromkeys(SOUND, np.nan)
     if peaks.size < 5:
         return out
@@ -252,7 +252,7 @@ def sound_features(pcg, fs_pcg: float, peaks: np.ndarray, fs: float) -> dict[str
     t1, t2 = (s1 - zero) / fs, (s2 - zero) / fs
     systole = t2 - t1
     out["s1_time"], out["s2_time"], out["systole"] = t1, t2, systole
-    out["s1_systole"] = t1 / systole  # equivalente al cociente activación/eyección de la cardiografía acústica
+    out["s1_systole"] = t1 / systole  # equivalent to the activation/ejection ratio of acoustic cardiography
     out["s1_rel"], out["systole_rel"] = t1 / rr, systole / rr
     out["s1_s2"] = float(np.log(mid[s1] / mid[s2]))
     out["s1_level"], out["s2_level"] = float(np.log(mid[s1])), float(np.log(mid[s2]))
@@ -268,14 +268,14 @@ def sound_features(pcg, fs_pcg: float, peaks: np.ndarray, fs: float) -> dict[str
     out["s4_low"] = float(np.log(np.mean(low[index(-0.14) : index(-0.04)]) / (low[s1] + 1e-9)))
     total = low[s1] + mid[s1] + high[s1]
     out["low_share"], out["high_share"] = float(low[s1] / total), float(high[s1] / total)
-    out["sound_quality"] = float(np.log(reference))  # los ruidos frente al fondo
+    out["sound_quality"] = float(np.log(reference))  # heart sounds versus background
     return out
 
 
-# --- Perfiles completos (para comprobar si las medidas resumidas se dejan algo) ---
+# --- Full profiles (to check whether the summary features miss anything) ---
 
-ECG_PROFILE = [f"tpl_{i:02d}" for i in range(32)]  # latido promedio de -200 a +440 ms, cada 20 ms
-SOUND_PROFILE = [f"env_{band}_{i:02d}" for band in BANDS for i in range(16)]  # sonido de -200 a +600 ms, cada 50 ms
+ECG_PROFILE = [f"tpl_{i:02d}" for i in range(32)]  # average beat from -200 to +440 ms, every 20 ms
+SOUND_PROFILE = [f"env_{band}_{i:02d}" for band in BANDS for i in range(16)]  # sound from -200 to +600 ms, every 50 ms
 
 
 def profile_features(ecg: np.ndarray, fs: float, peaks: np.ndarray, polarity: float, pcg=None, fs_pcg: float | None = None) -> dict[str, float]:
@@ -301,11 +301,11 @@ def profile_features(ecg: np.ndarray, fs: float, peaks: np.ndarray, polarity: fl
     return out
 
 
-# --- Una grabación ---
+# --- One recording ---
 
 
 def recording_features(ecg, fs_ecg: float, pcg=None, fs_pcg: float | None = None, profiles: bool = False) -> dict[str, float]:
-    """Todas las medidas de una grabación. Sin sonido, las de ese grupo quedan vacías."""
+    """All features of one recording. Without sound, that group's features are left blank."""
     ecg = clean_ecg(ecg, fs_ecg)
     peaks, polarity = r_peaks(ecg, fs_ecg)
     rr = np.diff(peaks) / fs_ecg
@@ -321,7 +321,7 @@ def recording_features(ecg, fs_ecg: float, pcg=None, fs_pcg: float | None = None
 
 
 def features_from_zip(path: Path, subjects: list[str] | None = None, profiles: bool = False) -> pd.DataFrame:
-    """Tabla de medidas, una fila por grabación (persona y foco)."""
+    """Feature table, one row per recording (person and site)."""
     names = recording_names(path)
     rows = []
     with zipfile.ZipFile(path) as archive:
@@ -338,12 +338,12 @@ def features_from_zip(path: Path, subjects: list[str] | None = None, profiles: b
     return pd.DataFrame(rows)
 
 
-# --- Modelo ---
+# --- Model ---
 
 
 @dataclass
 class EjectionResult:
-    probability: float | None  # P(fracción de eyección ≤ 40 %) con la proporción de los datos de entrenamiento
+    probability: float | None  # P(ejection fraction ≤ 40%) at the training-data prevalence
     likelihood_ratio: float
     flagged: bool
     usable: bool
@@ -359,21 +359,21 @@ def available() -> bool:
 
 
 def classify(recordings: list[dict[str, float]], tier: str = "sonido") -> EjectionResult:
-    """Resultado para una o varias grabaciones de una persona (medidas de ``recording_features``).
+    """Result for one or more recordings of a person (features from ``recording_features``).
 
-    ``tier`` es lo que se tiene: "pulso", "ecg" o "sonido" (ECG y sonido).
+    ``tier`` is what is available: "pulso" (pulse), "ecg" or "sonido" (ECG and sound).
     """
     bundle = _bundle()
     if bundle is None:
-        raise FileNotFoundError("Falta el modelo (scripts/fit_ejection.py).")
+        raise FileNotFoundError(t("Falta el modelo (scripts/fit_ejection.py).", "Model missing (scripts/fit_ejection.py)."))
     model = bundle["models"][tier]
     table = pd.DataFrame(recordings)
     table = table[table["n"] >= bundle["min_intervals"]]
     if table.empty:
         return EjectionResult(None, 1.0, False, False)
     if "site_code" not in table:
-        table["site_code"] = 0  # sin indicar el foco se supone la punta del corazón
-    table = table.reindex(columns=model["features"])  # lo que falte (perfiles, sonido) queda vacío
+        table["site_code"] = 0  # with no site given, the apex is assumed
+    table = table.reindex(columns=model["features"])  # anything missing (profiles, sound) is left blank
     p = np.clip(model["model"].predict_proba(table[model["features"]])[:, 1], 1e-4, 1 - 1e-4)
     score = float(np.mean(np.log(p / (1 - p))))
     p_mean = 1.0 / (1.0 + np.exp(-score))
@@ -384,7 +384,7 @@ def classify(recordings: list[dict[str, float]], tier: str = "sonido") -> Ejecti
 
 
 def check_from_recordings(day, recordings: list[dict[str, float]], tier: str = "sonido"):
-    """Grabación del corazón valorada, para la ficha del paciente."""
+    """Scored heart recording, for the patient record (source values are machine keys in ``home``)."""
     from .home import HeartCheck
 
     result = classify(recordings, tier)

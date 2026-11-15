@@ -1,15 +1,18 @@
-"""Datos de NHANES 2009-2010 para el panel virtual: historia clínica, orina y analítica de sangre.
+"""NHANES 2009-2010 data for the virtual panel: clinical record, urine and blood tests.
 
-Predictores (lo que se tiene sin sacar sangre):
-- Historia clínica: edad, sexo, IMC, cintura, tensión, diagnósticos (diabetes, hipertensión,
-  colesterol, insuficiencia cardíaca, cardiopatía isquémica, ictus, riñón), fármacos
-  (insulina, antidiabéticos orales, antihipertensivos, hipolipemiantes) y tabaco.
-- Una muestra de orina (la aleatoria del centro): UACR, albúmina, creatinina en orina,
-  volumen, flujo y horas desde la micción anterior.
+Predictors (what is available without drawing blood):
+- Clinical record: age, sex, BMI, waist, blood pressure, diagnoses (diabetes, hypertension,
+  high cholesterol, heart failure, coronary heart disease, stroke, kidney disease), drugs
+  (insulin, oral antidiabetics, antihypertensives, lipid-lowering) and smoking.
+- One urine sample (the random spot from the exam center): UACR, albumin, urine creatinine,
+  volume, flow and hours since the previous void.
 
-Objetivos (lo que mide la analítica de sangre): FG (CKD-EPI 2021), HbA1c, glucosa, potasio,
-colesterol no-HDL y hemoglobina. Además, el UACR de la primera orina de la mañana, que con
-la historia clínica sola sirve para decidir a quién pedirle la prueba.
+Targets (what the blood panel measures): eGFR (CKD-EPI 2021), HbA1c, glucose, potassium,
+non-HDL cholesterol and hemoglobin. Also the first-morning UACR, which from the clinical
+record alone helps decide who to ask for the test.
+
+``FEATURE_SETS``/``HEART_FEATURE_SETS`` keys are kept in Spanish: scripts/fit_panel.py and saved
+model names look them up by name.
 """
 
 from __future__ import annotations
@@ -55,18 +58,18 @@ FEATURE_SETS = {
 }
 
 TARGETS = {
-    "egfr": "FG (ml/min/1,73 m²)",
+    "egfr": "eGFR (mL/min/1.73 m²)",
     "hba1c": "HbA1c (%)",
-    "glucose": "Glucosa (mg/dl, sin ayuno)",
-    "potassium": "Potasio (mmol/l)",
-    "non_hdl": "Colesterol no-HDL (mg/dl)",
-    "hemoglobin": "Hemoglobina (g/dl)",
-    "log_uacr_morning": "log UACR primera orina (mg/g)",
+    "glucose": "Glucose (mg/dL, non-fasting)",
+    "potassium": "Potassium (mmol/L)",
+    "non_hdl": "Non-HDL cholesterol (mg/dL)",
+    "hemoglobin": "Hemoglobin (g/dL)",
+    "log_uacr_morning": "log first-morning UACR (mg/g)",
 }
 
 
 def _yes_no(series) -> np.ndarray:
-    """1 = sí, 2 = no; el resto (no sabe, no contesta, no preguntado) queda vacío."""
+    """1 = yes, 2 = no; anything else (don't know, refused, not asked) is left empty."""
     s = series.to_numpy(float)
     return np.where(s == 1, 1.0, np.where(s == 2, 0.0, np.nan))
 
@@ -76,10 +79,10 @@ _PANEL_FILES = ("BMX", "BPX", "BPQ", "DIQ", "MCQ", "SMQ", "KIQ_U", "ALB_CR", "UC
 
 
 def load_panel(base_dir: Path = DEFAULT_DIR.parent, cycles=tuple(PANEL_CYCLES)) -> pd.DataFrame:
-    """Una fila por adulto (≥ 20 años, sin embarazo) con predictores y objetivos.
+    """One row per adult (age >= 20, not pregnant) with predictors and targets.
 
-    Junta las oleadas de NHANES indicadas (por defecto 2009-2018). Solo 2009-2010 tiene la
-    segunda muestra de orina, así que ``log_uacr_morning`` solo existe para esa oleada.
+    Pools the given NHANES cycles (default 2009-2018). Only 2009-2010 has the second urine
+    sample, so ``log_uacr_morning`` only exists for that cycle.
     """
     frames = []
     for cycle in cycles:
@@ -92,7 +95,7 @@ def load_panel(base_dir: Path = DEFAULT_DIR.parent, cycles=tuple(PANEL_CYCLES)) 
         out.insert(1, "cycle", cycle)
         frames.append(out)
     out = pd.concat(frames, ignore_index=True)
-    # Solo personas con muestra de orina (el escenario del panel).
+    # Only people with a urine sample (the panel scenario).
     return out[np.isfinite(out.log_uacr)].reset_index(drop=True)
 
 
@@ -109,7 +112,7 @@ def _panel_columns(df: pd.DataFrame) -> pd.DataFrame:
     dbp = df[["BPXDI1", "BPXDI2", "BPXDI3", "BPXDI4"]].to_numpy(float, copy=True)
     dbp[dbp <= 0] = np.nan
     with warnings.catch_warnings():
-        warnings.simplefilter("ignore", RuntimeWarning)  # filas sin ninguna lectura
+        warnings.simplefilter("ignore", RuntimeWarning)  # rows without any reading
         out["sbp"] = np.nanmean(sbp, axis=1)
         out["dbp"] = np.nanmean(dbp, axis=1)
     diq010 = df.DIQ010.to_numpy(float)
@@ -129,24 +132,24 @@ def _panel_columns(df: pd.DataFrame) -> pd.DataFrame:
     now = df.SMQ040.to_numpy(float)
     out["smoker_ever"] = ever
     out["smoker_now"] = np.where(np.isin(now, (1, 2)), 1.0, np.where((now == 3) | (ever == 0), 0.0, np.nan))
-    # Orina: muestra aleatoria del centro de examen (la única con volumen y flujo).
+    # Urine: random spot from the exam center (the only one with volume and flow).
     albumin = df.URXUMA.to_numpy(float)
     ucr = df.URXUCR.to_numpy(float)
-    albumin_eff = np.where(albumin <= 0.22, 0.3, albumin)  # bajo el límite de detección
+    albumin_eff = np.where(albumin <= 0.22, 0.3, albumin)  # below the detection limit
     out["log_uacr"] = np.log(100.0 * albumin_eff / ucr)
     out["log_urine_albumin"] = np.log(albumin_eff)
     out["log_urine_creatinine"] = np.log(ucr)
     out["urine_volume"] = df.URXVOL1.to_numpy(float)
     out["urine_flow"] = df.URDFLOW1.to_numpy(float)
     out["hours_since_void"] = df.URDTIME1.to_numpy(float) / 60.0
-    # Objetivos de la analítica de sangre.
+    # Blood-panel targets.
     out["egfr"] = ckd_epi_2021(df.LBXSCR.to_numpy(float), out.age, out.female == 1)
     out["hba1c"] = df.LBXGH.to_numpy(float)
     out["glucose"] = df.LBXSGL.to_numpy(float)
     out["potassium"] = df.LBXSKSI.to_numpy(float)
     out["non_hdl"] = df.LBXTC.to_numpy(float) - df.LBDHDD.to_numpy(float)
     out["hemoglobin"] = df.LBXHGB.to_numpy(float)
-    # No son objetivos del panel: se usan para calcular el SCORE2 real al validar la lista del cupo.
+    # Not panel targets: used to compute the actual SCORE2 when validating the practice list.
     out["total_cholesterol"] = df.LBXTC.to_numpy(float)
     out["hdl"] = df.LBDHDD.to_numpy(float)
     morning_alb = _col(df, "URXUMA2")
@@ -155,7 +158,7 @@ def _panel_columns(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-# --- NT-proBNP (insuficiencia cardíaca): NHANES 1999-2004, sueros guardados ---
+# --- NT-proBNP (heart failure): NHANES 1999-2004, stored sera ---
 
 HEART_CLINICAL = [c for c in CLINICAL if c != "dx_kidney"]
 HEART_URINE = ["log_uacr", "log_urine_albumin", "log_urine_creatinine"]
@@ -174,9 +177,9 @@ _HEART_CYCLES = {
 
 
 def load_heart(base_dir: Path = DEFAULT_DIR.parent) -> pd.DataFrame:
-    """Adultos de NHANES 1999-2004 con NT-proBNP (muestras nunca descongeladas), historia y orina.
+    """NHANES 1999-2004 adults with NT-proBNP (never-thawed samples), clinical record and urine.
 
-    La creatinina de 1999-2000 se recalibra al método estandarizado como indica NHANES.
+    1999-2000 creatinine is recalibrated to the standardized method as NHANES recommends.
     """
     bnp = read_xpt("SSBNP_A", base_dir / "1999-2000")
     bnp = bnp[bnp.SSPRIS == 1][["SEQN", "SSBNP"]]

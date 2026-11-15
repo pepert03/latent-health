@@ -1,8 +1,8 @@
-"""Tests de contrato del servidor local.
+"""Contract tests for the local server.
 
     uv run --with-requirements web/server/requirements-dev.txt pytest web/server/tests -q
 
-Se ejecutan desde la raíz del repositorio. Usan los modelos reales: no hay dobles.
+Run from the repository root. They use the real models: no test doubles.
 """
 
 from __future__ import annotations

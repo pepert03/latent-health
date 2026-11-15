@@ -1,4 +1,4 @@
-"""Tira en casa, preguntas de contexto y protocolo de repetición."""
+"""Home strip, context questions and repeat protocol."""
 
 from dataclasses import replace
 from datetime import date, timedelta
@@ -35,7 +35,7 @@ D0 = date(2026, 3, 2)
 @pytest.fixture(scope="module")
 def flt():
     if not DEFAULT_PARAMS_PATH.exists():
-        pytest.skip("faltan los parámetros ajustados (scripts/fit_albuminuria.py)")
+        pytest.skip("fitted parameters missing (scripts/fit_albuminuria.py)")
     return AlbuminuriaFilter(AlbuminuriaParams.load(DEFAULT_PARAMS_PATH))
 
 
@@ -47,7 +47,7 @@ def strip(days, albumin, creatinine, spec=PHONE_STRIP, context=None):
     return StripSample(D0 + timedelta(days=days), spec, albumin, creatinine, context=context)
 
 
-# --- Tira ---
+# --- Strip ---
 
 
 @pytest.mark.parametrize("spec", [PHONE_STRIP, EYE_STRIP, RATIO_STRIP])
@@ -79,7 +79,7 @@ def test_same_albumin_in_diluted_urine_means_more_albuminuria(flt):
 
 
 def test_strip_is_less_informative_than_the_laboratory(flt):
-    # Tira "30 mg/l, 100 mg/dl" ≈ 30 mg/g; el laboratorio con 30 mg/g exactos estrecha más.
+    # Strip "30 mg/l, 100 mg/dl" ≈ 30 mg/g; the lab with exactly 30 mg/g narrows more.
     by_strip = flt.assess(person(strip(0, 30, 100)))
     by_lab = flt.assess(person(UrineSample(D0, 30.0, FIRST_MORNING, creatinine_mg_dl=100)))
     assert (by_strip.high / by_strip.low) > (by_lab.high / by_lab.low)
@@ -114,7 +114,7 @@ def test_strip_sample_needs_the_readings_its_kind_gives():
     assert StripSpec("x").albumin_index(27) == 1
 
 
-# --- Contexto ---
+# --- Context ---
 
 
 def test_context_keeps_the_average_and_moves_each_answer(flt):
@@ -123,7 +123,7 @@ def test_context_keeps_the_average_and_moves_each_answer(flt):
     yes = spike_offset(SampleContext(exercise_24h=True), False, 60)
     no = spike_offset(SampleContext(exercise_24h=False), False, 60)
     assert yes > 0 > no
-    # La media sobre el contexto reproduce la probabilidad ajustada sin conocerlo.
+    # The average over the context reproduces the probability fitted without knowing it.
     z = covariates([60], [0], [0], [90])
     base = spike_prob(flt.p, z, FIRST_MORNING, 0.0)[0]
     mixed = 0.10 * spike_prob(flt.p, z, FIRST_MORNING, 0.0, yes)[0] + 0.90 * spike_prob(flt.p, z, FIRST_MORNING, 0.0, no)[0]
@@ -150,7 +150,7 @@ def test_a_high_sample_with_a_cause_counts_less_than_one_without(flt):
     assert explained < unknown < clean
 
 
-# --- Filtrado glomerular incierto ---
+# --- Uncertain eGFR ---
 
 
 def test_egfr_mixture_reduces_to_the_single_value_and_mixes_otherwise(flt):
@@ -173,7 +173,7 @@ def test_high_albuminuria_makes_low_egfr_more_likely(flt):
     assert weights[35.0] > 0.5
 
 
-# --- Protocolo ---
+# --- Protocol ---
 
 
 def test_first_step_is_a_strip_and_a_clean_strip_ends_the_episode(flt):
@@ -217,7 +217,7 @@ def test_mail_channel_never_asks_for_a_strip(flt):
     kit = KITS[Channel.MAIL]
     step = next_step(flt, person(), kit, D0)
     assert step.action == "tubo"
-    assert "tubo" in step.patient_message
+    assert "tube" in step.patient_message
 
 
 def test_channel_choice_and_instructions_fit_the_patient(flt):
@@ -226,4 +226,62 @@ def test_channel_choice_and_instructions_fit_the_patient(flt):
     assert choose_channel(60, has_smartphone=False) is Channel.MAIL
     assert choose_channel(60, prefers_in_person=True) is Channel.PHARMACY
     message = next_step(flt, person(), KITS[Channel.PHARMACY], D0).patient_message
-    assert "farmacia" in message
+    assert "pharmacy" in message
+
+
+# --- Spanish ---
+
+
+def test_protocol_speaks_spanish_with_the_original_texts(flt):
+    from latenthealth.albuminuria.context import questions
+    from latenthealth.albuminuria.filter import SAMPLE_LABELS, STATUS_LABELS
+    from latenthealth.i18n import use_lang
+
+    kit = KITS[Channel.APP]
+    with use_lang("es"):
+        assert STATUS_LABELS["descartada"] == "Descartada"
+        assert STATUS_LABELS["pendiente_cronicidad"] == "Muy probable, falta cronicidad"
+        assert SAMPLE_LABELS[FIRST_MORNING] == "primera orina de la mañana"
+        assert PHONE_STRIP.name == "tira leída con el móvil"
+        assert questions(False, 66)[0] == ("exercise_24h", "¿Has hecho ejercicio intenso en las últimas 24 horas?")
+
+        first = next_step(flt, person(), kit, D0)
+        assert first.patient_message == "Mañana, con la primera orina del día, haz una tira y hazle la foto con la aplicación."
+        assert first.clinician_note.startswith("P(albuminuria) = ")
+        assert "Se pide una tira (1 de 3); probabilidad de resolver: " in first.clinician_note
+
+        done = next_step(flt, person(strip(1, 10, 100)), kit, D0 + timedelta(days=1))
+        assert done.patient_message == (
+            "Tu prueba es normal: no hay albúmina en la orina. Te avisaremos para repetirla dentro de un año."
+        )
+        assert done.clinician_note.startswith("Albuminuria descartada (P = ")
+        assert done.clinician_note.endswith("). Próximo cribado en un año.")
+
+        deferred = next_step(flt, person(), kit, D0, context=SampleContext(fever=True))
+        assert deferred.patient_message == "Hoy la prueba no sería fiable. Espera tres días después de que pase la fiebre."
+        assert deferred.clinician_note == "Prueba aplazada 3 días por el contexto de la muestra."
+
+        pharmacy = next_step(flt, person(), KITS[Channel.PHARMACY], D0)
+        assert pharmacy.patient_message == "Mañana, lleva a tu farmacia un bote con la primera orina del día."
+
+        high = [strip(d, 150, 50) for d in (1, 2)]
+        repeat = next_step(flt, person(*high), kit, D0 + timedelta(days=2))
+        assert repeat.patient_message == (
+            "Hemos visto albúmina en la orina. Para confirmarlo hay que repetir la prueba pasados tres meses. "
+            f"Te mandaremos el material. El {repeat.on:%d/%m/%Y}, llena el tubo con la primera orina del día "
+            "y échalo al buzón en el sobre del kit."
+        )
+        assert repeat.clinician_note.startswith("Albuminuria A")
+        assert f"muy probable. Repetir a partir del {repeat.assessment.repeat_from:%d/%m/%Y} para cumplir" in repeat.clinician_note
+
+        with pytest.raises(ValueError, match="Faltan las lecturas de las almohadillas de albúmina y creatinina."):
+            StripSample(D0, PHONE_STRIP)
+
+
+def test_repeat_message_uses_a_long_us_date_in_english(flt):
+    from latenthealth.i18n import fmt_date
+
+    high = [strip(d, 150, 50) for d in (1, 2)]
+    repeat = next_step(flt, person(*high), KITS[Channel.APP], D0 + timedelta(days=2))
+    assert f"We'll send you what you need. On {fmt_date(repeat.on)}, fill the tube" in repeat.patient_message
+    assert repeat.on.strftime("%B") in repeat.patient_message

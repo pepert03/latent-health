@@ -1,22 +1,21 @@
-"""Tendencia del filtrado glomerular (FG): nivel y pendiente con las analíticas previas.
+"""eGFR trend: level and slope from previous lab tests.
 
-Un filtro de Kalman sobre el estado (nivel, pendiente) recorre las creatininas del paciente.
-Sirve para ver "la función renal que va deteriorándose poco a poco sin que duela":
+A Kalman filter over the state (level, slope) runs through the patient's creatinine results.
+It is meant to catch "kidney function slowly worsening without any pain":
 
-- separa el descenso real del ruido de la creatinina (variación biológica y analítica), que
-  entre dos analíticas puede mover el FG varios puntos sin que pase nada;
-- usa los **tratamientos como entrada conocida**: al empezar un iSGLT2 o un IECA/ARA-II el FG
-  cae unos puntos en las primeras semanas y luego baja más despacio. Sin esa entrada, esa
-  caída esperada se confunde con un descenso rápido;
-- parte de que la mayoría pierde FG despacio y unos pocos deprisa (más con diabetes o
-  albuminuria): son dos filtros, uno por grupo, que se mezclan según lo que digan los datos;
-- da probabilidades: de descenso (pendiente < -3 ml/min/1,73 m² al año), de descenso rápido
-  (< -5, criterio KDIGO), de estar por debajo de 60 y de llegar a menos de 30 en cinco años.
+- it separates real decline from creatinine noise (biological and analytical variation), which
+  can move eGFR several points between two lab tests without anything happening;
+- it uses **treatments as a known input**: when an SGLT2 inhibitor or an ACEi/ARB is started,
+  eGFR drops a few points in the first weeks and then declines more slowly. Without that
+  input, the expected dip is mistaken for a rapid decline;
+- it assumes most people lose eGFR slowly and a few quickly (more so with diabetes or
+  albuminuria): two filters, one per group, mixed according to what the data say;
+- it gives probabilities: of decline (slope < -3 ml/min/1.73 m² per year), of rapid decline
+  (< -5, KDIGO criterion), of being below 60 and of reaching below 30 within five years.
 
-**Los parámetros son supuestos tomados de la literatura, no están ajustados**: NHANES es
-transversal y no tiene analíticas repetidas. El modelo está comprobado solo en simulación
-(``scripts/validate_trend.py``); antes de usarlo hay que ajustarlo con datos longitudinales
-de atención primaria.
+**The parameters are assumptions taken from the literature, not fitted**: NHANES is
+cross-sectional and has no repeated lab tests. The model has only been checked in simulation
+(``scripts/validate_trend.py``); it must be fitted on longitudinal primary care data before use.
 """
 
 from __future__ import annotations
@@ -28,52 +27,54 @@ import numpy as np
 from scipy.special import ndtr
 from scipy.stats import norm
 
+from .i18n import Labels, t
+
 G_EDGES = (90.0, 60.0, 45.0, 30.0, 15.0)
 G_LABELS = ("G1", "G2", "G3a", "G3b", "G4", "G5")
-LAB, CAPILLARY = "laboratorio", "capilar"
+LAB, CAPILLARY = "laboratorio", "capilar"  # machine values (API field ``source``)
 
 
 @dataclass
 class EgfrMeasurement:
     date: date
-    egfr: float  # ml/min/1,73 m² (CKD-EPI 2021)
-    source: str = LAB  # "laboratorio" o "capilar" (punción en el dedo, más ruido)
-    above: bool = False  # el informe solo dice "> valor" (muchos laboratorios cortan en 90)
+    egfr: float  # ml/min/1.73 m² (CKD-EPI 2021)
+    source: str = LAB  # "laboratorio" or "capilar" (finger-prick, noisier)
+    above: bool = False  # the report only says "> value" (many labs cap at 90)
 
 
 @dataclass
 class TreatmentStart:
     date: date
-    kind: str  # "isglt2" o "ieca_ara2"
+    kind: str  # "isglt2" (SGLT2 inhibitor) or "ieca_ara2" (ACEi/ARB)
 
 
 def _default_treatments() -> dict:
-    # (caída inicial media, su desviación, cambio de la pendiente, su desviación)
+    # (mean initial dip, its SD, slope change, its SD)
     return {"isglt2": (-3.0, 2.0, 1.0, 0.7), "ieca_ara2": (-2.5, 2.5, 0.5, 0.7)}
 
 
 @dataclass(frozen=True)
 class TrendParams:
-    # Pendiente antes de ver datos, en ml/min/1,73 m² por año. Es una mezcla de dos grupos:
-    # la mayoría pierde FG despacio y unos pocos lo pierden deprisa. Con una sola normal los
-    # descensos rápidos quedarían como casi imposibles y el filtro tardaría años en creérselos.
-    stable_slope: tuple[float, float] = (-0.8, 1.2)  # media y desviación del grupo estable
-    fast_slope: tuple[float, float] = (-4.5, 2.5)  # grupo que progresa deprisa
-    fast_base: float = 0.05  # proporción del grupo rápido sin diabetes ni albuminuria
+    # Slope before seeing data, in ml/min/1.73 m² per year. A mixture of two groups: most lose
+    # eGFR slowly and a few quickly. With a single normal, rapid declines would look almost
+    # impossible and the filter would take years to believe them.
+    stable_slope: tuple[float, float] = (-0.8, 1.2)  # mean and SD of the stable group
+    fast_slope: tuple[float, float] = (-4.5, 2.5)  # fast-progressing group
+    fast_base: float = 0.05  # share of the fast group without diabetes or albuminuria
     fast_logit_diabetes: float = 0.9
     fast_logit_a2: float = 1.3  # albuminuria 30-300 mg/g
     fast_logit_a3: float = 2.6  # albuminuria > 300 mg/g
-    # Dinámica: cuánto se apartan el nivel y la pendiente de la recta, por raíz de año.
+    # Dynamics: how far level and slope drift from a straight line, per square root of a year.
     level_noise: float = 1.5
     slope_noise: float = 0.4
-    # Medida: coeficiente de variación de la creatinina (biológica + analítica).
+    # Measurement: creatinine coefficient of variation (biological + analytical).
     creatinine_cv_lab: float = 0.055
     creatinine_cv_capillary: float = 0.11
     min_sd: float = 1.5
     treatments: dict = field(default_factory=_default_treatments)
 
     def p_fast(self, diabetes: bool, p_a2: float, p_a3: float) -> float:
-        """Proporción esperada de progresadores rápidos entre pacientes como este."""
+        """Expected share of fast progressors among patients like this one."""
         logit = (
             np.log(self.fast_base / (1.0 - self.fast_base))
             + self.fast_logit_diabetes * bool(diabetes)
@@ -83,20 +84,20 @@ class TrendParams:
         return float(1.0 / (1.0 + np.exp(-logit)))
 
     def slope_components(self, diabetes: bool, p_a2: float, p_a3: float) -> list[tuple[float, float, float]]:
-        """Grupos del prior de la pendiente: (peso, media, desviación)."""
+        """Slope prior groups: (weight, mean, SD)."""
         fast = self.p_fast(diabetes, p_a2, p_a3)
         return [(1.0 - fast, *self.stable_slope), (fast, *self.fast_slope)]
 
     def prior_slope(self, diabetes: bool, p_a2: float, p_a3: float) -> tuple[float, float]:
-        """Media y desviación de la pendiente antes de ver datos (de la mezcla entera)."""
+        """Slope mean and SD before seeing data (of the whole mixture)."""
         comps = self.slope_components(diabetes, p_a2, p_a3)
         mean = sum(w * m for w, m, _ in comps)
         var = sum(w * (sd**2 + m**2) for w, m, sd in comps) - mean**2
         return float(mean), float(np.sqrt(var))
 
     def measurement_sd(self, egfr: float, age: float, female: bool, source: str = LAB) -> float:
-        """Desviación típica del FG estimado por el ruido de la creatinina (método delta sobre CKD-EPI)."""
-        knee = 142.0 * 0.9938**age * (1.012 if female else 1.0)  # FG con la creatinina en el punto κ
+        """SD of estimated eGFR due to creatinine noise (delta method on CKD-EPI)."""
+        knee = 142.0 * 0.9938**age * (1.012 if female else 1.0)  # eGFR with creatinine at the κ knot
         exponent = 1.2 if egfr < knee else (0.241 if female else 0.302)
         cv = self.creatinine_cv_capillary if source == CAPILLARY else self.creatinine_cv_lab
         return float(np.hypot(self.min_sd, egfr * exponent * cv))
@@ -113,31 +114,33 @@ class TrendPoint:
 @dataclass
 class EgfrTrend:
     as_of: date
-    n: int  # analíticas usadas
+    n: int  # lab tests used
     span_years: float
     level: float
     level_sd: float
-    slope: float  # ml/min/1,73 m² por año
+    slope: float  # ml/min/1.73 m² per year
     slope_sd: float
-    p_decline: float  # P(pendiente < -3)
-    p_rapid: float  # P(pendiente < -5)
+    p_decline: float  # P(slope < -3)
+    p_rapid: float  # P(slope < -5)
     p_below_60: float
     p_below_30_in_5y: float
-    p_fast: float  # probabilidad de pertenecer al grupo que progresa deprisa
-    chronic_below_60: bool  # dos analíticas separadas más de 3 meses con FG < 60 muy probable
-    status: str  # "sin_datos", "insuficiente", "estable", "descenso", "descenso_rapido", "incierto"
+    p_fast: float  # probability of belonging to the fast-progressing group
+    chronic_below_60: bool  # two lab tests more than 3 months apart with eGFR < 60 very likely
+    # Machine values (see STATUS_TEXT for display): "sin_datos", "insuficiente", "estable",
+    # "descenso", "descenso_rapido", "incierto".
+    status: str
     trajectory: list[TrendPoint]
-    measured_drop_explained: float = 0.0  # caída esperada por los tratamientos iniciados (ml/min)
-    # Mezcla de normales del estado actual: (peso, media [nivel, pendiente], covarianza 2x2).
+    measured_drop_explained: float = 0.0  # expected dip from treatments started (ml/min)
+    # Normal mixture of the current state: (weight, mean [level, slope], 2x2 covariance).
     components: list = field(default_factory=list, repr=False)
 
     def _cdf(self, index: int, value):
-        """P(nivel o pendiente ≤ valor) con la mezcla; ``value`` puede ser un array."""
+        """P(level or slope ≤ value) under the mixture; ``value`` may be an array."""
         value = np.asarray(value, dtype=float)
         return sum(w * ndtr((value - m[index]) / np.sqrt(P[index, index])) for w, m, P in self.components)
 
     def interval(self, what: str = "level", q: float = 0.8) -> tuple[float, float]:
-        """Intervalo central de probabilidad ``q`` del nivel o de la pendiente."""
+        """Central interval with probability ``q`` for the level or the slope."""
         index = 0 if what == "level" else 1
         mean, sd = (self.level, self.level_sd) if index == 0 else (self.slope, self.slope_sd)
         grid = np.linspace(mean - 8 * sd, mean + 8 * sd, 201)
@@ -149,24 +152,26 @@ class EgfrTrend:
         return float(self._cdf(0, threshold))
 
     def category_probs(self) -> dict[str, float]:
-        """Probabilidad de cada categoría G de KDIGO con la incertidumbre del nivel actual."""
+        """Probability of each KDIGO G category given the uncertainty of the current level."""
         below = [self.p_below(e) for e in G_EDGES]
         probs = np.clip(np.r_[1.0 - below[0], -np.diff(below), below[-1]], 0.0, 1.0)
         return dict(zip(G_LABELS, (probs / probs.sum()).tolist()))
 
 
-STATUS_TEXT = {
-    "sin_datos": "sin analíticas",
-    "insuficiente": "pocas analíticas para ver la tendencia",
-    "estable": "estable",
-    "descenso": "descenso sostenido",
-    "descenso_rapido": "descenso rápido",
-    "incierto": "tendencia dudosa",
-}
+STATUS_TEXT = Labels(
+    {
+        "sin_datos": ("sin analíticas", "no lab tests"),
+        "insuficiente": ("pocas analíticas para ver la tendencia", "too few lab tests to see a trend"),
+        "estable": ("estable", "stable"),
+        "descenso": ("descenso sostenido", "sustained decline"),
+        "descenso_rapido": ("descenso rápido", "rapid decline"),
+        "incierto": ("tendencia dudosa", "uncertain trend"),
+    }
+)
 
 
 def default_level_prior(age: float) -> tuple[float, float]:
-    """FG esperado por la edad cuando no hay nada mejor (prior débil)."""
+    """eGFR expected for age when there is nothing better (weak prior)."""
     return float(np.clip(100.0 - 0.85 * (age - 40.0), 45.0, 110.0)), 20.0
 
 
@@ -175,9 +180,9 @@ def _years(d: date, origin: date) -> float:
 
 
 def _advance(m, P, t_from, t_to, jumps, params: TrendParams):
-    """Lleva el estado de t_from a t_to aplicando los inicios de tratamiento que caen en medio.
+    """Moves the state from t_from to t_to, applying any treatment starts in between.
 
-    Devuelve la media y la covarianza predichas y la matriz F total (para el suavizado).
+    Returns the predicted mean and covariance and the total F matrix (for smoothing).
     """
     F_total = np.eye(2)
     t = t_from
@@ -196,7 +201,7 @@ def _advance(m, P, t_from, t_to, jumps, params: TrendParams):
 
 
 def _kalman(m, P, ms, jumps, origin, as_of, age, female, params: TrendParams) -> dict:
-    """Filtro y suavizado de Kalman para un grupo del prior. Devuelve también la verosimilitud acumulada."""
+    """Kalman filter and smoother for one prior group. Also returns the cumulative likelihood."""
     H = np.array([1.0, 0.0])
     t, loglik = 0.0, 0.0
     predicted, filtered, transitions, below, logliks = [], [], [], [], []
@@ -208,7 +213,7 @@ def _kalman(m, P, ms, jumps, origin, as_of, age, female, params: TrendParams) ->
         r = params.measurement_sd(obs.egfr, age, female, obs.source) ** 2
         mu, s = float(H @ m), float(H @ P @ H + r)
         gain = P @ H / s
-        if obs.above:  # solo se sabe que la medida es mayor: actualización con normal truncada
+        if obs.above:  # only known to be higher: truncated-normal update
             alpha = (obs.egfr - mu) / np.sqrt(s)
             tail = max(norm.sf(alpha), 1e-12)
             lam = norm.pdf(alpha) / tail
@@ -225,7 +230,7 @@ def _kalman(m, P, ms, jumps, origin, as_of, age, female, params: TrendParams) ->
         logliks.append(loglik)
         t = t_obs
 
-    # Suavizado hacia atrás (Rauch-Tung-Striebel) para dibujar la trayectoria.
+    # Backward smoothing (Rauch-Tung-Striebel) to draw the trajectory.
     smooth = []
     if ms:
         sm, sP = filtered[-1]
@@ -254,11 +259,11 @@ def fit_trend(
     prior_level: tuple[float, float] | None = None,
     params: TrendParams | None = None,
 ) -> EgfrTrend:
-    """Nivel y pendiente actuales del FG de un paciente.
+    """Current eGFR level and slope of a patient.
 
-    ``prior_level`` es (media, desviación) del FG antes de ver sus analíticas; por defecto, el
-    esperado por la edad. ``p_a2`` y ``p_a3`` son las probabilidades de albuminuria del filtro:
-    con albuminuria es más probable que el FG baje deprisa.
+    ``prior_level`` is (mean, SD) of eGFR before seeing their lab tests; by default, the value
+    expected for age. ``p_a2`` and ``p_a3`` are the albuminuria probabilities from the filter:
+    with albuminuria a fast eGFR decline is more likely.
     """
     params = params or TrendParams()
     ms = sorted(measurements, key=lambda m: m.date)
@@ -269,9 +274,9 @@ def fit_trend(
     jumps, explained, pre_slope, pre_var = [], 0.0, 0.0, 0.0
     for tr in sorted(treatments or [], key=lambda t: t.date):
         if tr.kind not in params.treatments:
-            raise ValueError(f"Tratamiento desconocido: {tr.kind}")
+            raise ValueError(t(f"Tratamiento desconocido: {tr.kind}", f"Unknown treatment: {tr.kind}"))
         dip, _, dslope, dslope_sd = params.treatments[tr.kind]
-        if tr.date <= origin:  # ya lo tomaba antes de la primera analítica: solo cambia la pendiente
+        if tr.date <= origin:  # already taken before the first lab test: only the slope changes
             pre_slope += dslope
             pre_var += dslope_sd**2
         elif tr.date <= as_of:
@@ -296,7 +301,7 @@ def fit_trend(
     prior_w = np.array([w for w, _, _ in comps])
 
     def weights_at(k: int | None) -> np.ndarray:
-        """Peso de cada grupo con las analíticas hasta la k-ésima (None: todas)."""
+        """Weight of each group given the lab tests up to the k-th (None: all)."""
         if not ms:
             return prior_w
         index = len(ms) - 1 if k is None else k
@@ -378,7 +383,7 @@ def simulate_trajectory(
     params: TrendParams | None = None,
     source: str = LAB,
 ) -> list[EgfrMeasurement]:
-    """Analíticas simuladas con el propio modelo (para pruebas y para la validación en simulación)."""
+    """Lab tests simulated from the model itself (for tests and simulation validation)."""
     params = params or TrendParams()
     origin = dates[0]
     events = sorted(
@@ -402,23 +407,40 @@ def simulate_trajectory(
 
 
 def _es(v: float, signed: bool = False) -> str:
-    """Número con un decimal y coma decimal."""
-    return (f"{v:+.1f}" if signed else f"{v:.1f}").replace(".", ",")
+    """Number with one decimal (decimal comma in Spanish)."""
+    text = f"{v:+.1f}" if signed else f"{v:.1f}"
+    return t(text.replace(".", ","), text)
 
 
 def describe(trend: EgfrTrend) -> str:
     lo, hi = trend.interval("level")
     slo, shi = trend.interval("slope")
     lines = [
-        f"FG actual: {trend.level:.0f} ml/min/1,73 m² (80 %: {lo:.0f}-{hi:.0f}) con {trend.n} analíticas en "
-        f"{_es(trend.span_years)} años",
-        f"Tendencia: {STATUS_TEXT[trend.status]}; pendiente {_es(trend.slope, True)} al año "
-        f"(80 %: {_es(slo, True)} a {_es(shi, True)})",
-        f"P(descenso de más de 3 al año) = {trend.p_decline:.0%} · P(más de 5 al año) = {trend.p_rapid:.0%} · "
-        f"P(FG < 30 en 5 años) = {trend.p_below_30_in_5y:.0%}",
+        t(
+            f"FG actual: {trend.level:.0f} ml/min/1,73 m² (80 %: {lo:.0f}-{hi:.0f}) con {trend.n} analíticas en "
+            f"{_es(trend.span_years)} años",
+            f"Current eGFR: {trend.level:.0f} ml/min/1.73 m² (80%: {lo:.0f}-{hi:.0f}) from {trend.n} lab tests over "
+            f"{_es(trend.span_years)} years",
+        ),
+        t(
+            f"Tendencia: {STATUS_TEXT[trend.status]}; pendiente {_es(trend.slope, True)} al año "
+            f"(80 %: {_es(slo, True)} a {_es(shi, True)})",
+            f"Trend: {STATUS_TEXT[trend.status]}; slope {_es(trend.slope, True)} per year "
+            f"(80%: {_es(slo, True)} to {_es(shi, True)})",
+        ),
+        t(
+            f"P(descenso de más de 3 al año) = {trend.p_decline:.0%} · P(más de 5 al año) = {trend.p_rapid:.0%} · "
+            f"P(FG < 30 en 5 años) = {trend.p_below_30_in_5y:.0%}",
+            f"P(decline of more than 3 per year) = {trend.p_decline:.0%} · P(more than 5 per year) = {trend.p_rapid:.0%} · "
+            f"P(eGFR < 30 within 5 years) = {trend.p_below_30_in_5y:.0%}",
+        ),
     ]
     if trend.measured_drop_explained:
+        drop = trend.measured_drop_explained
         lines.append(
-            f"Se ha descontado la caída esperada al iniciar el tratamiento ({trend.measured_drop_explained:+.0f} ml/min)."
+            t(
+                f"Se ha descontado la caída esperada al iniciar el tratamiento ({drop:+.0f} ml/min).",
+                f"The expected dip on starting treatment has been discounted ({drop:+.0f} ml/min).",
+            )
         )
     return "\n".join(lines)

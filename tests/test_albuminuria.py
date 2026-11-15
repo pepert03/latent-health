@@ -29,7 +29,7 @@ from latenthealth.egfr import ckd_epi_2021
 
 
 def gaussian_params(mu=2.0, tau=0.8, sigma=0.4) -> AlbuminuriaParams:
-    """Prior de una sola normal y medida normal sin sesgo ni elevaciones: caso con solución cerrada."""
+    """Single-normal prior and unbiased normal measurement without elevations: closed-form case."""
     p = AlbuminuriaParams.initial()
     return replace(
         p,
@@ -51,12 +51,12 @@ def gaussian_params(mu=2.0, tau=0.8, sigma=0.4) -> AlbuminuriaParams:
 @pytest.fixture(scope="module")
 def fitted():
     if not DEFAULT_PARAMS_PATH.exists():
-        pytest.skip("faltan los parámetros ajustados (scripts/fit_albuminuria.py)")
+        pytest.skip("fitted parameters missing (scripts/fit_albuminuria.py)")
     return AlbuminuriaParams.load(DEFAULT_PARAMS_PATH)
 
 
 def test_ckd_epi_2021_matches_the_published_equation():
-    # 142 · min(Scr/κ, 1)^α · max(Scr/κ, 1)^-1,2 · 0,9938^edad · 1,012 (mujer)
+    # 142 · min(Scr/κ, 1)^α · max(Scr/κ, 1)^-1.2 · 0.9938^age · 1.012 (female)
     assert ckd_epi_2021(0.7, 50, True) == pytest.approx(142 * 0.9938**50 * 1.012)
     assert ckd_epi_2021(1.2, 60, False) == pytest.approx(142 * (1.2 / 0.9) ** -1.2 * 0.9938**60)
     assert ckd_epi_2021(0.5, 40, True) == pytest.approx(142 * (0.5 / 0.7) ** -0.241 * 0.9938**40 * 1.012)
@@ -134,8 +134,8 @@ def test_analytic_gradient_matches_finite_differences():
     _, ys = simulate(p0, Z, rng)
     df["uacr_random"], df["uacr_morning"] = np.exp(ys[RANDOM]), np.exp(ys[FIRST_MORNING])
     df["censored_random"] = df["censored_morning"] = False
-    df.loc[:4, "censored_random"] = True  # algunas censuras para cubrir esa rama
-    df.loc[5:9, "uacr_morning"] = np.nan  # y alguna muestra que falta
+    df.loc[:4, "censored_random"] = True  # some censoring to cover that branch
+    df.loc[5:9, "uacr_morning"] = np.nan  # and some missing samples
     data = nhanes_arrays(df)
     x, dx = make_grid(120)
     p = AlbuminuriaParams.from_vector(p0.to_vector() + 0.1 * rng.standard_normal(p0.to_vector().size))
@@ -151,7 +151,7 @@ def test_analytic_gradient_matches_finite_differences():
         assert grad[i] == pytest.approx(num, rel=1e-4, abs=1e-4), i
 
 
-# --- Filtro de un paciente ---
+# --- Single-patient filter ---
 
 D0 = date(2026, 1, 15)
 
@@ -199,3 +199,22 @@ def test_borderline_sample_is_doubtful_and_more_samples_narrow_the_estimate(fitt
     assert one.status == "dudosa"
     assert (three.high / three.low) < (one.high / one.low)
     assert 0 <= one.next_sample_resolves[FIRST_MORNING] <= 1
+
+
+def test_assessment_text_in_spanish(fitted):
+    from latenthealth.albuminuria import describe
+    from latenthealth.i18n import use_lang
+
+    flt = AlbuminuriaFilter(fitted)
+    with use_lang("es"):
+        low = flt.assess(patient(morning(0, 4), morning(30, 6)))
+        assert low.action == "Sin albuminuria. Repetir el cribado según la guía (anual en diabetes)."
+        text = describe(low)
+        assert text.startswith("Estado: Descartada\nUACR verdadero estimado: ")
+        assert "Trayectoria (con todas las muestras):\n  15/01/2026: " in text
+        confirmed = flt.assess(patient(morning(0, 400), morning(100, 350)))
+        assert confirmed.action == (
+            f"Albuminuria persistente {confirmed.category}: registrar ERC (categoría {confirmed.category}) y revisar el "
+            "tratamiento nefroprotector según la guía."
+        )
+    assert describe(low).startswith("Status: Ruled out\nEstimated true UACR: ")

@@ -1,7 +1,7 @@
-"""NHANES 2009-2010: albúmina y creatinina en dos muestras de orina por persona.
+"""NHANES 2009-2010: albumin and creatinine in two urine samples per person.
 
-La muestra 1 es aleatoria (se recoge en el centro de examen) y la muestra 2 es la
-primera orina de la mañana (se recoge en casa unos días después).
+Sample 1 is a random spot (collected at the exam center) and sample 2 is the first
+morning void (collected at home a few days later).
 """
 
 from pathlib import Path
@@ -15,8 +15,8 @@ FILES = ("ALB_CR_F", "DEMO_F", "BIOPRO_F", "GHB_F")
 BASE_URL = "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2009/DataFiles/{name}.xpt"
 DEFAULT_DIR = Path(__file__).resolve().parents[2] / "data" / "raw" / "nhanes" / "2009-2010"
 
-# Límite de detección de la albúmina en orina. NHANES rellena los valores por debajo
-# con LOD/√2 = 0,21 mg/l.
+# Detection limit of urine albumin. NHANES fills values below it
+# with LOD/sqrt(2) = 0.21 mg/L.
 ALBUMIN_LOD_MG_L = 0.3
 _FILL_MAX = 0.22
 
@@ -26,19 +26,19 @@ def read_xpt(name: str, directory: Path = DEFAULT_DIR) -> pd.DataFrame:
 
 
 def _uacr(albumin_mg_l, ucr_mg_dl):
-    """UACR (mg/g) y si está censurado: con la albúmina bajo el límite solo se sabe que es menor."""
+    """UACR (mg/g) and whether it is censored: with albumin below the limit only an upper bound is known."""
     censored = albumin_mg_l <= _FILL_MAX
     albumin = np.where(censored, ALBUMIN_LOD_MG_L, albumin_mg_l)
     return 100.0 * albumin / ucr_mg_dl, censored
 
 
 def load_pairs(directory: Path = DEFAULT_DIR) -> pd.DataFrame:
-    """Una fila por adulto (≥20 años, sin embarazo) con covariables y sus muestras de orina.
+    """One row per adult (age >= 20, not pregnant) with covariates and their urine samples.
 
-    Columnas: seqn, age, female, diabetes, egfr, hba1c y, para cada muestra
-    (``random`` y ``morning``): ``uacr_*`` (mg/g; si está censurado es el límite
-    superior), ``censored_*`` y ``ucr_*`` (creatinina en orina, mg/dl).
-    La diabetes se define por laboratorio (HbA1c ≥ 6,5 %), sin cuestionario.
+    Columns: seqn, age, female, diabetes, egfr, hba1c and, for each sample
+    (``random`` and ``morning``): ``uacr_*`` (mg/g; the upper bound if censored),
+    ``censored_*`` and ``ucr_*`` (urine creatinine, mg/dL).
+    Diabetes is defined by lab (HbA1c >= 6.5%), without the questionnaire.
     """
     demo = read_xpt("DEMO_F", directory)[["SEQN", "RIAGENDR", "RIDAGEYR", "RIDEXPRG"]]
     alb = read_xpt("ALB_CR_F", directory)
@@ -70,5 +70,5 @@ def load_pairs(directory: Path = DEFAULT_DIR) -> pd.DataFrame:
 
 
 def is_test(seqn) -> np.ndarray:
-    """Partición fija y reproducible: el 20 % de las personas (seqn múltiplo de 5) es de test."""
+    """Fixed, reproducible split: 20% of people (seqn divisible by 5) are the test set."""
     return np.asarray(seqn) % 5 == 0

@@ -1,1 +1,1 @@
-"""Rutas /api del servidor local. Cada módulo expone ``router`` y, si necesita cargar modelos, ``warm_up()``."""
+"""/api routes of the local server. Each module exposes ``router`` and, if it needs to load models, ``warm_up()``."""

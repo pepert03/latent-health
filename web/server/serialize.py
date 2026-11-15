@@ -1,7 +1,7 @@
-"""Conversión de los resultados de los modelos a valores que JSON admite.
+"""Conversion of model results into values JSON accepts.
 
-Los modelos devuelven dataclasses con fechas, escalares y matrices de numpy y, a veces, NaN.
-Nada de eso pasa por ``json.dumps`` (o pasa mal: ``NaN`` rompe ``JSON.parse`` en el navegador).
+The models return dataclasses with dates, numpy scalars and arrays and, sometimes, NaN.
+None of that goes through ``json.dumps`` (or it goes badly: ``NaN`` breaks ``JSON.parse`` in the browser).
 """
 
 from __future__ import annotations
@@ -16,17 +16,17 @@ import numpy as np
 
 
 def clean(value: Any, *, exclude: frozenset[str] = frozenset(), digits: int | None = None) -> Any:
-    """Devuelve ``value`` con solo tipos de JSON.
+    """Returns ``value`` using only JSON types.
 
-    - ``date`` y ``datetime`` -> texto ISO (``2026-11-16``).
-    - Escalares y matrices de numpy -> ``float`` / ``int`` / ``bool`` / listas.
-    - ``NaN`` e infinitos -> ``None``.
-    - Dataclasses -> ``dict`` con sus campos (no sus propiedades), sin los nombres de ``exclude``.
-    - ``Enum`` -> su valor; tuplas y conjuntos -> listas.
+    - ``date`` and ``datetime`` -> ISO text (``2026-11-16``).
+    - numpy scalars and arrays -> ``float`` / ``int`` / ``bool`` / lists.
+    - ``NaN`` and infinities -> ``None``.
+    - Dataclasses -> ``dict`` of their fields (not their properties), without the names in ``exclude``.
+    - ``Enum`` -> its value; tuples and sets -> lists.
 
-    ``exclude`` se aplica a los campos de dataclass y a las claves de dict en cualquier nivel
-    (por ejemplo ``belief``, la distribución de 400 puntos del filtro). ``digits`` redondea los
-    decimales para aligerar la respuesta; ``None`` los deja como están.
+    ``exclude`` applies to dataclass fields and dict keys at any level (for example ``belief``,
+    the filter's 400-point distribution). ``digits`` rounds decimals to lighten the response;
+    ``None`` leaves them as they are.
     """
     if value is None or isinstance(value, (str, bool)):
         return value
@@ -61,4 +61,4 @@ def clean(value: Any, *, exclude: frozenset[str] = frozenset(), digits: int | No
         }
     if isinstance(value, (list, tuple, set, frozenset)):
         return [clean(item, exclude=exclude, digits=digits) for item in value]
-    raise TypeError(f"No sé convertir a JSON un valor de tipo {type(value).__name__}")
+    raise TypeError(f"Cannot convert a value of type {type(value).__name__} to JSON")

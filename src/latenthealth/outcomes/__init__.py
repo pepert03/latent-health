@@ -1,4 +1,4 @@
-"""Modelo de riesgo con desenlaces reales: NHANES enlazado con mortalidad."""
+"""Risk model with real outcomes: NHANES linked to mortality."""
 
 from .data import (
     BLOCKS,

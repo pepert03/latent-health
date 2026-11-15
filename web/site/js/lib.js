@@ -72,13 +72,16 @@ export const OFFLINE = 'El modelo no responde. Comprueba que el servidor local s
  * Llama al servidor local. Devuelve { data, ms }. Lanza Error con un mensaje para enseñar.
  * Todas las rutas cuelgan de /api y las sirve el mismo proceso que esta página.
  */
+// Idioma de la página: el servidor contesta los mensajes del modelo en el mismo idioma.
+const LANG = document.documentElement.lang || 'es'
+
 export async function api(path, body, signal) {
   const started = performance.now()
   let response
   try {
     response = await fetch(`/api${path}`, {
       method: body === undefined ? 'GET' : 'POST',
-      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+      headers: body === undefined ? { 'X-Lang': LANG } : { 'Content-Type': 'application/json', 'X-Lang': LANG },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal,
     })

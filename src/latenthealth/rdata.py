@@ -1,8 +1,8 @@
-"""Lector mínimo de ficheros de datos de R (.rda) con tablas de números y factores.
+"""Minimal reader for R data files (.rda) holding tables of numbers and factors.
 
-Solo cubre lo necesario para leer una tabla (data.frame) guardada con ``save()``: vectores de
-enteros, reales, lógicos y cadenas, listas, factores y atributos. Evita depender de R o de un
-paquete externo para un único fichero de datos.
+Covers only what is needed to read a data.frame saved with ``save()``: integer, double,
+logical and string vectors, lists, factors and attributes. Avoids depending on R or an
+external package for a single data file.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ class _Reader:
 
     def length(self) -> int:
         n = self.int()
-        if n == -1:  # vector largo: dos enteros
+        if n == -1:  # long vector: two integers
             high, low = struct.unpack(">II", self.take(8))
             n = (high << 32) + low
         return n
@@ -46,16 +46,16 @@ class _Reader:
     def item(self):
         flags = self.int()
         kind = flags & 0xFF
-        if kind in (254, 253, 252, 251, 250, 242, 241):  # NULL y entornos especiales
+        if kind in (254, 253, 252, 251, 250, 242, 241):  # NULL and special environments
             return None
-        if kind == 255:  # referencia a un símbolo ya leído
+        if kind == 255:  # reference to an already-read symbol
             index = flags >> 8 or self.int()
             return self.refs[index - 1]
-        if kind == 1:  # símbolo
+        if kind == 1:  # symbol
             name = self.item()
             self.refs.append(name)
             return name
-        if kind in (2, 6):  # lista de pares (atributos, o el contenido del fichero)
+        if kind in (2, 6):  # pairlist (attributes, or the file contents)
             pairs = []
             while kind in (2, 6):
                 if flags & (1 << 9):
@@ -65,40 +65,40 @@ class _Reader:
                 flags = self.int()
                 kind = flags & 0xFF
             if kind != 254:
-                raise ValueError("Lista de pares con un final no previsto")
+                raise ValueError("Pairlist with an unexpected terminator")
             return pairs
-        if kind == 9:  # cadena
+        if kind == 9:  # string
             n = self.int()
             if n == -1:
                 return None
             raw = self.take(n)
             return raw.decode("latin-1" if flags >> 12 & 4 else "utf-8", errors="replace")
-        if kind in (10, 13):  # lógicos o enteros
+        if kind in (10, 13):  # logicals or integers
             n = self.length()
             values = np.frombuffer(self.take(4 * n), dtype=">i4").astype(np.int64)
             return _Vector(values, self.attributes(flags), integer=True)
-        if kind == 14:  # reales
+        if kind == 14:  # doubles
             n = self.length()
             values = np.frombuffer(self.take(8 * n), dtype=">f8").astype(float)
             return _Vector(values, self.attributes(flags))
-        if kind == 16:  # vector de cadenas
+        if kind == 16:  # string vector
             values = [self.item() for _ in range(self.length())]
             return _Vector(np.array(values, dtype=object), self.attributes(flags))
-        if kind in (19, 20):  # lista
+        if kind in (19, 20):  # list
             values = [self.item() for _ in range(self.length())]
             return _Vector(values, self.attributes(flags))
-        if kind == 238:  # representación compacta (ALTREP): clase, estado y atributos
+        if kind == 238:  # compact representation (ALTREP): class, state and attributes
             info, state, attributes = self.item(), self.item(), self.item()
             name = info[0][1] if info else ""
-            if name == "compact_intseq":  # (n, inicio, paso)
+            if name == "compact_intseq":  # (n, start, step)
                 n, start, step = (int(v) for v in state.values)
                 return _Vector(np.arange(n) * step + start, {}, integer=True)
-            if isinstance(state, _Vector) and isinstance(state.values, list):  # envoltorio: (valores, metadatos)
+            if isinstance(state, _Vector) and isinstance(state.values, list):  # wrapper: (values, metadata)
                 state = state.values[0]
             if isinstance(state, _Vector):
                 state.attributes.update({tag: value for tag, value in (attributes or [])})
             return state
-        raise ValueError(f"Tipo de objeto de R no previsto: {kind}")
+        raise ValueError(f"Unexpected R object type: {kind}")
 
 
 class _Vector:
@@ -107,7 +107,7 @@ class _Vector:
 
     def column(self):
         levels = self.attributes.get("levels")
-        if levels is not None:  # factor: enteros que apuntan a etiquetas
+        if levels is not None:  # factor: integers pointing to labels
             labels = np.asarray(levels.values, dtype=object)
             codes = self.values
             return pd.Categorical.from_codes(np.where(codes == _NA_INT, -1, codes - 1), categories=list(labels))
@@ -117,20 +117,20 @@ class _Vector:
 
 
 def read_rda(path) -> dict[str, pd.DataFrame]:
-    """Tablas guardadas en un fichero .rda de R, por nombre."""
+    """Tables stored in an R .rda file, by name."""
     raw = Path(path).read_bytes()
     for magic, opener in ((b"\x1f\x8b", gzip.decompress), (b"BZh", bz2.decompress), (b"\xfd7zXZ", lzma.decompress)):
         if raw.startswith(magic):
             raw = opener(raw)
             break
     if raw[:5] not in (b"RDX2\n", b"RDX3\n") or raw[5:7] != b"X\n":
-        raise ValueError("No es un fichero .rda en formato XDR")
+        raise ValueError("Not an XDR-format .rda file")
     reader = _Reader(raw)
     reader.pos = 7
     version = reader.int()
-    reader.int(), reader.int()  # versión de R que lo escribió y mínima para leerlo
+    reader.int(), reader.int()  # R version that wrote it and minimum version to read it
     if version >= 3:
-        reader.take(reader.int())  # codificación nativa
+        reader.take(reader.int())  # native encoding
     tables = {}
     for name, obj in reader.item():
         if isinstance(obj, _Vector) and isinstance(obj.values, list) and "names" in obj.attributes:

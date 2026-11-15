@@ -1,4 +1,4 @@
-"""Insuficiencia cardíaca: latidos, ECG y sonido cardíaco, cohorte española y ficha del paciente."""
+"""Heart failure: beats, ECG and heart sound, Spanish cohort and patient record."""
 
 import io
 import wave
@@ -18,7 +18,7 @@ from latenthealth.worklist import row_for
 
 D0 = date(2026, 11, 16)
 
-# --- Anotaciones de latidos en formato MIT ---
+# --- Beat annotations in MIT format ---
 
 
 def word(code: int, interval: int) -> bytes:
@@ -28,15 +28,15 @@ def word(code: int, interval: int) -> bytes:
 def test_annotation_reader_handles_beats_skips_and_text(tmp_path):
     long_jump = 100_000
     data = b"".join([
-        word(1, 100),  # latido normal a las 100 muestras
-        word(5, 90),  # extrasístole ventricular
-        word(59, 0), (long_jump >> 16).to_bytes(2, "little"), (long_jump & 0xFFFF).to_bytes(2, "little"),  # salto largo
+        word(1, 100),  # normal beat at sample 100
+        word(5, 90),  # premature ventricular beat
+        word(59, 0), (long_jump >> 16).to_bytes(2, "little"), (long_jump & 0xFFFF).to_bytes(2, "little"),  # long skip
         word(1, 50),
-        word(63, 3), b"abc\x00",  # texto de 3 bytes, relleno a 4
-        word(14, 10),  # ruido: no es latido
+        word(63, 3), b"abc\x00",  # 3-byte text, padded to 4
+        word(14, 10),  # noise: not a beat
         word(1, 120),
         word(0, 0),
-        word(1, 999),  # después del fin no se lee
+        word(1, 999),  # not read after the end
     ])  # fmt: skip
     path = tmp_path / "x.ecg"
     path.write_bytes(data)
@@ -58,17 +58,17 @@ def test_header_gives_age_sex_and_class(tmp_path):
     assert info["female"] is True and info["nyha"] is None and info["age"] == 64.0
 
 
-# --- Medidas del pulso ---
+# --- Pulse features ---
 
 
 def breathing(n=150, mean=0.85, depth=0.05, seed=0):
-    """Pulso sano: se acelera y se frena con la respiración."""
+    """Healthy pulse: speeds up and slows down with breathing."""
     rng = np.random.default_rng(seed)
     return mean + depth * np.sin(2 * np.pi * np.arange(n) / 5.0) + 0.004 * rng.standard_normal(n)
 
 
 def flat(n=150, mean=0.65, seed=0):
-    """Pulso rápido y plano."""
+    """Fast, flat pulse."""
     return mean + 0.003 * np.random.default_rng(seed).standard_normal(n)
 
 
@@ -76,7 +76,7 @@ def test_pulse_features_add_rate_and_capacity():
     healthy, failing = pulse.pulse_features(breathing()), pulse.pulse_features(flat())
     assert set(pulse.FEATURES) <= set(healthy)
     assert healthy["rate"] == pytest.approx(60 / 0.85, rel=0.02) and failing["rate"] > 90
-    assert healthy["dc"] > 0.01 > abs(failing["dc"])  # el pulso sano frena con cada respiración
+    assert healthy["dc"] > 0.01 > abs(failing["dc"])  # the healthy pulse slows with each breath
     assert healthy["ac"] < -0.01
     assert healthy["sdnn"] > 5 * failing["sdnn"]
     assert np.isnan(pulse.pulse_features([0.8, 0.8])["rate"])
@@ -87,11 +87,11 @@ def test_windows_cover_the_recording_and_drop_impossible_intervals():
     starts = pulse.window_starts(beats, 60.0, 5)
     assert starts.size == 5 and starts[0] == beats[0] and starts[-1] == pytest.approx(beats[-1] - 60.0)
     rr = pulse.window_intervals(beats, beats[295], 60.0)
-    assert rr.max() < 2.5 and rr.size > 50  # la pausa de 5 s no cuenta como intervalo
+    assert rr.max() < 2.5 and rr.size > 50  # the 5 s pause does not count as an interval
     assert pulse.window_starts(beats[:10], 60.0, 5).size == 0
 
 
-@pytest.mark.skipif(not pulse.available(), reason="falta el modelo (scripts/fit_pulse_hf.py)")
+@pytest.mark.skipif(not pulse.available(), reason="model missing (scripts/fit_pulse_hf.py)")
 def test_pulse_result_is_bounded_by_what_was_seen_in_spanish_patients():
     bundle = pulse._bundle()
     assert bundle["min_ratio"] < 1 < bundle["max_ratio"] < 5
@@ -103,13 +103,13 @@ def test_pulse_result_is_bounded_by_what_was_seen_in_spanish_patients():
     assert not pulse.classify_pulse([[0.8, 0.8]]).usable
 
 
-# --- ECG de una derivación y sonido ---
+# --- Single-lead ECG and sound ---
 
 FS, FS_SOUND = 500.0, 4000.0
 
 
 def synthetic(rr=0.8, seconds=30.0, qrs=0.012, s1=0.05, s2=0.35, s1_gain=1.0, polarity=1.0, seed=0):
-    """ECG con un QRS gaussiano y una onda T, y sonido con dos ruidos tras cada latido."""
+    """ECG with a Gaussian QRS and a T wave, and sound with two heart sounds after each beat."""
     rng = np.random.default_rng(seed)
     beats = np.arange(1.0, seconds - 1.0, rr)
     t = np.arange(int(seconds * FS)) / FS
@@ -141,9 +141,9 @@ def test_sound_is_timed_against_the_qrs():
     normal = ejection.recording_features(ecg, FS, sound, FS_SOUND)
     assert normal["s1_time"] == pytest.approx(0.05, abs=0.012) and normal["s2_time"] == pytest.approx(0.35, abs=0.012)
     assert normal["systole"] == pytest.approx(0.30, abs=0.02)
-    assert late["s1_time"] > normal["s1_time"] + 0.03  # el primer ruido se retrasa
-    assert late["systole"] < normal["systole"] - 0.04  # y la sístole se acorta
-    assert late["s1_s2"] < normal["s1_s2"] - 0.5  # y suena más flojo frente al segundo
+    assert late["s1_time"] > normal["s1_time"] + 0.03  # the first heart sound is delayed
+    assert late["systole"] < normal["systole"] - 0.04  # and systole shortens
+    assert late["s1_s2"] < normal["s1_s2"] - 0.5  # and it is quieter than the second
     assert normal["rate"] == pytest.approx(75.0, rel=0.02)
 
 
@@ -156,7 +156,7 @@ def test_wide_qrs_is_measured_and_missing_sound_leaves_blanks():
     assert all(np.isnan(narrow[name]) for name in ejection.SOUND)
     assert np.isfinite([wide[name] for name in ejection.ECG_PROFILE]).all()
     assert all(np.isnan(wide[name]) for name in ejection.SOUND_PROFILE)
-    assert max(wide[name] for name in ejection.ECG_PROFILE) == pytest.approx(1.0, abs=0.2)  # el latido promedio va normalizado
+    assert max(wide[name] for name in ejection.ECG_PROFILE) == pytest.approx(1.0, abs=0.2)  # the average beat is normalised
 
 
 def wav_bytes(signal, fs) -> bytes:
@@ -186,12 +186,12 @@ def test_archive_is_read_without_unpacking(tmp_path):
     assert set(names) == {("111", "APEX"), ("111", "LLSB"), ("222", "APEX")}
     table = ejection.features_from_zip(path, subjects=["111"])
     assert table[["subject", "site"]].values.tolist() == [["111", "APEX"], ["111", "LLSB"]]
-    assert np.isfinite(table.loc[0, "s1_time"]) and np.isnan(table.loc[1, "s1_time"])  # el segundo no tiene sonido
+    assert np.isfinite(table.loc[0, "s1_time"]) and np.isnan(table.loc[1, "s1_time"])  # the second has no sound
     fs, signal = ejection.read_wav(wav_bytes(ecg, FS))
     assert fs == FS and signal.size == ecg.size
 
 
-@pytest.mark.skipif(not ejection.available(), reason="falta el modelo (scripts/fit_ejection.py)")
+@pytest.mark.skipif(not ejection.available(), reason="model missing (scripts/fit_ejection.py)")
 def test_model_gives_a_bounded_result_for_each_level_of_equipment():
     bundle = ejection._bundle()
     assert set(bundle["models"]) == {"pulso", "ecg", "sonido"}
@@ -207,7 +207,7 @@ def test_model_gives_a_bounded_result_for_each_level_of_equipment():
     assert check.source == "ecg" and check.likelihood_ratio == pytest.approx(ejection.classify([recording], "ecg").likelihood_ratio)
 
 
-# --- Probabilidad de fracción de eyección baja y ficha del paciente ---
+# --- Probability of low ejection fraction and patient record ---
 
 
 def test_recordings_are_averaged_and_only_the_best_source_counts():
@@ -217,7 +217,7 @@ def test_recordings_are_averaged_and_only_the_best_source_counts():
     one = low_ef_probability([HeartCheck(D0, 8.0)], 70)
     odds = prior / (1 - prior) * 8.0
     assert one == pytest.approx(odds / (1 + odds))
-    assert low_ef_probability([HeartCheck(D0, 8.0), HeartCheck(D0, 8.0)], 70) == pytest.approx(one)  # el corazón es el mismo
+    assert low_ef_probability([HeartCheck(D0, 8.0), HeartCheck(D0, 8.0)], 70) == pytest.approx(one)  # it is the same heart
     assert low_ef_probability([HeartCheck(D0, 8.0), HeartCheck(D0, 2.0)], 70) < one
     mixed = [HeartCheck(D0, 8.0, "ecg y sonido"), HeartCheck(D0, 0.5, "pulso")]
     assert low_ef_probability(mixed, 70) == pytest.approx(one)
@@ -231,26 +231,26 @@ def test_a_suspicious_recording_asks_for_an_echocardiogram():
     assert plain.p_low_ef is None and "ecocardiograma" not in plain.finding_by_test
     flagged = assess(ClinicalRecord(**base, heart_checks=[HeartCheck(D0, 10.0, "ecg y sonido")]), as_of=D0)
     assert flagged.p_low_ef == pytest.approx(low_ef_probability([HeartCheck(D0, 10.0)], 71))
-    assert flagged.heart_failure == "a descartar"
-    assert any(r.test == "Ecocardiograma" for r in flagged.recommendations)
+    assert flagged.heart_failure == "to rule out"
+    assert any(r.test == "Echocardiogram" for r in flagged.recommendations)
     assert flagged.finding_by_test["ecocardiograma"] == pytest.approx(flagged.p_low_ef)
     assert flagged.p_new_finding > plain.p_new_finding
-    assert "Fracción de eyección baja" in describe(flagged)
-    assert "ecocardiograma" in " ".join(row_for("p1", flagged).reasons)
+    assert "Low ejection fraction" in describe(flagged)
+    assert "echocardiogram" in " ".join(row_for("p1", flagged).reasons)
     clean = assess(ClinicalRecord(**base, heart_checks=[HeartCheck(D0, 0.3, "ecg y sonido")]), as_of=D0)
-    assert clean.p_low_ef < low_ef_prior(71) and not any(r.test == "Ecocardiograma" for r in clean.recommendations)
+    assert clean.p_low_ef < low_ef_prior(71) and not any(r.test == "Echocardiogram" for r in clean.recommendations)
     known = assess(ClinicalRecord(**base, heart_failure=True, heart_checks=[HeartCheck(D0, 10.0)]), as_of=D0)
-    assert known.p_low_ef is None and known.heart_failure == "diagnosticada"
+    assert known.p_low_ef is None and known.heart_failure == "diagnosed"
 
 
-# --- Cohorte española MUSIC ---
+# --- Spanish MUSIC cohort ---
 
 
 def test_music_table_is_cleaned(tmp_path):
     header = []
     for prefix in COLUMNS:
         if prefix == "Average RR (ms).1":
-            header.append("Average RR  (ms)")  # repetida, con otro espaciado: es la del Holter
+            header.append("Average RR  (ms)")  # repeated, with different spacing: the Holter one
         elif prefix == "Average RR (ms)":
             header.append(prefix)
         elif prefix == "Creatinine":
@@ -267,13 +267,13 @@ def test_music_table_is_cleaned(tmp_path):
     (tmp_path / "subject-info.csv").write_text(";".join(header) + "\n" + "\n".join(rows) + "\n", encoding="utf-8")
     d = load_music(tmp_path).set_index("patient")
     assert d.loc["P1", "bmi"] == 31.2 and d.loc["P1", "rr_holter"] == 850
-    assert np.isnan(d.loc["P2", "pr"]) and d.loc["P1", "pr"] == 160  # 999 es "no medible"
+    assert np.isnan(d.loc["P2", "pr"]) and d.loc["P1", "pr"] == 160  # 999 means "not measurable"
     assert d.loc["P1", "heart_rate"] == pytest.approx(54.0, abs=0.1) and d.loc["P4", "heart_rate"] == pytest.approx(60.06, abs=0.01)
     assert d.irregular.tolist() == [0.0, 1.0, 0.0, 0.0] and d.ischemic.eq(1).all() and d.device.eq(1).all()
     assert d.death.tolist() == [False, True, False, True]
     assert d.pump_death.tolist() == [False, True, False, False] and d.cardiac_death.tolist() == [False, True, False, False]
     d = d.reset_index()
-    assert known_at(d, 3.0).tolist() == [True, True, False, True]  # el trasplantado al año no cuenta a tres años
+    assert known_at(d, 3.0).tolist() == [True, True, False, True]  # the patient transplanted at one year does not count at three years
     assert event_by(d, 2.0).tolist() == [False, True, False, False]
     assert event_by(d, 3.0).tolist() == [False, True, False, True]
 

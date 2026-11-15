@@ -1,10 +1,10 @@
-"""Filtrado glomerular estimado."""
+"""Estimated glomerular filtration rate (eGFR)."""
 
 import numpy as np
 
 
 def ckd_epi_2021(scr_mg_dl, age, female):
-    """FG estimado en ml/min/1,73 m² con la ecuación CKD-EPI 2021 (sin raza)."""
+    """eGFR in ml/min/1.73 m² with the CKD-EPI 2021 equation (race-free)."""
     scr = np.asarray(scr_mg_dl, dtype=float)
     age = np.asarray(age, dtype=float)
     female = np.asarray(female, dtype=bool)

@@ -1,4 +1,4 @@
-"""Panel virtual: estimación probabilística de la analítica de sangre a partir de la orina y la historia clínica."""
+"""Virtual panel: probabilistic estimate of blood tests from urine and the clinical record."""
 
 from .data import FEATURE_SETS, TARGETS, load_panel
 from .model import BinnedDistributionRegressor

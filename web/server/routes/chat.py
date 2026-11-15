@@ -1,15 +1,16 @@
-"""Asistente de la app del paciente: responde preguntas sobre su evolución.
+"""Patient-app assistant: answers questions about how the patient is doing.
 
-Dos modos, y la respuesta dice siempre cuál se ha usado:
+Two modes, and the reply always says which one was used:
 
-- ``ia``: un modelo de lenguaje (Claude) redacta la respuesta a partir de lo que ha calculado el
-  modelo clínico para ese paciente. Necesita credenciales de Anthropic en el entorno
-  (la variable ``ANTHROPIC_API_KEY``).
-- ``guiado``: sin credenciales, o si la llamada falla, contesta con frases fijas rellenadas con
-  los mismos datos. La demo nunca depende de la red.
+- ``ia``: a language model (Claude) writes the answer from what the clinical model computed for
+  this patient. Needs Anthropic credentials in the environment (``ANTHROPIC_API_KEY``).
+- ``guiado``: without credentials, or if the call fails, it answers with fixed sentences filled in
+  with the same data. The demo never depends on the network.
 
-En los dos casos los números y la fecha de la próxima prueba salen del protocolo de casa
-(``routes/home.py``); el asistente explica, no diagnostica ni pauta tratamientos.
+In both cases the numbers and the date of the next test come from the home protocol
+(``routes/home.py``); the assistant explains, it does not diagnose or prescribe.
+
+Replies come in the request language (Spanish or English, see ``latenthealth.i18n``).
 """
 
 from __future__ import annotations
@@ -24,17 +25,19 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from latenthealth.i18n import Labels, fmt_date, is_es, t
+
 from . import home
 
 log = logging.getLogger("latenthealth.web.chat")
 
-router = APIRouter(prefix="/api/home", tags=["En casa (app del paciente)"])
+router = APIRouter(prefix="/api/home", tags=["At home (patient app)"])
 
 CHAT_MODEL = os.environ.get("LATENTHEALTH_CHAT_MODEL", "claude-opus-5-5")
 MAX_MESSAGES = 30
 MAX_CHARS = 1200
 
-SYSTEM_PROMPT = """Eres el asistente de la aplicación LatentHealth, que acompaña a una persona mientras se hace en casa \
+SYSTEM_PROMPT_ES = """Eres el asistente de la aplicación LatentHealth, que acompaña a una persona mientras se hace en casa \
 pruebas de orina para detectar pronto un daño del riñón. Hablas con el paciente, no con un profesional sanitario.
 
 Para qué sirves: explicarle con palabras sencillas en qué punto está, qué significa su último resultado, por qué a \
@@ -55,91 +58,154 @@ Cómo escribes: español de España, tuteando, cálido y directo. Respuestas cor
 sin títulos y sin tecnicismos (di «albúmina en la orina», no «albuminuria»; «filtrado del riñón», no «FG»). \
 Fechas como «martes 17 de noviembre». Si das una probabilidad, redondéala y explica qué quiere decir."""
 
-_STATUS_PLAIN = {
-    "sin_medir": "Todavía no tienes ninguna prueba de orina registrada.",
-    "descartada": "Tus pruebas no muestran albúmina en la orina.",
-    "dudosa": "El resultado todavía no es concluyente: hace falta otra prueba para aclararlo.",
-    "pendiente_cronicidad": (
-        "Se ha visto albúmina en la orina. Para confirmarlo falta repetir la prueba pasados tres meses."
-    ),
-    "confirmada": "Se ha encontrado albúmina en la orina de forma repetida.",
-}
+SYSTEM_PROMPT_EN = """You are the assistant in the LatentHealth app, which supports a person while they do urine tests \
+at home to catch kidney damage early. You are talking to the patient, not to a healthcare professional.
 
-_MONTHS = (
-    "enero", "febrero", "marzo", "abril", "mayo", "junio",
-    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
-)  # fmt: skip
-_WEEKDAYS = ("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
+What you are for: explaining in simple words where they stand, what their latest result means, why a test \
+sometimes has to be repeated and when the next one is due. Many people get scared when they read "inconclusive" or \
+"repeat"; your job is to help them understand it without alarming them and without brushing it off.
+
+Where your knowledge comes from: the PATIENT DATA block that comes with each conversation. It was computed by the \
+LatentHealth clinical model. Use only that data: do not make up numbers, dates or results, and if you are asked \
+something that is not there, say so naturally.
+
+Limits, and why they exist: this is a support prototype, not a doctor. Do not diagnose, do not recommend or adjust \
+medication and do not interpret symptoms. If the person asks about treatment, describes symptoms or wants a \
+clinical opinion, tell them that is for their doctor to assess and that they can write to them from the "My doctor" \
+tab in the app. If they describe something that sounds like an emergency (chest pain, severe shortness of breath, \
+loss of strength or speech), tell them to call 112.
+
+How you write: always answer in English, plain, warm and direct, addressing the patient as "you". Keep replies \
+short: two to four sentences, no lists, no headings and no jargon (say "albumin in the urine", not "albuminuria"; \
+"kidney filtering", not "eGFR"). Write dates like "Tuesday, November 17". If you give a probability, round it and \
+explain what it means."""
+
+# Kept for compatibility: the English prompt.
+SYSTEM_PROMPT = SYSTEM_PROMPT_EN
+
+_STATUS_PLAIN = Labels(
+    {
+        "sin_medir": (
+            "Todavía no tienes ninguna prueba de orina registrada.",
+            "You don't have any urine tests recorded yet.",
+        ),
+        "descartada": ("Tus pruebas no muestran albúmina en la orina.", "Your tests show no albumin in the urine."),
+        "dudosa": (
+            "El resultado todavía no es concluyente: hace falta otra prueba para aclararlo.",
+            "The result is not conclusive yet: another test is needed to clear it up.",
+        ),
+        "pendiente_cronicidad": (
+            "Se ha visto albúmina en la orina. Para confirmarlo falta repetir la prueba pasados tres meses.",
+            "Albumin has been found in the urine. To confirm it, the test needs to be repeated after three months.",
+        ),
+        "confirmada": (
+            "Se ha encontrado albúmina en la orina de forma repetida.",
+            "Albumin has been found in the urine more than once.",
+        ),
+    }
+)
 
 
 class ChatMessage(BaseModel):
-    role: Literal["user", "assistant"] = Field(description="Quién habla: el paciente o el asistente.")
-    content: str = Field(description="Texto del mensaje.")
+    role: Literal["user", "assistant"] = Field(description="Who is speaking: the patient or the assistant.")
+    content: str = Field(description="Message text.")
 
 
 class ChatIn(BaseModel):
-    """La conversación y lo necesario para saber cómo va el paciente (el servidor no recuerda nada)."""
+    """The conversation and what is needed to know how the patient is doing (the server remembers nothing)."""
 
-    patient: home.PatientIn = Field(description="El paciente.")
-    channel: home.Channel = Field(home.DEFAULT_CHANNEL, description="Canal por el que hace la prueba.")
-    today: dt.date = Field(description="Fecha de hoy para el paciente (AAAA-MM-DD).")
-    samples: list[home.SampleIn] = Field(default_factory=list, description="Muestras hechas hasta hoy.")
-    messages: list[ChatMessage] = Field(description="La conversación; el último mensaje es del paciente.")
+    patient: home.PatientIn = Field(description="The patient.")
+    channel: home.Channel = Field(home.DEFAULT_CHANNEL, description="Channel used for the test.")
+    today: dt.date = Field(description="Today's date for the patient (YYYY-MM-DD).")
+    samples: list[home.SampleIn] = Field(default_factory=list, description="Samples taken so far.")
+    messages: list[ChatMessage] = Field(description="The conversation; the last message is from the patient.")
 
 
 class ChatOut(BaseModel):
-    reply: str = Field(description="Respuesta del asistente.")
+    reply: str = Field(description="The assistant's reply.")
     mode: Literal["ia", "guiado"] = Field(
-        description="«ia»: redactada por un modelo de lenguaje; «guiado»: frases fijas con los datos del modelo clínico."
+        description='"ia": written by a language model; "guiado": fixed sentences with the clinical model\'s data.'
     )
-    model: str | None = Field(description="Modelo de lenguaje que ha contestado, si lo hubo.")
+    model: str | None = Field(description="Language model that answered, if any.")
 
 
 def _long_date(day: dt.date) -> str:
-    return f"{_WEEKDAYS[day.weekday()]} {day.day} de {_MONTHS[day.month - 1]} de {day.year}"
+    return fmt_date(day)
 
 
 def _pct(p: float) -> str:
     v = p * 100
     if 0 < v < 1:
-        return "menos del 1 %"
+        return t("menos del 1 %", "less than 1%")
     if 99 < v < 100:
-        return "más del 99 %"
-    return f"{v:.0f} %"
+        return t("más del 99 %", "more than 99%")
+    return t(f"{v:.0f} %", f"{v:.0f}%")
 
 
 def _num(v: float) -> str:
-    return f"{v:.0f}" if v >= 10 else f"{v:.1f}".replace(".", ",")
+    if v >= 10:
+        return f"{v:.0f}"
+    return f"{v:.1f}".replace(".", ",") if is_es() else f"{v:.1f}"
+
+
+def _system_prompt() -> str:
+    return t(SYSTEM_PROMPT_ES, SYSTEM_PROMPT_EN)
 
 
 def _facts(body: ChatIn, step: home.StepOut) -> str:
-    """Lo que ha calculado el modelo clínico, en texto: es todo lo que el asistente sabe."""
+    """What the clinical model computed, as text: everything the assistant knows."""
     p, a = body.patient, step.assessment
-    who = f"{'Mujer' if p.female else 'Hombre'} de {p.age:.0f} años, {'con' if p.diabetes else 'sin'} diabetes."
+    if is_es():
+        who = f"{'Mujer' if p.female else 'Hombre'} de {p.age:.0f} años, {'con' if p.diabetes else 'sin'} diabetes."
+    else:
+        who = f"{'Woman' if p.female else 'Man'}, {p.age:.0f} years old, {'with' if p.diabetes else 'without'} diabetes."
+    today, prob = _long_date(body.today), _pct(step.p_albuminuria)
     lines = [
-        f"Paciente: {who}",
-        f"Hoy es {_long_date(body.today)}.",
-        f"Estado de la albúmina en orina: {a.status_label}. {_STATUS_PLAIN.get(a.status, '')}",
-        f"Probabilidad de que haya albúmina en la orina de forma mantenida: {_pct(step.p_albuminuria)}.",
+        t(f"Paciente: {who}", f"Patient: {who}"),
+        t(f"Hoy es {today}.", f"Today is {today}."),
+        t(
+            f"Estado de la albúmina en orina: {a.status_label}. {_STATUS_PLAIN.get(a.status, '')}",
+            f"Urine albumin status: {a.status_label}. {_STATUS_PLAIN.get(a.status, '')}",
+        ),
+        t(
+            f"Probabilidad de que haya albúmina en la orina de forma mantenida: {prob}.",
+            f"Probability of persistent albumin in the urine: {prob}.",
+        ),
     ]
     if step.samples:
+        median, low, high = _num(a.median), _num(a.low), _num(a.high)
         lines.append(
-            f"Valor estimado (cociente albúmina/creatinina): {_num(a.median)} mg/g, "
-            f"con un intervalo del 80 % entre {_num(a.low)} y {_num(a.high)} mg/g. Por debajo de 30 mg/g es normal."
+            t(
+                f"Valor estimado (cociente albúmina/creatinina): {median} mg/g, "
+                f"con un intervalo del 80 % entre {low} y {high} mg/g. Por debajo de 30 mg/g es normal.",
+                f"Estimated value (albumin/creatinine ratio): {median} mg/g, "
+                f"with an 80% interval between {low} and {high} mg/g. Below 30 mg/g is normal.",
+            )
         )
-        lines.append("Pruebas hechas:")
+        lines.append(t("Pruebas hechas:", "Tests done:"))
         lines += [f"- {_long_date(s.date)}: {s.label}" for s in step.samples]
     else:
-        lines.append("Pruebas hechas: ninguna todavía.")
+        lines.append(t("Pruebas hechas: ninguna todavía.", "Tests done: none yet."))
+    on, kit = _long_date(step.on), step.kit
     lines += [
         (
-            f"Siguiente paso: {step.action_label}. Próximo aviso: {_long_date(step.on)}."
+            t(
+                f"Siguiente paso: {step.action_label}. Próximo aviso: {on}.",
+                f"Next step: {step.action_label}. Next reminder: {on}.",
+            )
             if step.finished
-            else f"Siguiente paso: {step.action_label}, el {_long_date(step.on)}."
+            else t(f"Siguiente paso: {step.action_label}, el {on}.", f"Next step: {step.action_label}, on {on}.")
         ),
-        f"Mensaje que la aplicación le ha dado al paciente: «{step.patient_message}»",
-        f"Material del kit: {step.kit.strips_used} de {step.kit.strips_total} tiras usadas y "
-        f"{step.kit.tubes_used} de {step.kit.tubes_total} tubos usados.",
+        t(
+            f"Mensaje que la aplicación le ha dado al paciente: «{step.patient_message}»",
+            f'Message the app showed the patient: "{step.patient_message}"',
+        ),
+        t(
+            f"Material del kit: {kit.strips_used} de {kit.strips_total} tiras usadas y "
+            f"{kit.tubes_used} de {kit.tubes_total} tubos usados.",
+            f"Kit supplies: {kit.strips_used} of {kit.strips_total} strips used and "
+            f"{kit.tubes_used} of {kit.tubes_total} tubes used.",
+        ),
     ]
     return "\n".join(lines)
 
@@ -150,56 +216,92 @@ def _plain(text: str) -> str:
 
 
 def _guided(body: ChatIn, step: home.StepOut) -> str:
-    """Respuesta sin modelo de lenguaje: frases fijas con los datos del modelo clínico."""
+    """Reply without a language model: fixed sentences with the clinical model's data."""
     q = _plain(body.messages[-1].content)
     a = step.assessment
     status = _STATUS_PLAIN.get(a.status, "")
+    on = _long_date(step.on)
     if step.action == "fin_normal":
-        nxt = f"No tienes pruebas pendientes. Te avisaremos para repetirla el {_long_date(step.on)}."
+        nxt = t(
+            f"No tienes pruebas pendientes. Te avisaremos para repetirla el {on}.",
+            f"You have no tests pending. We'll remind you to repeat it on {on}.",
+        )
     elif step.action == "centro":
-        nxt = "No tienes más pruebas pendientes en casa: tu centro de salud te llamará."
+        nxt = t(
+            "No tienes más pruebas pendientes en casa: tu centro de salud te llamará.",
+            "You have no more tests to do at home: your health center will call you.",
+        )
     else:
-        nxt = f"Tu siguiente paso es el {_long_date(step.on)}: {step.action_label.lower()}."
+        action = step.action_label.lower()
+        nxt = t(f"Tu siguiente paso es el {on}: {action}.", f"Your next step is on {on}: {action}.")
 
     def has(*words: str) -> bool:
         return any(re.search(rf"\b{w}", q) for w in words)
 
-    if has("pecho", "ahogo", "falta de aire", "urgen", "desmay"):
-        return "Si lo que notas puede ser una urgencia, llama al 112. Para cualquier otra duda sobre síntomas, escribe a tu médico desde la pestaña «Mi médico»."
-    if has("medic", "tratamiento", "pastilla", "farmaco", "dolor", "sintoma", "dieta", "tomar"):
-        return "Eso tiene que valorarlo tu médico: yo solo puedo explicarte tus pruebas de casa. Puedes escribirle desde la pestaña «Mi médico»."
-    if has("cuando", "proxim", "toca", "recordatorio", "siguiente", "fecha"):
-        return f"{nxt} {step.patient_message}"
-    if has("repet", "otra vez", "por que", "porque"):
-        return (
-            "Una sola medida puede salir alta por causas pasajeras: ejercicio intenso, fiebre, la regla o una infección de orina. "
-            f"Por eso se repite solo cuando el resultado no es concluyente. {nxt}"
+    # Spanish and English keywords, so questions in either language find their answer.
+    if has("pecho", "ahogo", "falta de aire", "urgen", "desmay", "chest", "breath", "emergenc", "faint"):
+        return t(
+            "Si lo que notas puede ser una urgencia, llama al 112. Para cualquier otra duda sobre síntomas, escribe a tu médico desde la pestaña «Mi médico».",
+            'If what you feel could be an emergency, call 112. For any other question about symptoms, write to your doctor from the "My doctor" tab.',
         )
-    if has("albumin", "que es", "que mide", "tira", "rinon"):
-        return (
+    if has(
+        "medic", "tratamiento", "pastilla", "farmaco", "dolor", "sintoma", "dieta", "tomar",
+        "treatment", "pill", "drug", "dose", "pain", "symptom", "diet",
+    ):  # fmt: skip
+        return t(
+            "Eso tiene que valorarlo tu médico: yo solo puedo explicarte tus pruebas de casa. Puedes escribirle desde la pestaña «Mi médico».",
+            'That is something your doctor needs to assess: I can only explain your home tests. You can write to them from the "My doctor" tab.',
+        )
+    if has("cuando", "proxim", "toca", "recordatorio", "siguiente", "fecha", "when", "next", "remind", "date", "due"):
+        return f"{nxt} {step.patient_message}"
+    if has("repet", "otra vez", "por que", "porque", "repeat", "again", "why"):
+        return t(
+            "Una sola medida puede salir alta por causas pasajeras: ejercicio intenso, fiebre, la regla o una infección de orina. "
+            f"Por eso se repite solo cuando el resultado no es concluyente. {nxt}",
+            "A single test can come out high for passing reasons: hard exercise, fever, your period or a urine infection. "
+            f"That's why it is repeated only when the result is not conclusive. {nxt}",
+        )
+    if has("albumin", "que es", "que mide", "tira", "rinon", "strip", "kidney", "what is"):
+        return t(
             "La albúmina es una proteína de la sangre. Un riñón sano casi no la deja pasar a la orina, "
             "así que encontrarla de forma repetida es una señal temprana de que sus filtros están sufriendo. "
-            "La tira mide cuánta hay."
+            "La tira mide cuánta hay.",
+            "Albumin is a protein in the blood. A healthy kidney lets almost none of it into the urine, "
+            "so finding it more than once is an early sign that its filters are struggling. "
+            "The strip measures how much there is.",
         )
-    if has("dudos", "concluyente", "significa", "probab"):
-        return (
-            f"{status} Ahora mismo la probabilidad de que haya albúmina de forma mantenida es del {_pct(step.p_albuminuria)}. "
-            "Cuando está entre el 5 % y el 95 % hace falta otra medida para decidir."
+    if has("dudos", "concluyente", "significa", "probab", "doubt", "conclusive", "inconclusive", "mean", "likely"):
+        prob = _pct(step.p_albuminuria)
+        return t(
+            f"{status} Ahora mismo la probabilidad de que haya albúmina de forma mantenida es del {prob}. "
+            "Cuando está entre el 5 % y el 95 % hace falta otra medida para decidir.",
+            f"{status} Right now the probability of persistent albumin is {prob}. "
+            "When it is between 5% and 95%, another test is needed to decide.",
         )
-    if has("tubo", "laboratorio"):
-        return "El tubo va al laboratorio, que mide el valor exacto. Solo se pide cuando una tira más ya no aclararía la duda."
-    if has("gracias", "vale", "ok", "perfecto"):
-        return "A ti. Aquí estoy si te surge otra duda."
-    # «¿Cómo voy?», evolución, resultados y cualquier otra cosa: el resumen.
+    if has("tubo", "laboratorio", "tube", "lab"):
+        return t(
+            "El tubo va al laboratorio, que mide el valor exacto. Solo se pide cuando una tira más ya no aclararía la duda.",
+            "The tube goes to the lab, which measures the exact value. It is only requested when one more strip would no longer clear up the doubt.",
+        )
+    if has("gracias", "vale", "ok", "perfecto", "thank", "great", "perfect"):
+        return t("A ti. Aquí estoy si te surge otra duda.", "You're welcome. I'm here if you have any other questions.")
+    # "How am I doing?", progress, results and anything else: the summary.
     if step.samples:
-        estimate = f" El valor estimado es de {_num(a.median)} mg/g (por debajo de 30 es normal)."
+        median = _num(a.median)
+        estimate = t(
+            f" El valor estimado es de {median} mg/g (por debajo de 30 es normal).",
+            f" The estimated value is {median} mg/g (below 30 is normal).",
+        )
     else:
         estimate = ""
     return f"{status}{estimate} {nxt}"
 
 
 def _ask_claude(body: ChatIn, facts: str) -> tuple[str, str] | None:
-    """Pide la respuesta a Claude. Devuelve (texto, modelo) o None si no hay credenciales o falla."""
+    """Asks Claude for the reply. Returns (text, model), or None without credentials or on failure.
+
+    Runs in the request's context, so the language set by the middleware picks the prompt.
+    """
     try:
         import anthropic
     except ImportError:
@@ -209,30 +311,30 @@ def _ask_claude(body: ChatIn, facts: str) -> tuple[str, str] | None:
         response = client.beta.messages.create(
             model=CHAT_MODEL,
             max_tokens=4000,
-            # Si un clasificador de seguridad declina la petición, la API la reintenta en otro modelo.
+            # If a safety classifier declines the request, the API retries it on another model.
             betas=["server-side-fallback-2026-07-01"],
             fallbacks="default",
-            output_config={"effort": "low"},  # respuestas cortas: prima la rapidez
+            output_config={"effort": "low"},  # short replies: speed matters most
             system=[
-                {"type": "text", "text": SYSTEM_PROMPT},
-                {"type": "text", "text": f"DATOS DEL PACIENTE\n{facts}"},
+                {"type": "text", "text": _system_prompt()},
+                {"type": "text", "text": t("DATOS DEL PACIENTE", "PATIENT DATA") + f"\n{facts}"},
             ],
             messages=[{"role": m.role, "content": m.content} for m in body.messages],
         )
     except anthropic.AuthenticationError:
-        log.info("Asistente en modo guiado: credenciales de Anthropic no válidas.")
+        log.info("Assistant in guided mode: invalid Anthropic credentials.")
         return None
     except anthropic.APIStatusError as exc:
-        log.warning("Asistente en modo guiado: la API devolvió %s (%s).", exc.status_code, exc.message)
+        log.warning("Assistant in guided mode: the API returned %s (%s).", exc.status_code, exc.message)
         return None
     except anthropic.APIConnectionError:
-        log.warning("Asistente en modo guiado: sin conexión con la API.")
+        log.warning("Assistant in guided mode: no connection to the API.")
         return None
-    except anthropic.AnthropicError as exc:  # p. ej. no hay ninguna credencial configurada
-        log.info("Asistente en modo guiado: %s", exc)
+    except anthropic.AnthropicError as exc:  # e.g. no credentials configured at all
+        log.info("Assistant in guided mode: %s", exc)
         return None
-    except TypeError as exc:  # sin ninguna credencial, o un SDK que no conoce algún parámetro
-        log.info("Asistente en modo guiado: %s", exc)
+    except TypeError as exc:  # no credentials at all, or an SDK that doesn't know some parameter
+        log.info("Assistant in guided mode: %s", exc)
         return None
 
     if response.stop_reason == "refusal":
@@ -241,15 +343,33 @@ def _ask_claude(body: ChatIn, facts: str) -> tuple[str, str] | None:
     return (text, response.model) if text else None
 
 
-@router.post("/chat", response_model=ChatOut, summary="Asistente del paciente")
+@router.post("/chat", response_model=ChatOut, summary="Patient assistant")
 def chat(body: ChatIn) -> ChatOut:
-    """Contesta la última pregunta del paciente con lo que el modelo clínico sabe de él."""
+    """Answers the patient's last question with what the clinical model knows about them."""
     if not body.messages or body.messages[-1].role != "user":
-        raise HTTPException(status_code=400, detail="El último mensaje de la conversación tiene que ser del paciente.")
+        raise HTTPException(
+            status_code=400,
+            detail=t(
+                "El último mensaje de la conversación tiene que ser del paciente.",
+                "The last message in the conversation must be from the patient.",
+            ),
+        )
     if len(body.messages) > MAX_MESSAGES:
-        raise HTTPException(status_code=400, detail=f"La conversación admite como mucho {MAX_MESSAGES} mensajes.")
+        raise HTTPException(
+            status_code=400,
+            detail=t(
+                f"La conversación admite como mucho {MAX_MESSAGES} mensajes.",
+                f"The conversation allows at most {MAX_MESSAGES} messages.",
+            ),
+        )
     if any(not m.content.strip() or len(m.content) > MAX_CHARS for m in body.messages):
-        raise HTTPException(status_code=400, detail=f"Cada mensaje debe tener entre 1 y {MAX_CHARS} caracteres.")
+        raise HTTPException(
+            status_code=400,
+            detail=t(
+                f"Cada mensaje debe tener entre 1 y {MAX_CHARS} caracteres.",
+                f"Each message must be between 1 and {MAX_CHARS} characters long.",
+            ),
+        )
 
     step = home._step(
         home.StepIn(patient=body.patient, channel=body.channel, today=body.today, samples=body.samples)

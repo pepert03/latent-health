@@ -1,20 +1,22 @@
-"""Cohorte con seguimiento: NHANES 1999-2018 enlazado con el registro de defunciones de EE. UU.
+"""Cohort with follow-up: NHANES 1999-2018 linked to the US death registry.
 
-Una fila por adulto con lo que se sabía el día del examen y lo que le pasó después (si murió,
-de qué y cuándo, hasta el 31 de diciembre de 2019). Es lo que permite entrenar y comprobar un
-modelo de riesgo con desenlaces reales, cosa que el resto del proyecto no tenía.
+One row per adult with what was known on the exam day and what happened afterwards (whether
+they died, of what and when, up to 31 December 2019). This is what allows training and
+checking a risk model against real outcomes, which the rest of the project lacked.
 
-Los predictores están agrupados por lo que cuesta conseguirlos desde casa (``TIERS``):
-cuestionario, manguito, orina y sangre.
+Predictors are grouped by how hard they are to obtain from home (``TIERS``):
+questionnaire, cuff, urine and blood.
 
-Cuidados al juntar diez oleadas:
-- La edad está acotada en 85 años hasta 2006 y en 80 después: se acota en 80 en todas.
-- Varias preguntas cambian de nombre o de redacción; solo se usan las que se pueden igualar.
-- La creatinina de 1999-2000 y de 2005-2006 se corrige como indica NHANES.
-- En 2015-2018 el fichero público solo distingue la muerte por enfermedad del corazón y por
-  cáncer; el ictus queda en "otras causas". Para la muerte cardiovascular se usan 1999-2014.
-- En los ficheros públicos, el tiempo de seguimiento o la causa de algunos registros están
-  sustituidos por valores sintéticos para proteger la identidad. Vivo o muerto no se toca.
+Caveats when pooling ten cycles:
+- Age is top-coded at 85 until 2006 and at 80 afterwards: it is capped at 80 throughout.
+- Several questions change name or wording; only those that can be harmonized are used.
+- Creatinine for 1999-2000 and 2005-2006 is corrected as NHANES recommends.
+- In 2015-2018 the public file only distinguishes death from heart disease and from cancer;
+  stroke falls under "other causes". Cardiovascular death uses 1999-2014.
+- In the public files, follow-up time or cause for some records is replaced by synthetic
+  values to protect identity. Vital status is left untouched.
+
+``TIERS``/``HOME_TIER`` keys and ``BLOCKS`` keys are kept in Spanish: scripts look them up by name.
 """
 
 from __future__ import annotations
@@ -41,15 +43,15 @@ SUFFIX = {
     "2015-2016": "_I",
     "2017-2018": "_J",
 }
-# Oleadas en las que el ictus se distingue como causa de muerte.
+# Cycles in which stroke is distinguished as a cause of death.
 CV_CYCLES = tuple(c for c in SUFFIX if int(c[:4]) <= 2013)
-# Oleadas en las que todo el mundo tiene al menos 10 años de seguimiento posible.
+# Cycles in which everyone has at least 10 years of possible follow-up.
 FULL_10Y_CYCLES = tuple(c for c in SUFFIX if int(c[:4]) <= 2007)
 
-# Causa básica de muerte (códigos del fichero público).
+# Underlying cause of death (public-file codes).
 HEART, CANCER, STROKE, DIABETES_DEATH, KIDNEY_DEATH = 1, 2, 5, 7, 9
 CAUSES = {
-    "cardiovascular": (HEART, STROKE),  # enfermedades del corazón e ictus
+    "cardiovascular": (HEART, STROKE),  # heart disease and stroke
     "corazon": (HEART,),
     "cardio_renal_metabolica": (HEART, STROKE, DIABETES_DEATH, KIDNEY_DEATH),
 }
@@ -59,12 +61,12 @@ _OLD_LABS = {
     "2001-2002": dict(urine="L16_B", bio="L40_B", a1c="L10_B", lipids="L13_B", scr="LBDSCR", hdl="LBDHDL"),
     "2003-2004": dict(urine="L16_C", bio="L40_C", a1c="L10_C", lipids="L13_C", scr="LBXSCR", hdl="LBXHDD"),
 }
-# Corrección de la creatinina al método estandarizado (documentación de NHANES).
+# Creatinine correction to the standardized method (NHANES documentation).
 _SCR_FIX = {"1999-2000": lambda s: 1.013 * s + 0.147, "2005-2006": lambda s: -0.016 + 0.978 * s}
 
-# Predictores por lo que cuesta conseguirlos desde casa.
+# Predictors grouped by how hard they are to obtain from home.
 DEMOGRAPHICS = ["age", "female"]
-# Lo que ya consta en la historia clínica, sin pedirle nada al paciente.
+# What is already in the clinical record, without asking the patient anything.
 RECORD = [
     "bmi",
     "waist",
@@ -81,7 +83,7 @@ RECORD = [
     "smoker_now",
     "smoker_ever",
 ]
-# Cinco preguntas que el paciente contesta desde casa.
+# Five questions the patient answers from home.
 QUESTIONS = ["health", "dyspnea", "walk_difficulty", "stairs_difficulty", "hospitalized"]
 QUESTIONNAIRE = RECORD + QUESTIONS
 CUFF = ["sbp", "dbp", "pulse", "pulse_irregular"]
@@ -98,20 +100,20 @@ TIERS = {
     "Todo lo anterior y analítica de sangre": DEMOGRAPHICS + QUESTIONNAIRE + CUFF + URINE_LAB + BLOOD,
 }
 HOME_TIER = "Historia, cuestionario, manguito y orina de laboratorio"
-# Variables de las ecuaciones que se usan hoy, para reajustarlas con estos mismos datos.
+# Variables of the equations in use today, to refit them on this same data.
 SCORE2_VARIABLES = ["age", "female", "smoker_now", "sbp", "total_cholesterol", "hdl", "dx_diabetes"]
 PREVENT_VARIABLES = SCORE2_VARIABLES + ["bmi", "egfr", "bp_meds", "cholesterol_meds"]
 PREVENT_FULL_VARIABLES = PREVENT_VARIABLES + ["log_uacr", "hba1c"]
 
 
 def _yes_no(series) -> np.ndarray:
-    """1 = sí, 2 = no; el resto (no sabe, no contesta, no preguntado) queda vacío."""
+    """1 = yes, 2 = no; anything else (don't know, refused, not asked) is left empty."""
     s = np.asarray(series, dtype=float)
     return np.where(s == 1, 1.0, np.where(s == 2, 0.0, np.nan))
 
 
 def _col(df: pd.DataFrame, *names: str) -> np.ndarray:
-    """Primera de las columnas que exista (las preguntas cambian de nombre entre oleadas)."""
+    """First column that exists (questions change name between cycles)."""
     for name in names:
         if name in df:
             return df[name].to_numpy(float)
@@ -119,18 +121,18 @@ def _col(df: pd.DataFrame, *names: str) -> np.ndarray:
 
 
 def _taking(asked: np.ndarray, answer: np.ndarray) -> np.ndarray:
-    """Toma el fármaco: sí solo si contestó que sí; no para quien contestó a la pregunta de entrada."""
+    """Takes the drug: yes only if answered yes; no for anyone who answered the gate question."""
     return np.where(answer == 1, 1.0, np.where(np.isfinite(asked), 0.0, np.nan))
 
 
 def _difficulty(code: np.ndarray, age: np.ndarray) -> np.ndarray:
-    """Dificultad de 0 (ninguna) a 3 (no puede o no lo hace). A los menores de 60 sin limitaciones no se les pregunta."""
+    """Difficulty from 0 (none) to 3 (unable or does not do it). Under-60s without limitations are not asked."""
     out = np.select([code == 1, code == 2, code == 3, (code == 4) | (code == 5)], [0.0, 1.0, 2.0, 3.0], default=np.nan)
     return np.where(np.isnan(code) & (age < 60), 0.0, out)
 
 
 def read_mortality(cycle: str, base_dir: Path = BASE_DIR) -> pd.DataFrame:
-    """Fichero público de mortalidad enlazada de una oleada (formato de ancho fijo de los CDC)."""
+    """Public linked-mortality file for one cycle (CDC fixed-width format)."""
     path = Path(base_dir) / "mortality" / f"NHANES_{cycle.replace('-', '_')}_MORT_2019_PUBLIC.dat"
     m = pd.read_fwf(
         path,
@@ -169,7 +171,7 @@ def _load_cycle(cycle: str, base_dir: Path) -> pd.DataFrame:
     dbp = df[["BPXDI1", "BPXDI2", "BPXDI3", "BPXDI4"]].to_numpy(float, copy=True)
     dbp[dbp <= 0] = np.nan
     with warnings.catch_warnings():
-        warnings.simplefilter("ignore", RuntimeWarning)  # filas sin ninguna lectura
+        warnings.simplefilter("ignore", RuntimeWarning)  # rows without any reading
         out["sbp"] = np.nanmean(sbp, axis=1)
         out["dbp"] = np.nanmean(dbp, axis=1)
     out["pulse"] = _col(df, "BPXPLS")
@@ -184,8 +186,8 @@ def _load_cycle(cycle: str, base_dir: Path) -> pd.DataFrame:
     told_bp, told_chol = _col(df, "BPQ020"), _col(df, "BPQ080")
     out["dx_hypertension"] = _yes_no(told_bp)
     out["bp_meds"] = _taking(_yes_no(told_bp), _col(df, "BPQ050A"))
-    # Hasta 2010 solo se preguntaba por el colesterol a quien se lo había medido alguna vez;
-    # después, a todos. Quien nunca se lo midió cuenta como "no" en todas las oleadas.
+    # Until 2010 only people who had ever had cholesterol checked were asked about it;
+    # afterwards, everyone. Never checked counts as "no" in all cycles.
     out["dx_high_cholesterol"] = np.where(told_chol == 1, 1.0, np.where(np.isfinite(told_bp), 0.0, np.nan))
     out["cholesterol_meds"] = _taking(out["dx_high_cholesterol"].to_numpy(), _col(df, "BPQ100D"))
     out["dx_heart_failure"] = _yes_no(df.MCQ160B)
@@ -196,9 +198,9 @@ def _load_cycle(cycle: str, base_dir: Path) -> pd.DataFrame:
     out["smoker_ever"] = ever
     out["smoker_now"] = np.where(np.isin(now, (1, 2)), 1.0, np.where((now == 3) | (ever == 0), 0.0, np.nan))
 
-    # Cuestionario: salud percibida (1 excelente ... 5 mala), disnea al subir cuestas o
-    # escaleras (solo se pregunta a partir de 40 años), dificultad para caminar 400 m y para
-    # subir 10 escalones, e ingreso en el último año.
+    # Questionnaire: self-rated health (1 excellent ... 5 poor), shortness of breath on hills or
+    # stairs (only asked from age 40), difficulty walking 400 m and climbing 10 steps,
+    # and hospital admission in the last year.
     health = _col(df, "HUQ010")
     out["health"] = np.where((health >= 1) & (health <= 5), health, np.nan)
     out["dyspnea"] = _yes_no(_col(df, "CDQ010"))
@@ -208,7 +210,7 @@ def _load_cycle(cycle: str, base_dir: Path) -> pd.DataFrame:
 
     albumin = df.URXUMA.to_numpy(float)
     ucr = df.URXUCR.to_numpy(float)
-    albumin_eff = np.where(albumin <= 0.22, 0.3, albumin)  # bajo el límite de detección
+    albumin_eff = np.where(albumin <= 0.22, 0.3, albumin)  # below the detection limit
     with np.errstate(invalid="ignore", divide="ignore"):
         out["log_uacr"] = np.log(100.0 * albumin_eff / ucr)
         out["log_urine_albumin"] = np.log(albumin_eff)
@@ -229,18 +231,18 @@ def _load_cycle(cycle: str, base_dir: Path) -> pd.DataFrame:
 
 
 def load_cohort(base_dir: Path = BASE_DIR, cycles=tuple(SUFFIX)) -> pd.DataFrame:
-    """Adultos (≥ 20 años, sin embarazo) con seguimiento de mortalidad.
+    """Adults (age >= 20, not pregnant) with mortality follow-up.
 
-    Columnas: identificación (``seqn``, ``cycle``), predictores (ver ``TIERS``) y desenlace:
-    ``dead`` (0/1), ``cause`` (código de la causa básica; vacío si vive) y ``months`` desde el
-    examen hasta la muerte o el fin del seguimiento.
+    Columns: identifiers (``seqn``, ``cycle``), predictors (see ``TIERS``) and outcome:
+    ``dead`` (0/1), ``cause`` (underlying-cause code; empty if alive) and ``months`` from the
+    exam to death or end of follow-up.
     """
     out = pd.concat([_load_cycle(c, base_dir) for c in cycles], ignore_index=True)
     out = out[out.eligible & np.isfinite(out.months) & np.isfinite(out.dead)].drop(columns="eligible")
     return out.reset_index(drop=True)
 
 
-# Bloques de datos de casa que un paciente puede no haber aportado todavía.
+# Blocks of home data a patient may not have provided yet.
 BLOCKS = {
     "cuestionario": ["health", "dyspnea", "walk_difficulty", "stairs_difficulty", "hospitalized"],
     "peso y cintura": ["bmi", "waist"],
@@ -250,12 +252,12 @@ BLOCKS = {
 
 
 def complete_home(df: pd.DataFrame) -> np.ndarray:
-    """Personas con todos los datos de casa.
+    """People with all the home data.
 
-    En NHANES un dato vacío no es neutro: suele ser de alguien a quien no se pudo explorar, más
-    frágil. En el producto, vacío significa "aún no lo ha aportado". Para que el modelo no
-    aprenda lo primero se entrena y se evalúa solo con personas que lo tienen todo (la disnea
-    solo se pregunta desde los 40 años).
+    In NHANES a missing value is not neutral: it usually belongs to someone who could not be
+    examined, i.e. frailer. In the product, missing means "not provided yet". So the model does
+    not learn the former, it is trained and evaluated only on people with everything (dyspnea
+    is only asked from age 40).
     """
     needed = [c for cols in BLOCKS.values() for c in cols if c != "dyspnea"]
     ok = np.isfinite(df[needed]).all(axis=1).to_numpy()
@@ -263,10 +265,10 @@ def complete_home(df: pd.DataFrame) -> np.ndarray:
 
 
 def mask_blocks(df: pd.DataFrame, rng, copies: int = 2, p: float = 0.5, blocks: dict | None = None) -> pd.DataFrame:
-    """Las filas originales más ``copies`` copias con bloques enteros de datos borrados al azar.
+    """The original rows plus ``copies`` copies with whole data blocks randomly blanked.
 
-    Así el modelo aprende qué estimar cuando falta el cuestionario, el manguito o la orina, y
-    un hueco significa "no aportado" y nada más.
+    This way the model learns what to estimate when the questionnaire, cuff or urine is missing,
+    and a gap means "not provided" and nothing else.
     """
     out = [df]
     for _ in range(copies):
@@ -279,10 +281,10 @@ def mask_blocks(df: pd.DataFrame, rng, copies: int = 2, p: float = 0.5, blocks: 
 
 
 def add_strip(df: pd.DataFrame, spec, seed: int = 0) -> pd.DataFrame:
-    """Añade lo que habría leído una tira en la misma orina (niveles de albúmina y creatinina, en log).
+    """Add what a dipstick would have read on the same urine (albumin and creatinine levels, log).
 
-    La orina de NHANES se midió en el laboratorio. Para saber cuánto vale una tira se simula su
-    lectura con el error de ``spec`` (ver ``albuminuria.strip``).
+    NHANES urine was measured in the lab. To assess what a strip is worth, its reading is
+    simulated with the error of ``spec`` (see ``albuminuria.strip``).
     """
     from ..albuminuria.strip import simulate_reading
 
@@ -299,5 +301,5 @@ def add_strip(df: pd.DataFrame, spec, seed: int = 0) -> pd.DataFrame:
 
 
 def event_within(df: pd.DataFrame, causes: tuple[int, ...], years: float = 10.0) -> np.ndarray:
-    """Muerte por esas causas antes de ``years`` años (solo tiene sentido con seguimiento completo)."""
+    """Death from those causes within ``years`` years (only meaningful with complete follow-up)."""
     return ((df.dead == 1) & df.cause.isin(causes) & (df.months <= 12.0 * years)).to_numpy()

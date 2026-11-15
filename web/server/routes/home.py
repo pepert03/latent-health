@@ -1,11 +1,11 @@
-"""Rutas de la app del paciente: protocolo de orina en casa y otras medidas (tensión, pulso, glucosa).
+"""Patient app routes: at-home urine protocol and other measurements (blood pressure, pulse, glucose).
 
-Las rutas no guardan estado: cada petición lleva al paciente, sus muestras y la fecha de hoy, y
-la respuesta sale entera de los modelos de ``src/latenthealth``. Los mensajes al paciente, las
-notas para la historia y las alertas son los literales del modelo. Aquí solo se escriben las
-etiquetas de la interfaz, los guiones de la demo y los errores de validación.
+The routes are stateless: each request carries the patient, their samples and today's date, and
+the response comes entirely from the models in ``src/latenthealth``. Patient messages, record
+notes and alerts are the model's own text. Only UI labels, demo scripts and validation errors
+are written here.
 
-Todo son datos sintéticos.
+All data is synthetic.
 """
 
 from __future__ import annotations
@@ -48,6 +48,7 @@ from latenthealth.diabetes import (
     fasting_days_above,
     summarize_glucose,
 )
+from latenthealth.i18n import LANGS, Labels, fmt_date, is_es, lang, t, use_lang
 from latenthealth.home import (
     HOME_DBP_LIMIT,
     HOME_SBP_LIMIT,
@@ -64,7 +65,7 @@ log = logging.getLogger("latenthealth.web.home")
 
 
 def _json_safe(value: Any) -> Any:
-    """Copia de ``value`` con NaN e infinitos escritos como texto, que es lo que JSON admite."""
+    """Copy of ``value`` with NaN and infinities written as text, which is what JSON allows."""
     if isinstance(value, float) and not math.isfinite(value):
         return "NaN" if math.isnan(value) else ("Infinity" if value > 0 else "-Infinity")
     if isinstance(value, dict):
@@ -75,11 +76,11 @@ def _json_safe(value: Any) -> Any:
 
 
 class _SafeErrorsRoute(APIRoute):
-    """Ruta cuyo 422 se puede escribir siempre como JSON.
+    """Route whose 422 can always be written as JSON.
 
-    Python acepta ``NaN`` e ``Infinity`` al leer el cuerpo de la petición. El 422 de FastAPI
-    repite en ``input`` lo que no valía, y al escribir ese NaN como JSON la respuesta se rompía
-    en un 500. Aquí se pasan a texto antes de responder.
+    Python accepts ``NaN`` and ``Infinity`` when reading the request body. FastAPI's 422 echoes
+    the invalid value in ``input``, and writing that NaN as JSON turned the response into a 500.
+    Here they are converted to text before responding.
     """
 
     def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
@@ -94,51 +95,54 @@ class _SafeErrorsRoute(APIRoute):
         return safe_handler
 
 
-router = APIRouter(prefix="/api/home", tags=["En casa (app del paciente)"], route_class=_SafeErrorsRoute)
+router = APIRouter(prefix="/api/home", tags=["At home (patient app)"], route_class=_SafeErrorsRoute)
 
-# --- Constantes de la demo y límites de la validación ---
+# --- Demo constants and validation limits ---
 
-DEMO_TODAY = dt.date(2026, 11, 16)  # lunes; la misma D0 de scripts/demo_casa.py
+DEMO_TODAY = dt.date(2026, 11, 16)  # a Monday; same D0 as scripts/demo_casa.py
 POPULATION = "espana"
 DEFAULT_CHANNEL = Channel.APP
-# Ventana por defecto con la que protocol.next_step cuenta las tiras y tubos gastados.
+# Default window protocol.next_step uses to count strips and tubes used.
 EPISODE_DAYS = 60
-# Umbrales con los que assessment._alerts da por clara la alerta del pulso y la de la glucosa.
+# Thresholds at which assessment._alerts raises the pulse and glucose alerts.
 AF_ALERT_PROBABILITY = 0.5
 GLUCOSE_ALERT_DAYS = 2
 
 AGE_MIN, AGE_MAX = 18.0, 100.0
-EGFR_MIN, EGFR_MAX = 5.0, 150.0  # ml/min/1,73 m²
-UACR_MAX = 30_000.0  # mg/g; es el tope de la rejilla del filtro
+EGFR_MIN, EGFR_MAX = 5.0, 150.0  # ml/min/1.73 m²
+UACR_MAX = 30_000.0  # mg/g; the top of the filter's grid
 URINE_CREATININE_MAX = 1_000.0  # mg/dl
 MAX_SAMPLES = 30
-MAX_READINGS = 200  # lecturas de tensión, pulso o glucosa por petición
+MAX_READINGS = 200  # BP, pulse or glucose readings per request
 SBP_MIN, SBP_MAX = 60.0, 300.0  # mmHg
 DBP_MIN, DBP_MAX = 30.0, 200.0
-GLUCOSE_MIN, GLUCOSE_MAX = 20.0, 600.0  # mg/dl; lo que llega a leer un glucómetro
+GLUCOSE_MIN, GLUCOSE_MAX = 20.0, 600.0  # mg/dl; what a glucose meter can read
 DATE_MIN, DATE_MAX = dt.date(2000, 1, 1), dt.date(2100, 12, 31)
 
-DIGITS = 6  # decimales de las respuestas: de sobra para pintar y estables entre ejecuciones
+DIGITS = 6  # decimals in responses: plenty for plotting and stable across runs
 
-# Texto corto de cada acción del protocolo, para botones y cabeceras (el modelo no trae uno).
-ACTION_LABELS = {
-    "tira": "Tira en casa",
-    "tubo": "Tubo al laboratorio",
-    "esperar": "Esperar",
-    "fin_normal": "Fin: prueba normal",
-    "centro": "Fin: centro de salud",
-    "repetir_cronicidad": "Repetir a los 3 meses",
-}
+# Short text for each protocol action, for buttons and headers (the model has none).
+# The keys are machine values the web front end compares against: keep them in Spanish.
+ACTION_LABELS = Labels(
+    {
+        "tira": ("Tira en casa", "Strip at home"),
+        "tubo": ("Tubo al laboratorio", "Tube to the lab"),
+        "esperar": ("Esperar", "Wait"),
+        "fin_normal": ("Fin: prueba normal", "Done: normal test"),
+        "centro": ("Fin: centro de salud", "Done: health center"),
+        "repetir_cronicidad": ("Repetir a los 3 meses", "Repeat in 3 months"),
+    }
+)
 
 Action = Literal["tira", "tubo", "esperar", "fin_normal", "centro", "repetir_cronicidad"]
 Status = Literal["sin_medir", "descartada", "dudosa", "pendiente_cronicidad", "confirmada"]
 
 
-# --- Entrada ---
+# --- Input ---
 
 
 class Answers(BaseModel):
-    """Respuestas a las preguntas previas a la prueba. Ausente o ``null`` = sin contestar."""
+    """Answers to the pre-test questions. Missing or ``null`` = not answered."""
 
     exercise_24h: bool | None = Field(None, description=urine_context.FACTORS["exercise_24h"].question)
     fever: bool | None = Field(None, description=urine_context.FACTORS["fever"].question)
@@ -146,52 +150,52 @@ class Answers(BaseModel):
         None,
         description=(
             f"{urine_context.FACTORS['menstruation'].question} "
-            f"Solo cuenta en mujeres menores de {urine_context.FACTORS['menstruation'].women_under:g} años."
+            f"Only counts for women under {urine_context.FACTORS['menstruation'].women_under:g}."
         ),
     )
     uti_symptoms: bool | None = Field(None, description=urine_context.FACTORS["uti_symptoms"].question)
 
 
 class PatientIn(BaseModel):
-    """Lo que el filtro necesita saber del paciente."""
+    """What the filter needs to know about the patient."""
 
-    age: float = Field(description=f"Edad en años (entre {AGE_MIN:g} y {AGE_MAX:g}).")
-    female: bool = Field(description="Es mujer.")
-    diabetes: bool = Field(description="Tiene diabetes diagnosticada.")
+    age: float = Field(description=f"Age in years (between {AGE_MIN:g} and {AGE_MAX:g}).")
+    female: bool = Field(description="Is female.")
+    diabetes: bool = Field(description="Has diagnosed diabetes.")
     egfr: float | None = Field(
         None,
         description=(
-            f"Filtrado glomerular estimado (FG), en ml/min/1,73 m² (entre {EGFR_MIN:g} y {EGFR_MAX:g}). "
-            "Si falta, el modelo supone un filtrado normal."
+            f"Estimated glomerular filtration rate (eGFR), in ml/min/1.73 m² (between {EGFR_MIN:g} and {EGFR_MAX:g}). "
+            "If missing, the model assumes normal filtration."
         ),
     )
 
 
 class StripSampleIn(BaseModel):
-    """Una tira hecha en casa: el nivel de color leído en cada almohadilla."""
+    """A strip done at home: the color level read on each pad."""
 
-    kind: Literal["tira"] = Field(description="Tipo de muestra.")
-    date: dt.date = Field(description="Día en que se hizo (AAAA-MM-DD).")
-    albumin_mg_l: float = Field(description="Nivel leído en la almohadilla de albúmina, en mg/l (uno de los de /config).")
+    kind: Literal["tira"] = Field(description="Sample type (``tira`` = strip).")
+    date: dt.date = Field(description="Day it was done (YYYY-MM-DD).")
+    albumin_mg_l: float = Field(description="Level read on the albumin pad, in mg/l (one of those in /config).")
     creatinine_mg_dl: float = Field(
-        description="Nivel leído en la almohadilla de creatinina, en mg/dl (uno de los de /config)."
+        description="Level read on the creatinine pad, in mg/dl (one of those in /config)."
     )
     answers: Answers | None = Field(
-        None, description="Respuestas del paciente sobre esta muestra. Se guardan con ella y cambian la probabilidad."
+        None, description="Patient answers about this sample. Stored with it; they change the probability."
     )
 
 
 class TubeSampleIn(BaseModel):
-    """Un tubo enviado al laboratorio, que mide el cociente albúmina/creatinina."""
+    """A tube sent to the lab, which measures the albumin-to-creatinine ratio (UACR)."""
 
-    kind: Literal["tubo"] = Field(description="Tipo de muestra.")
-    date: dt.date = Field(description="Día en que se recogió (AAAA-MM-DD).")
-    uacr: float = Field(description="Cociente albúmina/creatinina medido por el laboratorio, en mg/g (mayor que 0).")
+    kind: Literal["tubo"] = Field(description="Sample type (``tubo`` = tube).")
+    date: dt.date = Field(description="Day it was collected (YYYY-MM-DD).")
+    uacr: float = Field(description="Albumin-to-creatinine ratio measured by the lab, in mg/g (greater than 0).")
     creatinine_mg_dl: float | None = Field(
-        None, description="Creatinina en orina de la muestra, en mg/dl. Si falta, se supone una orina de dilución típica."
+        None, description="Urine creatinine of the sample, in mg/dl. If missing, typical urine dilution is assumed."
     )
     answers: Answers | None = Field(
-        None, description="Respuestas del paciente sobre esta muestra. Se guardan con ella y cambian la probabilidad."
+        None, description="Patient answers about this sample. Stored with it; they change the probability."
     )
 
 
@@ -199,7 +203,7 @@ SampleIn = Annotated[StripSampleIn | TubeSampleIn, Field(discriminator="kind")]
 
 
 class StepIn(BaseModel):
-    """Todo lo que hace falta para decidir el siguiente paso: el servidor no recuerda nada."""
+    """Everything needed to decide the next step: the server remembers nothing."""
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -222,47 +226,49 @@ class StepIn(BaseModel):
         }
     )
 
-    patient: PatientIn = Field(description="El paciente.")
+    patient: PatientIn = Field(description="The patient.")
     channel: Channel = Field(
         DEFAULT_CHANNEL,
-        description="Canal por el que hace la prueba (el ``value`` de /config; también vale la ``key``). Por defecto, la aplicación.",
+        description="Channel used for the test (the ``value`` from /config; the ``key`` also works). Defaults to the app.",
     )
-    today: dt.date = Field(description="Fecha de hoy para el paciente (AAAA-MM-DD). La web la avanza; el servidor no usa el reloj.")
+    today: dt.date = Field(
+        description="Today's date for the patient (YYYY-MM-DD). The web app advances it; the server does not use the clock."
+    )
     samples: list[SampleIn] = Field(
-        default_factory=list, description=f"Muestras hechas hasta hoy, tiras y tubos (como mucho {MAX_SAMPLES})."
+        default_factory=list, description=f"Samples taken up to today, strips and tubes (at most {MAX_SAMPLES})."
     )
     answers: Answers | None = Field(
         None,
-        description="Respuestas de HOY a las preguntas previas, si ya las ha contestado. Solo deciden si la prueba se aplaza.",
+        description="TODAY's answers to the pre-test questions, if already given. They only decide whether the test is postponed.",
     )
     episode_start: dt.date | None = Field(
         None,
         description=(
-            "Desde qué día cuentan las tiras y los tubos gastados del kit. "
-            f"Por defecto, los últimos {EPISODE_DAYS} días."
+            "Day from which the kit's used strips and tubes are counted. "
+            f"Defaults to the last {EPISODE_DAYS} days."
         ),
     )
 
     @field_validator("channel", mode="before")
     @classmethod
     def _channel_by_key(cls, value: object) -> object:
-        """Admite también la clave del canal ("APP"), además de su valor ("aplicación")."""
+        """Also accepts the channel key ("APP"), besides its value ("aplicación")."""
         if isinstance(value, str) and value in Channel.__members__:
             return Channel[value]
         return value
 
 
 class BPReadingIn(BaseModel):
-    """Una lectura del manguito en casa."""
+    """One home cuff reading."""
 
-    date: dt.date = Field(description="Día de la lectura (AAAA-MM-DD).")
-    sbp: float = Field(description=f"Tensión sistólica, en mmHg (entre {SBP_MIN:g} y {SBP_MAX:g}).")
-    dbp: float = Field(description=f"Tensión diastólica, en mmHg (entre {DBP_MIN:g} y {DBP_MAX:g}).")
-    evening: bool = Field(False, description="Lectura de la noche (si no, de la mañana).")
+    date: dt.date = Field(description="Day of the reading (YYYY-MM-DD).")
+    sbp: float = Field(description=f"Systolic pressure, in mmHg (between {SBP_MIN:g} and {SBP_MAX:g}).")
+    dbp: float = Field(description=f"Diastolic pressure, in mmHg (between {DBP_MIN:g} and {DBP_MAX:g}).")
+    evening: bool = Field(False, description="Evening reading (otherwise, morning).")
 
 
 class BPIn(BaseModel):
-    """La automedida de la tensión de un paciente."""
+    """A patient's home blood pressure monitoring."""
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -279,19 +285,19 @@ class BPIn(BaseModel):
     )
 
     readings: list[BPReadingIn] = Field(
-        description=f"Lecturas de la automedida (entre 1 y {MAX_READINGS}). Lo ideal: 7 días, dos por la mañana y dos por la noche."
+        description=f"Home monitoring readings (between 1 and {MAX_READINGS}). Ideally 7 days, two in the morning and two in the evening."
     )
 
 
 class RhythmCheckIn(BaseModel):
-    """Una comprobación del pulso con el móvil o el reloj."""
+    """A pulse check with the phone or the watch."""
 
-    date: dt.date = Field(description="Día de la comprobación (AAAA-MM-DD).")
-    irregular: bool = Field(description="El pulso salió irregular.")
+    date: dt.date = Field(description="Day of the check (YYYY-MM-DD).")
+    irregular: bool = Field(description="The pulse was irregular.")
 
 
 class RhythmIn(BaseModel):
-    """Las comprobaciones del pulso de un paciente sin fibrilación auricular diagnosticada."""
+    """Pulse checks of a patient without diagnosed atrial fibrillation."""
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -305,25 +311,25 @@ class RhythmIn(BaseModel):
         }
     )
 
-    age: float = Field(description=f"Edad en años (entre {AGE_MIN:g} y {AGE_MAX:g}).")
-    female: bool = Field(description="Es mujer.")
+    age: float = Field(description=f"Age in years (between {AGE_MIN:g} and {AGE_MAX:g}).")
+    female: bool = Field(description="Is female.")
     checks: list[RhythmCheckIn] = Field(
-        default_factory=list, description=f"Comprobaciones del pulso (como mucho {MAX_READINGS})."
+        default_factory=list, description=f"Pulse checks (at most {MAX_READINGS})."
     )
 
 
 class GlucoseReadingIn(BaseModel):
-    """Una glucosa capilar medida en casa con un glucómetro."""
+    """A capillary glucose measured at home with a glucose meter."""
 
-    date: dt.date = Field(description="Día de la lectura (AAAA-MM-DD).")
-    mg_dl: float = Field(description=f"Glucosa, en mg/dl (entre {GLUCOSE_MIN:g} y {GLUCOSE_MAX:g}).")
+    date: dt.date = Field(description="Day of the reading (YYYY-MM-DD).")
+    mg_dl: float = Field(description=f"Glucose, in mg/dl (between {GLUCOSE_MIN:g} and {GLUCOSE_MAX:g}).")
     fasting_hours: float = Field(
-        FASTING_HOURS, description=f"Horas desde la última comida (entre 0 y 24). Con {FASTING_HOURS:g} o más cuenta como ayunas."
+        FASTING_HOURS, description=f"Hours since the last meal (between 0 and 24). {FASTING_HOURS:g} or more counts as fasting."
     )
 
 
 class GlucoseIn(BaseModel):
-    """Las glucosas capilares de un paciente sin diabetes diagnosticada."""
+    """Capillary glucose readings of a patient without diagnosed diabetes."""
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -340,239 +346,261 @@ class GlucoseIn(BaseModel):
     )
 
     readings: list[GlucoseReadingIn] = Field(
-        default_factory=list, description=f"Lecturas del glucómetro (como mucho {MAX_READINGS})."
+        default_factory=list, description=f"Glucose meter readings (at most {MAX_READINGS})."
     )
 
 
-# --- Salida ---
+# --- Output ---
 
 
 class ErrorOut(BaseModel):
-    """Error de dominio (400)."""
+    """Domain error (400)."""
 
-    detail: str = Field(description="Qué dato no vale, en una frase.")
+    detail: str = Field(description="Which value is invalid, in one sentence.")
 
 
 class QuestionOut(BaseModel):
-    """Pregunta previa a la prueba."""
+    """Pre-test question."""
 
-    key: str = Field(description="Clave de la pregunta; es el nombre del campo en las respuestas.")
-    text: str = Field(description="Pregunta tal como la lee el paciente.")
+    key: str = Field(description="Question key; it is the field name in the answers.")
+    text: str = Field(description="Question as the patient reads it.")
 
 
 class KitOut(BaseModel):
-    """Material del kit y lo gastado en el episodio actual."""
+    """Kit contents and what has been used in the current episode."""
 
-    channel: Channel = Field(description="Canal del kit.")
-    strips_total: int = Field(description="Tiras que trae el kit.")
-    strips_used: int = Field(description="Tiras gastadas en el episodio.")
-    tubes_total: int = Field(description="Tubos que trae el kit.")
-    tubes_used: int = Field(description="Tubos gastados en el episodio.")
+    channel: Channel = Field(description="Kit channel.")
+    strips_total: int = Field(description="Strips in the kit.")
+    strips_used: int = Field(description="Strips used in the episode.")
+    tubes_total: int = Field(description="Tubes in the kit.")
+    tubes_used: int = Field(description="Tubes used in the episode.")
 
 
 class TrajectoryPointOut(BaseModel):
-    """Estimación del cociente en la fecha de una muestra, usando todas las muestras."""
+    """Ratio estimate at the date of a sample, using all samples."""
 
-    date: dt.date = Field(description="Fecha de la muestra.")
-    median: float = Field(description="Mediana del cociente albúmina/creatinina verdadero, en mg/g.")
-    low: float = Field(description="Percentil 10, en mg/g.")
-    high: float = Field(description="Percentil 90, en mg/g.")
-    p_a2_plus: float = Field(description="Probabilidad de albuminuria (cociente verdadero de 30 mg/g o más).")
+    date: dt.date = Field(description="Sample date.")
+    median: float = Field(description="Median of the true albumin-to-creatinine ratio, in mg/g.")
+    low: float = Field(description="10th percentile, in mg/g.")
+    high: float = Field(description="90th percentile, in mg/g.")
+    p_a2_plus: float = Field(description="Probability of albuminuria (true ratio of 30 mg/g or more).")
 
 
 class AssessmentOut(BaseModel):
-    """Estado de la albuminuria según el filtro bayesiano."""
+    """Albuminuria status according to the Bayesian filter."""
 
-    as_of: dt.date | None = Field(description="Fecha a la que se refiere el estado.")
-    status: Status = Field(description="Estado de la albuminuria.")
-    status_label: str = Field(description="Estado, como lo nombra el modelo.")
-    category: Literal["A1", "A2", "A3"] = Field(description="Categoría KDIGO más probable.")
-    p_a1: float = Field(description="Probabilidad de A1 (menos de 30 mg/g).")
-    p_a2: float = Field(description="Probabilidad de A2 (de 30 a 300 mg/g).")
-    p_a3: float = Field(description="Probabilidad de A3 (más de 300 mg/g).")
-    median: float = Field(description="Mediana del cociente verdadero, en mg/g.")
-    low: float = Field(description="Percentil 10, en mg/g.")
-    high: float = Field(description="Percentil 90, en mg/g.")
-    chronicity_met: bool = Field(description="Se cumple el criterio de cronicidad (dos momentos altos separados más de 3 meses).")
-    repeat_from: dt.date | None = Field(description="Fecha desde la que una muestra alta cumpliría la cronicidad.")
-    trajectory: list[TrajectoryPointOut] = Field(description="Un punto por muestra, en orden cronológico.")
+    as_of: dt.date | None = Field(description="Date the status refers to.")
+    status: Status = Field(description="Albuminuria status.")
+    status_label: str = Field(description="Status, as the model names it.")
+    category: Literal["A1", "A2", "A3"] = Field(description="Most likely KDIGO category.")
+    p_a1: float = Field(description="Probability of A1 (under 30 mg/g).")
+    p_a2: float = Field(description="Probability of A2 (30 to 300 mg/g).")
+    p_a3: float = Field(description="Probability of A3 (over 300 mg/g).")
+    median: float = Field(description="Median of the true ratio, in mg/g.")
+    low: float = Field(description="10th percentile, in mg/g.")
+    high: float = Field(description="90th percentile, in mg/g.")
+    chronicity_met: bool = Field(
+        description="The chronicity criterion is met (two high results more than 3 months apart)."
+    )
+    repeat_from: dt.date | None = Field(description="Date from which a high sample would meet chronicity.")
+    trajectory: list[TrajectoryPointOut] = Field(description="One point per sample, in chronological order.")
 
 
 class SampleOut(BaseModel):
-    """Una muestra de la petición, lista para enseñarla."""
+    """A sample from the request, ready to display."""
 
-    kind: Literal["tira", "tubo"] = Field(description="Tipo de muestra.")
-    date: dt.date = Field(description="Fecha de la muestra.")
-    label: str = Field(description="Lectura en una línea.")
+    kind: Literal["tira", "tubo"] = Field(description="Sample type (``tira`` = strip, ``tubo`` = tube).")
+    date: dt.date = Field(description="Sample date.")
+    label: str = Field(description="Reading in one line.")
     nominal_uacr: float = Field(
-        description="Cociente que sugiere la lectura, en mg/g: el medido en el tubo o 100 × albúmina / creatinina en la tira."
+        description="Ratio suggested by the reading, in mg/g: the one measured in the tube, or 100 × albumin / creatinine on the strip."
     )
 
 
 class StepOut(BaseModel):
-    """Siguiente paso del paciente, con el estado que lo justifica."""
+    """The patient's next step, with the status that justifies it."""
 
-    action: Action = Field(description="Qué toca ahora.")
-    action_label: str = Field(description="La acción, en pocas palabras.")
-    on: dt.date = Field(description="Día en que toca.")
-    finished: bool = Field(description="El episodio ha terminado (prueba normal o pasa al centro de salud).")
-    patient_message: str = Field(description="Lo que lee el paciente, literal del modelo.")
-    clinician_note: str = Field(description="Lo que queda en la historia, literal del modelo.")
-    p_albuminuria: float = Field(description="Probabilidad de albuminuria (cociente verdadero de 30 mg/g o más).")
+    action: Action = Field(description="What is due now.")
+    action_label: str = Field(description="The action, in a few words.")
+    on: dt.date = Field(description="Day it is due.")
+    finished: bool = Field(description="The episode has ended (normal test or referred to the health center).")
+    patient_message: str = Field(description="What the patient reads, verbatim from the model.")
+    clinician_note: str = Field(description="What goes into the medical record, verbatim from the model.")
+    p_albuminuria: float = Field(description="Probability of albuminuria (true ratio of 30 mg/g or more).")
     resolve_probability: float | None = Field(
-        description="Probabilidad de que la prueba que se pide resuelva la duda; ``null`` si no se pide ninguna."
+        description="Probability that the requested test resolves the doubt; ``null`` if none is requested."
     )
-    questions: list[QuestionOut] = Field(description="Preguntas que hay que hacer al paciente antes de la prueba.")
-    kit: KitOut = Field(description="Material del kit y lo gastado.")
-    assessment: AssessmentOut = Field(description="Estado de la albuminuria.")
-    samples: list[SampleOut] = Field(description="Las muestras de la petición, en orden cronológico (el de ``trajectory``).")
+    questions: list[QuestionOut] = Field(description="Questions to ask the patient before the test.")
+    kit: KitOut = Field(description="Kit contents and what has been used.")
+    assessment: AssessmentOut = Field(description="Albuminuria status.")
+    samples: list[SampleOut] = Field(description="The request's samples, in chronological order (that of ``trajectory``).")
 
 
 class ChannelOut(BaseModel):
-    """Un canal para hacer la prueba y el kit que le corresponde."""
+    """A channel for doing the test and its matching kit."""
 
-    key: str = Field(description="Clave del canal.")
-    value: str = Field(description="Nombre del canal; es lo que se manda en ``channel``.")
-    strips: int = Field(description="Tiras que trae el kit.")
-    tubes: int = Field(description="Tubos que trae el kit.")
-    uses_strip: bool = Field(description="El canal usa tiras (si no, solo tubo).")
-    strip_name: str | None = Field(description="Cómo se lee la tira en este canal.")
+    key: str = Field(description="Channel key.")
+    value: str = Field(description="Channel name; it is what is sent in ``channel``.")
+    strips: int = Field(description="Strips in the kit.")
+    tubes: int = Field(description="Tubes in the kit.")
+    uses_strip: bool = Field(description="The channel uses strips (otherwise, tube only).")
+    strip_name: str | None = Field(description="How the strip is read in this channel.")
 
 
 class StripOut(BaseModel):
-    """Niveles de color que se pueden leer en la tira."""
+    """Color levels that can be read on the strip."""
 
-    albumin_levels_mg_l: list[float] = Field(description="Niveles de la almohadilla de albúmina, en mg/l.")
-    creatinine_levels_mg_dl: list[float] = Field(description="Niveles de la almohadilla de creatinina, en mg/dl.")
+    albumin_levels_mg_l: list[float] = Field(description="Albumin pad levels, in mg/l.")
+    creatinine_levels_mg_dl: list[float] = Field(description="Creatinine pad levels, in mg/dl.")
 
 
 class QuestionInfoOut(BaseModel):
-    """Pregunta previa a la prueba y lo que pasa si la respuesta es que sí."""
+    """Pre-test question and what happens if the answer is yes."""
 
-    key: str = Field(description="Clave de la pregunta; es el nombre del campo en las respuestas.")
-    text: str = Field(description="Pregunta tal como la lee el paciente.")
-    wait_days: int = Field(description="Días que se aplaza la prueba si contesta que sí.")
-    advice: str = Field(description="Consejo que recibe si contesta que sí.")
-    audience: str = Field(description="A quién se le pregunta.")
+    key: str = Field(description="Question key; it is the field name in the answers.")
+    text: str = Field(description="Question as the patient reads it.")
+    wait_days: int = Field(description="Days the test is postponed if the answer is yes.")
+    advice: str = Field(description="Advice given if the answer is yes.")
+    audience: str = Field(description="Who is asked.")
 
 
 class PatientPresetOut(BaseModel):
-    """Paciente de ejemplo (inventado)."""
+    """Example patient (made up)."""
 
-    id: str = Field(description="Identificador del paciente de ejemplo.")
-    name: str = Field(description="Nombre inventado.")
-    summary: str = Field(description="Quién es, en una línea.")
-    age: float = Field(description="Edad en años.")
-    female: bool = Field(description="Es mujer.")
-    diabetes: bool = Field(description="Tiene diabetes diagnosticada.")
-    egfr: float = Field(description="Filtrado glomerular estimado, en ml/min/1,73 m².")
-    channel: Channel = Field(description="Canal por el que hace la prueba.")
+    id: str = Field(description="Example patient identifier.")
+    name: str = Field(description="Made-up name.")
+    summary: str = Field(description="Who they are, in one line.")
+    age: float = Field(description="Age in years.")
+    female: bool = Field(description="Is female.")
+    diabetes: bool = Field(description="Has diagnosed diabetes.")
+    egfr: float = Field(description="Estimated glomerular filtration rate (eGFR), in ml/min/1.73 m².")
+    channel: Channel = Field(description="Channel used for the test.")
 
 
 class ScriptStepOut(BaseModel):
-    """Un paso de un recorrido guiado: lo que hace el paciente."""
+    """One step of a guided walkthrough: what the patient does."""
 
     kind: Literal["respuestas", "tira", "tubo"] = Field(
-        description="``respuestas``: contesta las preguntas de hoy. ``tira`` o ``tubo``: hace la prueba el día que tocaba."
+        description=(
+            "``respuestas``: answers today's questions. "
+            "``tira`` (strip) or ``tubo`` (tube): does the test on the day it was due."
+        )
     )
     answers: Answers | None = Field(
-        None, description="Las respuestas: las de hoy (``respuestas``) o las que se guardan con la muestra."
+        None, description="The answers: today's (``respuestas``) or those stored with the sample."
     )
-    albumin_mg_l: float | None = Field(None, description="Lectura de albúmina de la tira, en mg/l.")
-    creatinine_mg_dl: float | None = Field(None, description="Lectura de creatinina de la tira, en mg/dl.")
-    uacr: float | None = Field(None, description="Resultado del tubo, en mg/g.")
-    note: str = Field(description="Qué pasa en este paso, para quien presenta la demo.")
+    albumin_mg_l: float | None = Field(None, description="Strip albumin reading, in mg/l.")
+    creatinine_mg_dl: float | None = Field(None, description="Strip creatinine reading, in mg/dl.")
+    uacr: float | None = Field(None, description="Tube result, in mg/g.")
+    note: str = Field(description="What happens in this step, for the demo presenter.")
 
 
 class ScriptOut(BaseModel):
-    """Recorrido guiado de un paciente de ejemplo."""
+    """Guided walkthrough of an example patient."""
 
-    id: str = Field(description="Identificador del recorrido.")
-    title: str = Field(description="Título corto.")
-    patient_id: str = Field(description="Paciente de ejemplo que lo hace.")
-    summary: str = Field(description="Qué enseña el recorrido, en una línea.")
-    steps: list[ScriptStepOut] = Field(description="Lo que hace el paciente, en orden.")
+    id: str = Field(description="Walkthrough identifier.")
+    title: str = Field(description="Short title.")
+    patient_id: str = Field(description="Example patient who does it.")
+    summary: str = Field(description="What the walkthrough shows, in one line.")
+    steps: list[ScriptStepOut] = Field(description="What the patient does, in order.")
 
 
 class ConfigOut(BaseModel):
-    """Lo que la app del paciente necesita antes de empezar."""
+    """What the patient app needs before starting."""
 
-    today: dt.date = Field(description="Fecha en la que empieza la demo.")
-    channels: list[ChannelOut] = Field(description="Canales por los que se puede hacer la prueba y su kit.")
-    strip: StripOut = Field(description="Niveles de color de la tira.")
-    questions: list[QuestionInfoOut] = Field(description="Preguntas previas a la prueba.")
-    patients: list[PatientPresetOut] = Field(description="Pacientes de ejemplo (sintéticos).")
-    scripts: list[ScriptOut] = Field(description="Recorridos guiados para la demo.")
+    today: dt.date = Field(description="Date the demo starts.")
+    channels: list[ChannelOut] = Field(description="Channels through which the test can be done, and their kit.")
+    strip: StripOut = Field(description="Strip color levels.")
+    questions: list[QuestionInfoOut] = Field(description="Pre-test questions.")
+    patients: list[PatientPresetOut] = Field(description="Example patients (synthetic).")
+    scripts: list[ScriptOut] = Field(description="Guided walkthroughs for the demo.")
 
 
 class BPOut(BaseModel):
-    """Resumen de la automedida de la tensión (se descarta el primer día)."""
+    """Summary of home blood pressure monitoring (the first day is discarded)."""
 
-    n: int = Field(description="Lecturas usadas.")
-    days: int = Field(description="Días usados.")
-    sbp: float = Field(description="Media de la sistólica, en mmHg.")
-    dbp: float = Field(description="Media de la diastólica, en mmHg.")
-    sbp_se: float = Field(description="Error típico de la media de la sistólica.")
-    dbp_se: float = Field(description="Error típico de la media de la diastólica.")
+    n: int = Field(description="Readings used.")
+    days: int = Field(description="Days used.")
+    sbp: float = Field(description="Mean systolic, in mmHg.")
+    dbp: float = Field(description="Mean diastolic, in mmHg.")
+    sbp_se: float = Field(description="Standard error of the mean systolic.")
+    dbp_se: float = Field(description="Standard error of the mean diastolic.")
     p_sbp_high: float = Field(
-        description=f"Probabilidad de que la sistólica media verdadera sea de {HOME_SBP_LIMIT:g} mmHg o más."
+        description=f"Probability that the true mean systolic is {HOME_SBP_LIMIT:g} mmHg or more."
     )
     p_dbp_high: float = Field(
-        description=f"Probabilidad de que la diastólica media verdadera sea de {HOME_DBP_LIMIT:g} mmHg o más."
+        description=f"Probability that the true mean diastolic is {HOME_DBP_LIMIT:g} mmHg or more."
     )
-    p_high: float = Field(description="Probabilidad de tensión alta en casa: la mayor de las dos anteriores.")
-    valid: bool = Field(description="Hay lecturas suficientes para dar la media por buena.")
-    message: str = Field(description="Conclusión, literal del modelo.")
+    p_high: float = Field(description="Probability of high blood pressure at home: the larger of the two above.")
+    valid: bool = Field(description="There are enough readings for the mean to be valid.")
+    message: str = Field(description="Conclusion, verbatim from the model.")
 
 
 class RhythmOut(BaseModel):
-    """Probabilidad de fibrilación auricular sin diagnosticar."""
+    """Probability of undiagnosed atrial fibrillation."""
 
-    prior: float = Field(description="Probabilidad de fibrilación auricular sin diagnosticar por edad y sexo (estudio OFRECE).")
-    probability: float = Field(description="Probabilidad de fibrilación auricular tras las comprobaciones.")
-    alert: bool = Field(description=f"La probabilidad llega a {AF_ALERT_PROBABILITY:g}: hay que avisar.")
-    message: str | None = Field(description="Texto de la alerta, literal del modelo; ``null`` si no hay alerta.")
+    prior: float = Field(description="Probability of undiagnosed atrial fibrillation by age and sex (OFRECE study).")
+    probability: float = Field(description="Probability of atrial fibrillation after the checks.")
+    alert: bool = Field(description=f"The probability reaches {AF_ALERT_PROBABILITY:g}: an alert is needed.")
+    message: str | None = Field(description="Alert text, verbatim from the model; ``null`` if there is no alert.")
 
 
 class GlucoseOut(BaseModel):
-    """Resumen de las glucosas en ayunas medidas en casa."""
+    """Summary of fasting glucose readings taken at home."""
 
     fasting_mean_mg_dl: float | None = Field(
-        description="Media geométrica de las lecturas en ayunas, en mg/dl; ``null`` si no hay ninguna."
+        description="Geometric mean of the fasting readings, in mg/dl; ``null`` if there are none."
     )
-    fasting_readings: int = Field(description="Lecturas en ayunas.")
+    fasting_readings: int = Field(description="Fasting readings.")
     days_above_126: int = Field(
-        description=f"Días distintos con glucosa en ayunas de {DIABETES_FASTING_GLUCOSE:g} mg/dl o más."
+        description=f"Distinct days with fasting glucose of {DIABETES_FASTING_GLUCOSE:g} mg/dl or more."
     )
-    alert: bool = Field(description=f"Hay {GLUCOSE_ALERT_DAYS} días o más por encima: hay que confirmar.")
-    message: str | None = Field(description="Texto de la alerta, literal del modelo; ``null`` si no hay alerta.")
+    alert: bool = Field(description=f"{GLUCOSE_ALERT_DAYS} or more days above: needs confirmation.")
+    message: str | None = Field(description="Alert text, verbatim from the model; ``null`` if there is no alert.")
 
 
-# --- Pacientes de ejemplo y recorridos guiados (inventados) ---
+# --- Example patients and guided walkthroughs (made up) ---
 
-PATIENTS: tuple[PatientPresetOut, ...] = (
-    PatientPresetOut(
-        id="julian", name="Julián", age=62, female=False, diabetes=False, egfr=85, channel=Channel.APP,
-        summary="62 años, sin diabetes, FG 85. Nunca se le ha mirado la albúmina en la orina.",
-    ),
-    PatientPresetOut(
-        id="pilar", name="Pilar", age=58, female=True, diabetes=False, egfr=88, channel=Channel.APP,
-        summary="58 años, sin diabetes, FG 88. Es su primer cribado.",
-    ),
-    PatientPresetOut(
-        id="marta", name="Marta", age=47, female=True, diabetes=True, egfr=92, channel=Channel.APP,
-        summary="47 años, con diabetes, FG 92. Le toca el cribado de este año.",
-    ),
-    PatientPresetOut(
-        id="vicente", name="Vicente", age=73, female=False, diabetes=True, egfr=52, channel=Channel.APP,
-        summary="73 años, con diabetes y filtrado bajo (FG 52). Parte de un riesgo alto.",
-    ),
-)  # fmt: skip
-_PATIENT_BY_ID = {p.id: p for p in PATIENTS}
+# Built per language (the summaries and notes are display text); use ``patients()`` / ``scripts()``.
+
+
+def patients() -> tuple[PatientPresetOut, ...]:
+    """Example patients, with their summary in the current language."""
+    return (
+        PatientPresetOut(
+            id="julian", name="Julián", age=62, female=False, diabetes=False, egfr=85, channel=Channel.APP,
+            summary=t(
+                "62 años, sin diabetes, FG 85. Nunca se le ha mirado la albúmina en la orina.",
+                "62 years old, no diabetes, eGFR 85. His urine albumin has never been checked.",
+            ),
+        ),
+        PatientPresetOut(
+            id="pilar", name="Pilar", age=58, female=True, diabetes=False, egfr=88, channel=Channel.APP,
+            summary=t("58 años, sin diabetes, FG 88. Es su primer cribado.", "58 years old, no diabetes, eGFR 88. Her first screening."),
+        ),
+        PatientPresetOut(
+            id="marta", name="Marta", age=47, female=True, diabetes=True, egfr=92, channel=Channel.APP,
+            summary=t(
+                "47 años, con diabetes, FG 92. Le toca el cribado de este año.",
+                "47 years old, with diabetes, eGFR 92. Due for this year's screening.",
+            ),
+        ),
+        PatientPresetOut(
+            id="vicente", name="Vicente", age=73, female=False, diabetes=True, egfr=52, channel=Channel.APP,
+            summary=t(
+                "73 años, con diabetes y filtrado bajo (FG 52). Parte de un riesgo alto.",
+                "73 years old, with diabetes and low filtration (eGFR 52). Starts from a high risk.",
+            ),
+        ),
+    )  # fmt: skip
+
+
+# Only the numeric fields are read from here, so the language it was built in does not matter.
+_PATIENT_BY_ID = {p.id: p for p in patients()}
 
 
 def _no_to_all(patient_id: str) -> Answers:
-    """Contesta que no a las preguntas que el modelo hace a ese paciente."""
+    """Answers no to the questions the model asks that patient."""
     patient = _PATIENT_BY_ID[patient_id]
     return Answers(**{key: False for key, _ in urine_context.questions(patient.female, patient.age)})
 
@@ -591,89 +619,142 @@ def _tube_step(patient_id: str, uacr: float, note: str) -> ScriptStepOut:
     return ScriptStepOut(kind="tubo", answers=_no_to_all(patient_id), uacr=uacr, note=note)
 
 
-SCRIPTS: tuple[ScriptOut, ...] = (
-    ScriptOut(
-        id="normal",
-        title="Normal a la primera",
-        patient_id="julian",
-        summary="Contesta que no a las preguntas previas, hace una tira y sale normal: hasta dentro de un año.",
-        steps=[
-            _answers_step("julian", "Antes de la prueba contesta que no a todas las preguntas."),
-            _strip_step("julian", 10, 100, "Hace la tira: albúmina en el nivel más bajo (10 mg/l), con creatinina de 100 mg/dl."),
-        ],
-    ),
-    ScriptOut(
-        id="confirmada",
-        title="De la duda a la confirmación",
-        patient_id="pilar",
-        summary="Dos tiras dudosas, dos tubos al laboratorio y, tres meses después, la repetición que lo confirma.",
-        steps=[
-            _strip_step("pilar", 30, 100, "Primera tira: algo de albúmina (30 mg/l), con creatinina de 100 mg/dl."),
-            _strip_step("pilar", 30, 50, "Segunda tira: la misma albúmina (30 mg/l) en una orina más diluida (creatinina de 50 mg/dl)."),
-            _tube_step("pilar", 58, "Primer tubo: el laboratorio mide 58 mg/g."),
-            _tube_step("pilar", 64, "Segundo tubo: el laboratorio mide 64 mg/g."),
-            _tube_step("pilar", 71, "Tres meses después, el tubo de la repetición: 71 mg/g."),
-        ],
-    ),
-    ScriptOut(
-        id="aplazada",
-        title="Aplazada por fiebre",
-        patient_id="marta",
-        summary="Tiene fiebre: la prueba se aplaza en vez de gastar una tira en una muestra que no vale.",
-        steps=[
-            _answers_step("marta", "Antes de la prueba contesta que tiene fiebre.", fever=True),
-            _strip_step("marta", 10, 100, "Pasada la espera hace la tira: albúmina de 10 mg/l, con creatinina de 100 mg/dl."),
-        ],
-    ),
-    ScriptOut(
-        id="laboratorio",
-        title="Riesgo alto: de la tira al laboratorio",
-        patient_id="vicente",
-        summary="Parte de un riesgo alto: tras una tira dudosa no se pide otra, sino el tubo, y el laboratorio lo aclara.",
-        steps=[
-            _strip_step("vicente", 30, 100, "Primera tira: algo de albúmina (30 mg/l), con creatinina de 100 mg/dl."),
-            _tube_step("vicente", 12, "El laboratorio mide 12 mg/g."),
-        ],
-    ),
-)  # fmt: skip
+def scripts() -> tuple[ScriptOut, ...]:
+    """Guided walkthroughs, with their texts in the current language."""
+    first_strip = t(
+        "Primera tira: algo de albúmina (30 mg/l), con creatinina de 100 mg/dl.",
+        "First strip: some albumin (30 mg/l), with creatinine at 100 mg/dl.",
+    )
+    return (
+        ScriptOut(
+            id="normal",
+            title=t("Normal a la primera", "Normal on the first try"),
+            patient_id="julian",
+            summary=t(
+                "Contesta que no a las preguntas previas, hace una tira y sale normal: hasta dentro de un año.",
+                "Answers no to the pre-test questions, does one strip and it is normal: see you in a year.",
+            ),
+            steps=[
+                _answers_step("julian", t(
+                    "Antes de la prueba contesta que no a todas las preguntas.",
+                    "Before the test, he answers no to every question.",
+                )),
+                _strip_step("julian", 10, 100, t(
+                    "Hace la tira: albúmina en el nivel más bajo (10 mg/l), con creatinina de 100 mg/dl.",
+                    "Does the strip: albumin at the lowest level (10 mg/l), with creatinine at 100 mg/dl.",
+                )),
+            ],
+        ),
+        ScriptOut(
+            id="confirmada",
+            title=t("De la duda a la confirmación", "From doubt to confirmation"),
+            patient_id="pilar",
+            summary=t(
+                "Dos tiras dudosas, dos tubos al laboratorio y, tres meses después, la repetición que lo confirma.",
+                "Two doubtful strips, two tubes to the lab and, three months later, the repeat test that confirms it.",
+            ),
+            steps=[
+                _strip_step("pilar", 30, 100, first_strip),
+                _strip_step("pilar", 30, 50, t(
+                    "Segunda tira: la misma albúmina (30 mg/l) en una orina más diluida (creatinina de 50 mg/dl).",
+                    "Second strip: the same albumin (30 mg/l) in more dilute urine (creatinine at 50 mg/dl).",
+                )),
+                _tube_step("pilar", 58, t("Primer tubo: el laboratorio mide 58 mg/g.", "First tube: the lab measures 58 mg/g.")),
+                _tube_step("pilar", 64, t("Segundo tubo: el laboratorio mide 64 mg/g.", "Second tube: the lab measures 64 mg/g.")),
+                _tube_step("pilar", 71, t(
+                    "Tres meses después, el tubo de la repetición: 71 mg/g.",
+                    "Three months later, the repeat tube: 71 mg/g.",
+                )),
+            ],
+        ),
+        ScriptOut(
+            id="aplazada",
+            title=t("Aplazada por fiebre", "Postponed due to fever"),
+            patient_id="marta",
+            summary=t(
+                "Tiene fiebre: la prueba se aplaza en vez de gastar una tira en una muestra que no vale.",
+                "She has a fever: the test is postponed instead of wasting a strip on an unreliable sample.",
+            ),
+            steps=[
+                _answers_step("marta", t(
+                    "Antes de la prueba contesta que tiene fiebre.",
+                    "Before the test, she answers that she has a fever.",
+                ), fever=True),
+                _strip_step("marta", 10, 100, t(
+                    "Pasada la espera hace la tira: albúmina de 10 mg/l, con creatinina de 100 mg/dl.",
+                    "After the wait she does the strip: albumin at 10 mg/l, with creatinine at 100 mg/dl.",
+                )),
+            ],
+        ),
+        ScriptOut(
+            id="laboratorio",
+            title=t("Riesgo alto: de la tira al laboratorio", "High risk: from the strip to the lab"),
+            patient_id="vicente",
+            summary=t(
+                "Parte de un riesgo alto: tras una tira dudosa no se pide otra, sino el tubo, y el laboratorio lo aclara.",
+                "Starts from a high risk: after a doubtful strip the tube is requested, not another strip, and the lab settles it.",
+            ),
+            steps=[
+                _strip_step("vicente", 30, 100, first_strip),
+                _tube_step("vicente", 12, t("El laboratorio mide 12 mg/g.", "The lab measures 12 mg/g.")),
+            ],
+        ),
+    )  # fmt: skip
 
 
-# --- Piezas compartidas ---
+# --- Shared pieces ---
 
-_ERRORS = {400: {"model": ErrorOut, "description": "Algún dato no vale; ``detail`` dice cuál, en español."}}
+_ERRORS = {400: {"model": ErrorOut, "description": "Some value is invalid; ``detail`` says which one."}}
 
-# El filtro guarda en caché las tablas de la tira y no está pensado para varios hilos a la vez.
+# The filter caches the strip tables and is not meant for several threads at once.
 _MODEL_LOCK = threading.Lock()
-# Respuestas de /step ya calculadas. La ruta es una función pura de la petición, así que
-# repetir un recorrido (lo normal en la demo) no vuelve a calcular nada.
+# Already computed /step responses. The route is a pure function of the request and the
+# language, so replaying a walkthrough (the usual case in the demo) recomputes nothing.
 _STEP_CACHE: OrderedDict[str, StepOut] = OrderedDict()
 _STEP_CACHE_SIZE = 512
 
 
 @lru_cache(maxsize=1)
 def _filter() -> AlbuminuriaFilter:
-    """El filtro de albuminuria de la población de la demo, cargado una sola vez."""
+    """The albuminuria filter for the demo population, loaded once."""
     return load_default_filter(POPULATION)
 
 
 def _require(condition: bool, message: str) -> None:
-    """Error de dominio: 400 con una frase que se puede enseñar tal cual."""
+    """Domain error: 400 with a sentence that can be shown as is."""
     if not condition:
         raise HTTPException(status_code=400, detail=message)
 
 
 def _require_date(day: dt.date, what: str) -> None:
-    _require(DATE_MIN <= day <= DATE_MAX, f"{what} tiene que estar entre los años {DATE_MIN.year} y {DATE_MAX.year}.")
+    _require(
+        DATE_MIN <= day <= DATE_MAX,
+        t(
+            f"{what} tiene que estar entre los años {DATE_MIN.year} y {DATE_MAX.year}.",
+            f"{what} must be between the years {DATE_MIN.year} and {DATE_MAX.year}.",
+        ),
+    )
 
 
 def _require_age(age: float) -> None:
-    _require(AGE_MIN <= age <= AGE_MAX, f"La edad tiene que estar entre {AGE_MIN:g} y {AGE_MAX:g} años.")
+    _require(
+        AGE_MIN <= age <= AGE_MAX,
+        t(
+            f"La edad tiene que estar entre {AGE_MIN:g} y {AGE_MAX:g} años.",
+            f"Age must be between {AGE_MIN:g} and {AGE_MAX:g} years.",
+        ),
+    )
 
 
 def _levels(levels: tuple[float, ...], unit: str) -> str:
-    """Los niveles de una almohadilla, para una frase: «10, 30, 80 y 150 mg/l»."""
+    """A pad's levels, for a sentence: "10, 30, 80 and 150 mg/l" ("10, 30, 80 y 150 mg/l")."""
     names = [f"{level:g}" for level in levels]
-    return f"{', '.join(names[:-1])} y {names[-1]} {unit}"
+    return f"{', '.join(names[:-1])} {t('y', 'and')} {names[-1]} {unit}"
+
+
+def _error_date(day: dt.date) -> str:
+    """Date in an error message: "18/11/2026" in Spanish (as before), "November 18, 2026" in English."""
+    return f"{day:%d/%m/%Y}" if is_es() else fmt_date(day, weekday=False)
 
 
 def _context(answers: Answers | None) -> SampleContext | None:
@@ -681,31 +762,36 @@ def _context(answers: Answers | None) -> SampleContext | None:
 
 
 def _kit_size(kit: HomeKit) -> tuple[int, int]:
-    """Tiras y tubos que el protocolo puede llegar a pedir con ese kit."""
+    """Strips and tubes the protocol may request with that kit."""
     return (kit.strips if kit.strip is not None else 0), (kit.tubes if kit.tube else 0)
 
 
 def _alert_text(*, glucose: list[GlucoseReading] | None = None, p_af: float | None = None) -> str | None:
-    """Texto de la alerta de glucosa o de pulso tal como lo escribe el modelo.
+    """Glucose or pulse alert text exactly as the model writes it.
 
-    El modelo no expone esos literales: se redactan dentro de ``assessment._alerts``, una función
-    interna. Se la llama con una historia vacía, de modo que solo pueda salir la alerta pedida.
-    Si esa función cambiara, la ruta sigue respondiendo, sin texto.
+    The model does not expose those strings: they are built inside ``assessment._alerts``, an
+    internal function. It is called with an empty record so only the requested alert can come out.
+    If that function changed, the route still responds, without text.
     """
     record = clinical.ClinicalRecord(age=60.0, female=False, home_glucose=glucose or [])
     try:
         alerts = clinical._alerts(record, SimpleNamespace(status="sin_medir"), None, None, {}, p_af, None)
     except Exception:
-        log.exception("No se pudo obtener el texto de la alerta del modelo")
+        log.exception("Could not get the alert text from the model")
         return None
     return alerts[0] if len(alerts) == 1 else None
 
 
-# --- Configuración ---
+# --- Configuration ---
 
 
-@lru_cache(maxsize=1)
 def _config() -> ConfigOut:
+    return _config_in(lang())
+
+
+@lru_cache(maxsize=2)
+def _config_in(language: str) -> ConfigOut:
+    """/config in one language (``language`` is the cache key; the texts read the current one)."""
     channels = [
         ChannelOut(
             key=channel.name,
@@ -720,7 +806,10 @@ def _config() -> ConfigOut:
     questions = []
     for key in urine_context.QUESTIONS:
         factor = urine_context.FACTORS[key]
-        audience = "todos" if factor.women_under is None else f"mujeres menores de {factor.women_under:g} años"
+        if factor.women_under is None:
+            audience = t("todos", "everyone")
+        else:
+            audience = t(f"mujeres menores de {factor.women_under:g} años", f"women under {factor.women_under:g}")
         questions.append(
             QuestionInfoOut(key=key, text=factor.question, wait_days=factor.wait_days, advice=factor.advice, audience=audience)
         )
@@ -732,73 +821,107 @@ def _config() -> ConfigOut:
             creatinine_levels_mg_dl=list(PHONE_STRIP.creatinine_levels),
         ),
         questions=questions,
-        patients=list(PATIENTS),
-        scripts=list(SCRIPTS),
+        patients=list(patients()),
+        scripts=list(scripts()),
     )
 
 
-@router.get("/config", response_model=ConfigOut, summary="Configuración de la app del paciente")
+@router.get("/config", response_model=ConfigOut, summary="Patient app configuration")
 def config() -> ConfigOut:
-    """Lo que la app necesita antes de empezar: fecha de la demo, canales, niveles de la tira,
-    preguntas previas, pacientes de ejemplo y recorridos guiados.
+    """What the app needs before starting: demo date, channels, strip levels, pre-test
+    questions, example patients and guided walkthroughs.
 
-    Un recorrido se reproduce contra ``/step`` así: se pide el primer paso con ``today`` y sin
-    muestras, y después, por cada paso del recorrido,
+    A walkthrough is replayed against ``/step`` like this: request the first step with ``today``
+    and no samples, then, for each walkthrough step,
 
-    - ``respuestas``: se repite la petición con esas ``answers``. Si la respuesta es ``esperar``,
-      se avanza ``today`` hasta su ``on`` y se vuelve a pedir, ya sin ``answers``.
-    - ``tira`` o ``tubo``: se avanza ``today`` hasta el ``on`` de la última respuesta, se añade la
-      muestra con esa fecha (y sus ``answers``) y se vuelve a pedir.
+    - ``respuestas`` (answers): repeat the request with those ``answers``. If the response is
+      ``esperar`` (wait), advance ``today`` to its ``on`` and request again, without ``answers``.
+    - ``tira`` (strip) or ``tubo`` (tube): advance ``today`` to the ``on`` of the last response,
+      add the sample with that date (and its ``answers``) and request again.
     """
     return _config()
 
 
-# --- Protocolo de orina en casa ---
+# --- At-home urine protocol ---
 
 
 def _validate_step(body: StepIn, kit: HomeKit) -> None:
-    """Errores de dominio de /step. Lanza un 400 con el primero que encuentra."""
+    """Domain errors of /step. Raises a 400 with the first one found."""
     _require_age(body.patient.age)
     egfr = body.patient.egfr
     _require(
         egfr is None or EGFR_MIN <= egfr <= EGFR_MAX,
-        f"El filtrado glomerular (FG) tiene que estar entre {EGFR_MIN:g} y {EGFR_MAX:g} ml/min/1,73 m².",
+        t(
+            f"El filtrado glomerular (FG) tiene que estar entre {EGFR_MIN:g} y {EGFR_MAX:g} ml/min/1,73 m².",
+            f"eGFR must be between {EGFR_MIN:g} and {EGFR_MAX:g} ml/min/1.73 m².",
+        ),
     )
-    _require_date(body.today, "La fecha de hoy (today)")
+    _require_date(body.today, t("La fecha de hoy (today)", "Today's date (today)"))
     _require(
         body.episode_start is None or body.episode_start <= body.today,
-        "El inicio del episodio (episode_start) no puede ser posterior a la fecha de hoy.",
+        t(
+            "El inicio del episodio (episode_start) no puede ser posterior a la fecha de hoy.",
+            "The episode start (episode_start) cannot be after today's date.",
+        ),
     )
-    _require(len(body.samples) <= MAX_SAMPLES, f"Se admiten como mucho {MAX_SAMPLES} muestras.")
+    _require(
+        len(body.samples) <= MAX_SAMPLES,
+        t(f"Se admiten como mucho {MAX_SAMPLES} muestras.", f"At most {MAX_SAMPLES} samples are allowed."),
+    )
     for number, sample in enumerate(body.samples, start=1):
-        _require_date(sample.date, f"La fecha de la muestra {number}")
+        _require_date(sample.date, t(f"La fecha de la muestra {number}", f"The date of sample {number}"))
         _require(
             sample.date <= body.today,
-            f"La muestra {number} es del {sample.date:%d/%m/%Y}, posterior a la fecha de hoy ({body.today:%d/%m/%Y}).",
+            t(
+                f"La muestra {number} es del {_error_date(sample.date)}, posterior a la fecha de hoy ({_error_date(body.today)}).",
+                f"Sample {number} is dated {_error_date(sample.date)}, after today's date ({_error_date(body.today)}).",
+            ),
         )
         if isinstance(sample, StripSampleIn):
-            _require(kit.strip is not None, f"El canal «{kit.channel.value}» no usa tiras: solo admite muestras de tubo.")
+            _require(
+                kit.strip is not None,
+                t(
+                    f"El canal «{kit.channel.value}» no usa tiras: solo admite muestras de tubo.",
+                    f'The "{kit.channel.value}" channel does not use strips: it only accepts tube samples.',
+                ),
+            )
             _require(
                 sample.albumin_mg_l in kit.strip.albumin_levels,
-                f"Muestra {number}: la tira no tiene el nivel de albúmina {sample.albumin_mg_l:g} mg/l. "
-                f"Niveles posibles: {_levels(kit.strip.albumin_levels, 'mg/l')}.",
+                t(
+                    f"Muestra {number}: la tira no tiene el nivel de albúmina {sample.albumin_mg_l:g} mg/l. "
+                    f"Niveles posibles: {_levels(kit.strip.albumin_levels, 'mg/l')}.",
+                    f"Sample {number}: the strip has no albumin level of {sample.albumin_mg_l:g} mg/l. "
+                    f"Possible levels: {_levels(kit.strip.albumin_levels, 'mg/l')}.",
+                ),
             )
             _require(
                 sample.creatinine_mg_dl in kit.strip.creatinine_levels,
-                f"Muestra {number}: la tira no tiene el nivel de creatinina {sample.creatinine_mg_dl:g} mg/dl. "
-                f"Niveles posibles: {_levels(kit.strip.creatinine_levels, 'mg/dl')}.",
+                t(
+                    f"Muestra {number}: la tira no tiene el nivel de creatinina {sample.creatinine_mg_dl:g} mg/dl. "
+                    f"Niveles posibles: {_levels(kit.strip.creatinine_levels, 'mg/dl')}.",
+                    f"Sample {number}: the strip has no creatinine level of {sample.creatinine_mg_dl:g} mg/dl. "
+                    f"Possible levels: {_levels(kit.strip.creatinine_levels, 'mg/dl')}.",
+                ),
             )
         else:
             _require(
                 0.0 < sample.uacr <= UACR_MAX,
-                f"Muestra {number}: el resultado del laboratorio (uacr) tiene que ser mayor que 0 "
-                f"y no pasar de {UACR_MAX:g} mg/g.",
+                t(
+                    f"Muestra {number}: el resultado del laboratorio (uacr) tiene que ser mayor que 0 "
+                    f"y no pasar de {UACR_MAX:g} mg/g.",
+                    f"Sample {number}: the lab result (uacr) must be greater than 0 "
+                    f"and no more than {UACR_MAX:g} mg/g.",
+                ),
             )
             creatinine = sample.creatinine_mg_dl
             _require(
                 creatinine is None or 0.0 < creatinine <= URINE_CREATININE_MAX,
-                f"Muestra {number}: la creatinina en orina tiene que ser mayor que 0 "
-                f"y no pasar de {URINE_CREATININE_MAX:g} mg/dl.",
+                t(
+                    f"Muestra {number}: la creatinina en orina tiene que ser mayor que 0 "
+                    f"y no pasar de {URINE_CREATININE_MAX:g} mg/dl.",
+                    f"Sample {number}: urine creatinine must be greater than 0 "
+                    f"and no more than {URINE_CREATININE_MAX:g} mg/dl.",
+                ),
             )
 
 
@@ -810,12 +933,15 @@ def _model_sample(sample: StripSampleIn | TubeSampleIn, kit: HomeKit) -> StripSa
 
 
 def _sample_out(sample: StripSample | UrineSample) -> SampleOut:
-    """La muestra en una línea, con el formato de scripts/demo_casa.py."""
+    """The sample in one line, in the format of scripts/demo_casa.py."""
     if isinstance(sample, StripSample):
-        label = f"Tira: albúmina {sample.albumin_mg_l:.0f} mg/l, creatinina {sample.creatinine_mg_dl:.0f} mg/dl"
+        label = t(
+            f"Tira: albúmina {sample.albumin_mg_l:.0f} mg/l, creatinina {sample.creatinine_mg_dl:.0f} mg/dl",
+            f"Strip: albumin {sample.albumin_mg_l:.0f} mg/l, creatinine {sample.creatinine_mg_dl:.0f} mg/dl",
+        )
         return SampleOut(kind="tira", date=sample.date, label=label, nominal_uacr=clean(sample.nominal_uacr, digits=DIGITS))
     return SampleOut(
-        kind="tubo", date=sample.date, label=f"Tubo: {sample.uacr:.0f} mg/g", nominal_uacr=clean(sample.uacr, digits=DIGITS)
+        kind="tubo", date=sample.date, label=t(f"Tubo: {sample.uacr:.0f} mg/g", f"Tube: {sample.uacr:.0f} mg/g"), nominal_uacr=clean(sample.uacr, digits=DIGITS)
     )
 
 
@@ -825,11 +951,11 @@ _ASSESSMENT_INTERNALS = frozenset({"belief", "action", "next_sample_resolves", "
 def _compute_step(body: StepIn) -> StepOut:
     kit = KITS[body.channel]
     _validate_step(body, kit)
-    # Orden cronológico (estable): es el que usa el filtro y el de la trayectoria.
+    # Chronological (stable) order: the one the filter and the trajectory use.
     samples = [_model_sample(s, kit) for s in sorted(body.samples, key=lambda s: s.date)]
     patient = Patient(body.patient.age, body.patient.female, body.patient.diabetes, body.patient.egfr, samples)
-    # La ventana del episodio se pasa siempre de forma explícita: así el kit que se devuelve
-    # se cuenta con la misma que usa el protocolo.
+    # The episode window is always passed explicitly, so the returned kit is counted
+    # with the same window the protocol uses.
     start = body.episode_start or body.today - dt.timedelta(days=EPISODE_DAYS)
     step = next_step(_filter(), patient, kit, body.today, context=_context(body.answers), episode_start=start)
 
@@ -859,8 +985,8 @@ def _compute_step(body: StepIn) -> StepOut:
 
 
 def _step(body: StepIn) -> StepOut:
-    """Respuesta de /step, sin repetir el cálculo de una petición ya vista."""
-    key = body.model_dump_json()
+    """/step response, without recomputing a request already seen (in the same language)."""
+    key = f"{lang()}:{body.model_dump_json()}"
     with _MODEL_LOCK:
         cached = _STEP_CACHE.get(key)
         if cached is not None:
@@ -873,55 +999,78 @@ def _step(body: StepIn) -> StepOut:
         return result
 
 
-@router.post("/step", response_model=StepOut, responses=_ERRORS, summary="Siguiente paso del protocolo de orina en casa")
+@router.post("/step", response_model=StepOut, responses=_ERRORS, summary="Next step of the at-home urine protocol")
 def step(body: StepIn) -> StepOut:
-    """Qué tiene que hacer el paciente ahora, dadas sus muestras hasta hoy.
+    """What the patient has to do now, given their samples up to today.
 
-    Es ``protocol.next_step`` sobre el filtro bayesiano de albuminuria: primero tiras, que son
-    baratas; el tubo para el laboratorio solo si la duda sigue; y aplazar la prueba si las
-    respuestas de hoy dicen que la muestra no valdría. El mensaje al paciente y la nota para la
-    historia son los del modelo.
+    It is ``protocol.next_step`` on the Bayesian albuminuria filter: strips first, since they are
+    cheap; the tube for the lab only if the doubt remains; and the test is postponed if today's
+    answers say the sample would not be reliable. The patient message and the record note are
+    the model's.
     """
     return _step(body)
 
 
-# --- Otras medidas en casa ---
+# --- Other measurements at home ---
 
 
-@router.post("/bp", response_model=BPOut, responses=_ERRORS, summary="Tensión medida en casa")
+def _too_many_readings() -> str:
+    return t(f"Se admiten como mucho {MAX_READINGS} lecturas.", f"At most {MAX_READINGS} readings are allowed.")
+
+
+def _reading_date(number: int) -> str:
+    return t(f"La fecha de la lectura {number}", f"The date of reading {number}")
+
+
+@router.post("/bp", response_model=BPOut, responses=_ERRORS, summary="Blood pressure measured at home")
 def blood_pressure(body: BPIn) -> BPOut:
-    """Media de la automedida de la tensión y probabilidad de que esté alta (135/85 mmHg en casa).
+    """Mean of home blood pressure monitoring and probability that it is high (135/85 mmHg at home).
 
-    Sigue el protocolo habitual: se descarta el primer día y hacen falta al menos 12 lecturas en 3 días.
+    Follows the usual protocol: the first day is discarded and at least 12 readings over 3 days are needed.
     """
-    _require(len(body.readings) >= 1, "Hace falta al menos una lectura de tensión.")
-    _require(len(body.readings) <= MAX_READINGS, f"Se admiten como mucho {MAX_READINGS} lecturas.")
+    _require(len(body.readings) >= 1, t("Hace falta al menos una lectura de tensión.", "At least one blood pressure reading is needed."))
+    _require(len(body.readings) <= MAX_READINGS, _too_many_readings())
     for number, reading in enumerate(body.readings, start=1):
-        _require_date(reading.date, f"La fecha de la lectura {number}")
+        _require_date(reading.date, _reading_date(number))
         _require(
             SBP_MIN <= reading.sbp <= SBP_MAX,
-            f"Lectura {number}: la sistólica tiene que estar entre {SBP_MIN:g} y {SBP_MAX:g} mmHg.",
+            t(
+                f"Lectura {number}: la sistólica tiene que estar entre {SBP_MIN:g} y {SBP_MAX:g} mmHg.",
+                f"Reading {number}: systolic must be between {SBP_MIN:g} and {SBP_MAX:g} mmHg.",
+            ),
         )
         _require(
             DBP_MIN <= reading.dbp <= DBP_MAX,
-            f"Lectura {number}: la diastólica tiene que estar entre {DBP_MIN:g} y {DBP_MAX:g} mmHg.",
+            t(
+                f"Lectura {number}: la diastólica tiene que estar entre {DBP_MIN:g} y {DBP_MAX:g} mmHg.",
+                f"Reading {number}: diastolic must be between {DBP_MIN:g} and {DBP_MAX:g} mmHg.",
+            ),
         )
-        _require(reading.sbp > reading.dbp, f"Lectura {number}: la sistólica tiene que ser mayor que la diastólica.")
+        _require(
+            reading.sbp > reading.dbp,
+            t(
+                f"Lectura {number}: la sistólica tiene que ser mayor que la diastólica.",
+                f"Reading {number}: systolic must be higher than diastolic.",
+            ),
+        )
     summary = summarize_home_bp([BPReading(r.date, r.sbp, r.dbp, r.evening) for r in body.readings])
     return BPOut(p_high=clean(summary.p_high, digits=DIGITS), **clean(summary, digits=DIGITS))
 
 
-@router.post("/rhythm", response_model=RhythmOut, responses=_ERRORS, summary="Pulso irregular comprobado en casa")
+@router.post("/rhythm", response_model=RhythmOut, responses=_ERRORS, summary="Irregular pulse checked at home")
 def rhythm(body: RhythmIn) -> RhythmOut:
-    """Probabilidad de fibrilación auricular sin diagnosticar tras las comprobaciones del pulso.
+    """Probability of undiagnosed atrial fibrillation after the pulse checks.
 
-    Parte de la prevalencia española por edad y sexo (estudio OFRECE) y la actualiza con cada
-    comprobación. Con una probabilidad de 0,5 o más salta la alerta.
+    Starts from the Spanish prevalence by age and sex (OFRECE study) and updates it with each
+    check. With a probability of 0.5 or more the alert fires.
     """
     _require_age(body.age)
-    _require(len(body.checks) <= MAX_READINGS, f"Se admiten como mucho {MAX_READINGS} comprobaciones.")
+    _require(
+        len(body.checks) <= MAX_READINGS,
+        t(f"Se admiten como mucho {MAX_READINGS} comprobaciones.", f"At most {MAX_READINGS} checks are allowed."),
+    )
     for number, check in enumerate(body.checks, start=1):
-        _require_date(check.date, f"La fecha de la comprobación {number}")
+        _require_date(check.date, t(f"La fecha de la comprobación {number}", f"The date of check {number}"))
     checks = [RhythmCheck(c.date, c.irregular) for c in body.checks]
     probability = af_probability(checks, body.age, female=body.female)
     alert = probability >= AF_ALERT_PROBABILITY
@@ -933,27 +1082,33 @@ def rhythm(body: RhythmIn) -> RhythmOut:
     )
 
 
-@router.post("/glucose", response_model=GlucoseOut, responses=_ERRORS, summary="Glucosa medida en casa")
+@router.post("/glucose", response_model=GlucoseOut, responses=_ERRORS, summary="Glucose measured at home")
 def glucose(body: GlucoseIn) -> GlucoseOut:
-    """Resumen de las glucosas capilares en ayunas (8 horas o más sin comer).
+    """Summary of fasting capillary glucose readings (8 hours or more without eating).
 
-    Con 126 mg/dl o más en dos días distintos salta la alerta: es el criterio diagnóstico de
-    diabetes, que hay que confirmar. La alerta supone que el paciente no tiene diabetes registrada.
+    With 126 mg/dl or more on two different days the alert fires: it is the diagnostic criterion
+    for diabetes, which must be confirmed. The alert assumes the patient has no recorded diabetes.
     """
-    _require(len(body.readings) <= MAX_READINGS, f"Se admiten como mucho {MAX_READINGS} lecturas.")
+    _require(len(body.readings) <= MAX_READINGS, _too_many_readings())
     for number, reading in enumerate(body.readings, start=1):
-        _require_date(reading.date, f"La fecha de la lectura {number}")
+        _require_date(reading.date, _reading_date(number))
         _require(
             GLUCOSE_MIN <= reading.mg_dl <= GLUCOSE_MAX,
-            f"Lectura {number}: la glucosa tiene que estar entre {GLUCOSE_MIN:g} y {GLUCOSE_MAX:g} mg/dl.",
+            t(
+                f"Lectura {number}: la glucosa tiene que estar entre {GLUCOSE_MIN:g} y {GLUCOSE_MAX:g} mg/dl.",
+                f"Reading {number}: glucose must be between {GLUCOSE_MIN:g} and {GLUCOSE_MAX:g} mg/dl.",
+            ),
         )
         _require(
             0.0 <= reading.fasting_hours <= 24.0,
-            f"Lectura {number}: las horas desde la última comida tienen que estar entre 0 y 24.",
+            t(
+                f"Lectura {number}: las horas desde la última comida tienen que estar entre 0 y 24.",
+                f"Reading {number}: hours since the last meal must be between 0 and 24.",
+            ),
         )
     readings = [GlucoseReading(r.date, r.mg_dl, r.fasting_hours) for r in body.readings]
     fasting = [r for r in readings if r.fasting_hours >= FASTING_HOURS]
-    summary = summarize_glucose(fasting)  # con lecturas en ayunas, su media geométrica
+    summary = summarize_glucose(fasting)  # with fasting readings, their geometric mean
     days = fasting_days_above(readings)
     alert = days >= GLUCOSE_ALERT_DAYS
     return GlucoseOut(
@@ -965,11 +1120,11 @@ def glucose(body: GlucoseIn) -> GlucoseOut:
     )
 
 
-# --- Precarga ---
+# --- Warm-up ---
 
 
 def _play(script: ScriptOut) -> list[StepOut]:
-    """Reproduce un recorrido guiado como lo hará la web (ver ``config``) y devuelve cada respuesta."""
+    """Replays a guided walkthrough as the web app will (see ``config``) and returns each response."""
     preset = _PATIENT_BY_ID[script.patient_id]
     patient = PatientIn(age=preset.age, female=preset.female, diabetes=preset.diabetes, egfr=preset.egfr)
     today, samples = DEMO_TODAY, []
@@ -999,11 +1154,13 @@ def _play(script: ScriptOut) -> list[StepOut]:
 
 
 def warm_up() -> None:
-    """Carga el filtro y deja calculados los recorridos guiados, para que la demo no espere.
+    """Loads the filter and precomputes the guided walkthroughs in both languages, so the demo does not wait.
 
-    Recorrerlos llena la caché de respuestas y la de tablas de la tira de los pacientes de ejemplo.
+    Replaying them fills the response cache and the strip-table cache for the example patients.
     """
     _filter()
-    _config()
-    for script in SCRIPTS:
-        _play(script)
+    for language in LANGS:
+        with use_lang(language):
+            _config()
+            for script in scripts():
+                _play(script)

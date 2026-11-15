@@ -1,14 +1,12 @@
-"""Diabetes sin diagnosticar: qué aporta una glucosa capilar hecha en casa.
+"""Undiagnosed diabetes: what a capillary glucose measured at home adds.
 
-Hoy, para buscar diabetes oculta sin análisis, en España se usa el cuestionario FINDRISC. Un
-glucómetro cuesta poco y el paciente puede repetir la medida. Aquí están los datos para
-comparar las dos cosas con personas reales: NHANES 2005-2018, que tiene de cada persona la
-glucosa en sangre, cuántas horas llevaba sin comer y la HbA1c (la referencia: 6,5 % o más es
-diabetes).
+Today, to look for hidden diabetes without a lab test, Spain uses the FINDRISC questionnaire. A
+glucose meter is cheap and the patient can repeat the reading. These are the data to compare
+both on real people: NHANES 2005-2018, which has each person's blood glucose, how many hours
+since they last ate and HbA1c (the reference: 6.5% or more is diabetes).
 
-La glucosa de NHANES es de laboratorio. Para que cuente como la de un glucómetro se le añade
-el error que admite la norma de los glucómetros (ISO 15197: el 95 % de las lecturas dentro
-del ±15 %), es decir, una desviación del 7,5 %.
+NHANES glucose is a lab value. To make it count as a meter reading, the error allowed by the
+glucose meter standard is added (ISO 15197: 95% of readings within ±15%), i.e. an SD of 7.5%.
 """
 
 from __future__ import annotations
@@ -24,10 +22,10 @@ from .nhanes import read_xpt
 from .outcomes.data import BASE_DIR, SUFFIX, _col, _yes_no, load_cohort
 
 CYCLES = tuple(c for c in SUFFIX if int(c[:4]) >= 2005)
-METER_LOG_SD = 0.075  # error de un glucómetro doméstico (ISO 15197:2013)
+METER_LOG_SD = 0.075  # error of a home glucose meter (ISO 15197:2013)
 DIABETES_HBA1C = 6.5
 
-# Lo que ya consta en la historia (como en el panel de sangre) más los antecedentes familiares.
+# What is already in the record (as in the blood panel) plus family history.
 HISTORY = [
     "age", "female", "bmi", "waist", "sbp", "dbp", "dx_prediabetes", "dx_hypertension", "bp_meds",
     "dx_high_cholesterol", "cholesterol_meds", "dx_heart_failure", "dx_coronary", "dx_stroke",
@@ -35,6 +33,7 @@ HISTORY = [
 ]  # fmt: skip
 URINE = ["log_uacr", "log_urine_creatinine"]
 GLUCOSE = ["glucose_home", "fasting_hours"]
+# Predictor blocks; the keys are machine names used by the fitting scripts.
 BLOCKS = {
     "glucosa": GLUCOSE,
     "orina": URINE,
@@ -43,23 +42,23 @@ BLOCKS = {
     "antecedentes familiares": ["family_diabetes"],
 }
 FASTING_HOURS = 8.0
-DIABETES_FASTING_GLUCOSE = 126.0  # mg/dl en ayunas: criterio diagnóstico, que exige confirmación
+DIABETES_FASTING_GLUCOSE = 126.0  # fasting mg/dl: diagnostic criterion, needs confirmation
 
 
 @dataclass
 class GlucoseReading:
-    """Glucosa capilar medida en casa con un glucómetro."""
+    """Capillary glucose measured at home with a meter."""
 
     date: date
     mg_dl: float
-    fasting_hours: float = 8.0  # horas desde la última comida
+    fasting_hours: float = 8.0  # hours since the last meal
 
 
 def summarize_glucose(readings: list[GlucoseReading]) -> tuple[float, float] | None:
-    """Glucosa y horas de ayuno que se pasan al modelo.
+    """Glucose and fasting hours passed to the model.
 
-    Si hay lecturas en ayunas (8 horas o más) se usa su media geométrica, que reduce el error
-    del glucómetro; si no, la lectura más reciente.
+    If there are fasting readings (8 hours or more) their geometric mean is used, which reduces
+    meter error; otherwise, the most recent reading.
     """
     if not readings:
         return None
@@ -72,17 +71,17 @@ def summarize_glucose(readings: list[GlucoseReading]) -> tuple[float, float] | N
 
 
 def fasting_days_above(readings: list[GlucoseReading], threshold: float = DIABETES_FASTING_GLUCOSE) -> int:
-    """Días distintos con glucosa en ayunas por encima del umbral."""
+    """Distinct days with fasting glucose above the threshold."""
     return len({r.date for r in readings if r.fasting_hours >= FASTING_HOURS and r.mg_dl >= threshold})
 
 
 def load_diabetes(base_dir: Path = BASE_DIR, seed: int = 0) -> pd.DataFrame:
-    """Adultos de NHANES 2005-2018 con HbA1c, glucosa y horas de ayuno.
+    """NHANES 2005-2018 adults with HbA1c, glucose and fasting hours.
 
-    Añade a la cohorte: ``glucose`` (mg/dl, de laboratorio), ``glucose_home`` (la misma con el
-    error de un glucómetro), ``fasting_hours``, ``family_diabetes`` (padres o hermanos),
-    ``told_high_glucose`` (le han dicho que tiene prediabetes o riesgo de diabetes) y
-    ``active`` (hace ejercicio moderado o intenso en su tiempo libre).
+    Adds to the cohort: ``glucose`` (mg/dl, lab), ``glucose_home`` (the same with glucose meter
+    error), ``fasting_hours``, ``family_diabetes`` (parents or siblings),
+    ``told_high_glucose`` (told they have prediabetes or diabetes risk) and ``active``
+    (moderate or vigorous leisure-time exercise).
     """
     d = load_cohort(base_dir, cycles=CYCLES)
     extra = []
@@ -97,7 +96,7 @@ def load_diabetes(base_dir: Path = BASE_DIR, seed: int = 0) -> pd.DataFrame:
         out["family_diabetes"] = _yes_no(_col(frame, "MCQ300C"))
         told = np.fmax(_yes_no(_col(frame, "DIQ160")), _yes_no(_col(frame, "DIQ170")))
         out["told_high_glucose"] = told
-        # Actividad en el tiempo libre: en 2005-2006 se pregunta por los últimos 30 días; después, por una semana normal.
+        # Leisure-time activity: 2005-2006 asks about the last 30 days; later cycles, about a typical week.
         vigorous, moderate = _col(frame, "PAQ650", "PAD200"), _col(frame, "PAQ665", "PAD320")
         out["active"] = np.where((vigorous == 1) | (moderate == 1), 1.0, np.where(np.isfinite(vigorous) | np.isfinite(moderate), 0.0, np.nan))
         extra.append(out)
@@ -108,11 +107,11 @@ def load_diabetes(base_dir: Path = BASE_DIR, seed: int = 0) -> pd.DataFrame:
 
 
 def findrisc(d: pd.DataFrame) -> np.ndarray:
-    """Puntuación FINDRISC (Lindström y Tuomilehto, 2003), sin la pregunta de fruta y verdura.
+    """FINDRISC score (Lindström and Tuomilehto, 2003), without the fruit and vegetable question.
 
-    NHANES no tiene esa pregunta, que vale como mucho 1 punto de 26. "Glucosa alta alguna vez"
-    se toma de que le hayan dicho que tiene prediabetes o riesgo de diabetes; los antecedentes
-    familiares son de padres o hermanos (5 puntos).
+    NHANES lacks that question, worth at most 1 point out of 26. "High glucose ever" is taken
+    from being told they have prediabetes or diabetes risk; family history is parents or
+    siblings (5 points).
     """
     age, bmi, waist = d.age.to_numpy(), d.bmi.to_numpy(), d.waist.to_numpy()
     female = d.female.to_numpy() == 1
@@ -128,5 +127,5 @@ def findrisc(d: pd.DataFrame) -> np.ndarray:
 
 
 def undiagnosed(d: pd.DataFrame) -> np.ndarray:
-    """Sin diabetes diagnosticada ni tratamiento para la glucosa."""
+    """No diagnosed diabetes and no glucose-lowering treatment."""
     return ((d.dx_diabetes != 1) & (d.insulin != 1) & (d.diabetes_pills != 1)).to_numpy()

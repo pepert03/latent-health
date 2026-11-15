@@ -1,4 +1,4 @@
-"""Métricas para comparar modelos de riesgo con desenlaces reales."""
+"""Metrics for comparing risk models against real outcomes."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from scipy.stats import rankdata
 
 
 def auc(event, score) -> float:
-    """Área bajo la curva ROC: probabilidad de que un caso tenga más puntuación que un no caso."""
+    """Area under the ROC curve: probability that a case scores higher than a non-case."""
     event = np.asarray(event, dtype=bool)
     n1, n0 = int(event.sum()), int((~event).sum())
     if n1 == 0 or n0 == 0:
@@ -17,7 +17,7 @@ def auc(event, score) -> float:
 
 
 def bootstrap_auc(event, scores: dict[str, np.ndarray], n: int = 500, seed: int = 0) -> dict[str, np.ndarray]:
-    """AUC de varios modelos sobre las mismas remuestras (para comparar por parejas)."""
+    """AUC of several models on the same bootstrap resamples (for paired comparison)."""
     rng = np.random.default_rng(seed)
     event = np.asarray(event, dtype=bool)
     out = {name: np.empty(n) for name in scores}
@@ -30,17 +30,17 @@ def bootstrap_auc(event, scores: dict[str, np.ndarray], n: int = 500, seed: int 
 
 
 def difference_interval(samples_a: np.ndarray, samples_b: np.ndarray) -> tuple[float, float, float]:
-    """Diferencia media de AUC (a - b) con su intervalo del 95 % por remuestreo."""
+    """Mean AUC difference (a - b) with its 95% bootstrap interval."""
     diff = samples_a - samples_b
     lo, hi = np.nanpercentile(diff, [2.5, 97.5])
     return float(np.nanmean(diff)), float(lo), float(hi)
 
 
 def c_index(months, event, score) -> float:
-    """Índice de concordancia de Harrell con censura.
+    """Harrell's concordance index with censoring.
 
-    Entre cada persona que sufre el suceso y todas las que seguían en seguimiento más tiempo,
-    proporción de parejas en las que el modelo da más riesgo a la que lo sufre antes.
+    Over each person with the event and everyone still followed up for longer, the share of
+    pairs in which the model gives more risk to the one with the earlier event.
     """
     months = np.asarray(months, dtype=float)
     event = np.asarray(event, dtype=bool)
@@ -58,7 +58,7 @@ def brier(event, risk) -> float:
 
 
 def calibration_table(event, risk, bins: int = 10) -> list[tuple[int, float, float]]:
-    """Por grupos de igual tamaño según el riesgo predicho: (personas, riesgo medio predicho, observado)."""
+    """Equal-size groups by predicted risk: (people, mean predicted risk, observed)."""
     event = np.asarray(event, dtype=float)
     risk = np.asarray(risk, dtype=float)
     order = np.argsort(risk)
@@ -66,7 +66,7 @@ def calibration_table(event, risk, bins: int = 10) -> list[tuple[int, float, flo
 
 
 def capture(event, score, share: float) -> tuple[float, float]:
-    """En el ``share`` de más riesgo: proporción con el suceso y parte de todos los sucesos que recoge."""
+    """In the top ``share`` by risk: event rate, and fraction of all events captured."""
     event = np.asarray(event, dtype=bool)
     k = max(int(round(share * event.size)), 1)
     top = np.argsort(-np.asarray(score, dtype=float), kind="stable")[:k]

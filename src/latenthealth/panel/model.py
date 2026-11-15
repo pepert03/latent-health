@@ -1,10 +1,10 @@
-"""Regresión distribucional por tramos.
+"""Binned distributional regression.
 
-Para cada variable se parte su rango en tramos (cuantiles del entrenamiento más los
-umbrales clínicos, para que las probabilidades en esos umbrales sean exactas) y un
-clasificador de gradient boosting predice la probabilidad de cada tramo. Dentro de cada
-tramo se asume reparto uniforme. Así se obtiene la distribución completa de la variable:
-mediana, intervalos y P(variable < umbral), sin suponer que sea normal.
+For each variable its range is split into bins (training quantiles plus the clinical
+thresholds, so probabilities at those thresholds are exact) and a gradient boosting
+classifier predicts the probability of each bin. Mass is assumed uniform within a bin.
+This yields the full distribution of the variable: median, intervals and
+P(variable < threshold), without assuming normality.
 """
 
 from __future__ import annotations
@@ -54,11 +54,11 @@ class BinnedDistributionRegressor:
 
     @property
     def bin_bounds(self) -> np.ndarray:
-        """Límites de los tramos: [lo, e1, ..., ek, hi]."""
+        """Bin bounds: [lo, e1, ..., ek, hi]."""
         return np.concatenate([[self.lo_], self.edges_, [self.hi_]])
 
     def cdf(self, X, t, pmf=None) -> np.ndarray:
-        """P(Y ≤ t) para cada fila; ``t`` puede ser un escalar o un array (una por fila)."""
+        """P(Y <= t) per row; ``t`` can be a scalar or an array (one per row)."""
         pmf = self.predict_pmf(X) if pmf is None else pmf
         bounds = self.bin_bounds
         t = np.broadcast_to(np.asarray(t, dtype=float), (pmf.shape[0],))
@@ -66,7 +66,7 @@ class BinnedDistributionRegressor:
         return (pmf * frac).sum(axis=1)
 
     def quantiles(self, X, qs, pmf=None) -> np.ndarray:
-        """Cuantiles (N, len(qs)) interpolando la función de distribución por tramos."""
+        """Quantiles (N, len(qs)) by interpolating the binned CDF."""
         pmf = self.predict_pmf(X) if pmf is None else pmf
         bounds = self.bin_bounds
         cum = np.concatenate([np.zeros((pmf.shape[0], 1)), np.cumsum(pmf, axis=1)], axis=1)
@@ -81,7 +81,7 @@ class BinnedDistributionRegressor:
         return pmf @ ((bounds[:-1] + bounds[1:]) / 2.0)
 
     def crps(self, X, y, pmf=None, n_grid: int = 400) -> np.ndarray:
-        """CRPS de cada observación (misma unidad que la variable; más bajo es mejor)."""
+        """CRPS of each observation (same unit as the variable; lower is better)."""
         pmf = self.predict_pmf(X) if pmf is None else pmf
         y = np.asarray(y, dtype=float)
         grid = np.linspace(min(self.lo_, np.nanmin(y)), max(self.hi_, np.nanmax(y)), n_grid)

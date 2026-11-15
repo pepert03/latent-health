@@ -33,8 +33,8 @@ def test_one_measurement_is_not_enough_to_talk_about_a_trend():
 
 
 def test_steady_fall_is_detected_and_flat_series_is_stable():
-    # Unos 7 puntos al año durante 4 años: descenso seguro, pero con el ruido de la creatinina
-    # no se puede asegurar aún que pase de 5 al año.
+    # About 7 points a year for 4 years: a clear decline, but with creatinine noise it cannot yet
+    # be said to exceed 5 a year.
     falling = fit_trend(yearly([82, 75, 69, 62, 55]), age=66, female=False, diabetes=True)
     assert falling.status == "descenso"
     assert falling.slope < -4 and falling.p_decline > 0.8 and falling.p_fast > 0.5
@@ -47,7 +47,7 @@ def test_steady_fall_is_detected_and_flat_series_is_stable():
 
 
 def test_noise_between_two_tests_is_not_called_a_decline():
-    # De 68 a 61 en un año: entra en el ruido de la creatinina más la caída normal por la edad.
+    # From 68 to 61 in one year: within creatinine noise plus the normal age-related decline.
     t = fit_trend(yearly([68, 61]), age=72, female=True)
     assert t.status != "descenso_rapido"
     assert t.p_rapid < 0.5
@@ -70,7 +70,7 @@ def test_treatment_start_explains_the_initial_drop():
     assert aware.slope > blind.slope
     assert aware.measured_drop_explained < 0
     with pytest.raises(ValueError):
-        fit_trend(values, age=64, female=False, treatments=[TreatmentStart(D0, "aspirina")])
+        fit_trend(values, age=64, female=False, treatments=[TreatmentStart(D0, "aspirin")])
 
 
 def test_albuminuria_and_diabetes_speed_up_the_expected_decline():
@@ -104,7 +104,7 @@ def test_intervals_are_calibrated_on_simulated_patients():
         ms = simulate_trajectory(dates, level0, slope, 65, False, rng, params=params)
         t = fit_trend(ms, 65, False, diabetes=diabetes, prior_level=(75, 15), params=params)
         lo, hi = t.interval("slope")
-        # La pendiente verdadera al final se ha movido un poco respecto a la inicial; se compara con la inicial
-        # ensanchando por ese cambio (0,4 por raíz de año durante 4 años ≈ 0,8).
+        # The true slope at the end has drifted a little from the initial one; compare with the initial one,
+        # widening for that drift (0.4 per root year over 4 years ≈ 0.8).
         inside += lo - 0.8 <= slope <= hi + 0.8
     assert 0.75 <= inside / n <= 0.99

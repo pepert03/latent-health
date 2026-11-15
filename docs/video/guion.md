@@ -1,149 +1,149 @@
-# Vídeo de LatentHealth: guion
+# LatentHealth video: script
 
-**Una frase (el trabajo del vídeo):** que quien lo vea entienda por qué hoy se escapan a tiempo
-los pacientes del riñón, el corazón y la diabetes, y crea que medirse en casa con un sistema que
-sabe cuánto fiarse de cada medida lo arregla.
+**One sentence (the video's job):** viewers should understand why kidney, heart and diabetes
+patients slip through today before it is too late, and believe that measuring at home with a system
+that knows how far to trust each measurement fixes it.
 
-**Público:** jurado del hackathon (médicos, gente de Boehringer, técnicos). Entienden de salud;
-no hay que explicarles qué es una arteria, sí lo que hemos hecho.
+**Audience:** hackathon jury (doctors, Boehringer people, engineers). They know health; no need to
+explain what an artery is, but we do need to explain what we built.
 
-**Protagonista:** Julián, 62 años, hipertenso (personaje inventado, se dice en pantalla). El héroe
-es él y su médico; LatentHealth es el guía.
+**Protagonist:** Julián, 62, with hypertension (a made-up character, stated on screen). The heroes
+are him and his doctor; LatentHealth is the guide.
 
-**Duración:** unos 7 minutos y medio (≈1.080 palabras a 145 por minuto). Si el hackathon pide
-menos, hay una versión de 3 minutos al final.
+**Length:** about 7 and a half minutes (≈1,080 words at 145 per minute). If the hackathon asks for
+less, there is a 3-minute version at the end.
 
-**Arco:** gancho (Julián no sabe nada) → por qué importa → qué se mide → dónde falla hoy → la idea
-→ la app con Julián → el médico → cómo se ha hecho y qué sale → lo que salvaría → vuelta a Julián.
+**Arc:** hook (Julián knows nothing) → why it matters → what is measured → where it fails today → the idea
+→ the app with Julián → the doctor → how it was built and what comes out → what it would save → back to Julián.
 
-**Ritmo:** algo cambia en pantalla cada 3-5 segundos. Cada 60-90 segundos, un "re-gancho": una
-pregunta o una cifra que abre el siguiente bloque.
+**Pace:** something changes on screen every 3-5 seconds. Every 60-90 seconds, a "re-hook": a
+question or a number that opens the next block.
 
-Etiquetas: **[VO]** voz en off · **[TXT]** texto en pantalla · **[GRAF]** gráfico animado ·
-**[APP]** pantalla de la app · **[SFX]** sonido.
-
----
-
-## 0. Gancho (0:00-0:30)
-
-| Audio | Visual |
-|---|---|
-| [VO] Este es Julián. Tiene sesenta y dos años y se encuentra bien. | [GRAF] Silueta de Julián dibujándose en línea fina. [TXT] "Julián, 62 · personaje inventado" (pequeño, abajo). |
-| [VO] Tiene la tensión alta desde hace años. Se toma su pastilla. Va a su médico una vez al año. | [GRAF] Tres iconos aparecen: pastilla, calendario, consulta. Todo en verde. |
-| [VO] Lo que nadie le ha mirado nunca es la orina. | [GRAF] El riñón de la silueta se ilumina. Una gota cae. |
-| [VO] Y en su orina hay albúmina: la primera señal de que el riñón, y con él el corazón, empiezan a dañarse. | [GRAF] La gota se vuelve ámbar. Línea de pulso que se va aplanando. |
-| [VO] A noventa y seis de cada cien hipertensos no se les pide nunca esa prueba. | [GRAF] Rejilla de 100 personas; 96 se quedan en gris, 4 se encienden. [TXT] "96 de cada 100" · fuente pequeña: Shin et al., *Hypertension* 2021. |
-| [VO] Esto va de cómo encontrar a Julián a tiempo. Sin que él tenga que ir a ningún sitio. | [TXT] Logo LatentHealth. [SFX] golpe suave. |
-
-## 1. Por qué importa (0:30-1:20)
-
-| Audio | Visual |
-|---|---|
-| [VO] Diabetes, hipertensión, riñón y corazón no son cuatro problemas. Son uno. | [GRAF] Cuatro círculos que se acercan y se solapan en un nudo. |
-| [VO] La tensión alta y el azúcar dañan los vasos pequeños. El riñón deja escapar albúmina. Y ese mismo daño llega al corazón. | [GRAF] Flechas recorren el nudo: vaso → riñón → corazón. |
-| [VO] En España, las enfermedades del corazón y los vasos matan a más de ciento trece mil personas al año. Es la primera causa de muerte. | [GRAF] Cifra grande contando hasta 113.620. [TXT] "muertes al año · INE 2024". |
-| [VO] Uno de cada siete adultos tiene la enfermedad renal crónica. | [GRAF] 7 personas, una se rellena. [TXT] "15 % · estudio ENRICA". |
-| [VO] De cada dos diabéticos, uno no sabe que lo es. Y de cada tres hipertensos, uno tampoco. | [GRAF] Dos barras partidas: diabetes 6 de 13,8 % sin saberlo; hipertensión 37 % sin diagnosticar. [TXT] "di@bet.es". |
-| [VO] El problema no es que no tengamos tratamientos. Los tenemos, y funcionan. El problema es que llegan tarde. | [GRAF] Una línea de tiempo: "daño empieza" ... "diagnóstico" con un hueco enorme en medio que se marca en ámbar. |
-
-## 2. Qué se mide (1:20-2:15)
-
-| Audio | Visual |
-|---|---|
-| [VO] Para ver este daño a tiempo hacen falta pocas medidas. | [GRAF] La silueta de Julián, con seis puntos que se encienden uno a uno. |
-| [VO] En la orina, la albúmina: el cociente albúmina-creatinina. Es la señal más temprana. | [GRAF] Punto riñón → tarjeta "Orina · albúmina/creatinina · lo más temprano". |
-| [VO] En la sangre, el filtrado del riñón y la glucosa. | [GRAF] Tarjetas "Sangre · filtrado" y "Glucosa". |
-| [VO] La tensión, pero bien medida: una semana en casa, no una toma en la consulta. | [GRAF] Tarjeta "Tensión · 7 días, mañana y noche". Mini calendario con 28 puntos. |
-| [VO] Y el corazón: si late con ritmo, y si bombea con fuerza. Hoy, eso último solo lo dice un ecocardiograma. | [GRAF] Tarjetas "Ritmo · ECG" y "Bombeo · ecocardiograma (hospital)". |
-| [VO] Casi todo esto se puede medir sin salir de casa. Pero hoy no se hace así. | [GRAF] Las tarjetas se separan en dos grupos: "en casa" (5) y "hospital" (1). |
-
-## 3. Dónde falla hoy (2:15-3:05)
-
-| Audio | Visual |
-|---|---|
-| [VO] Hoy el circuito depende de que alguien se acuerde de pedir la prueba. Y se rompe en cuatro sitios. | [GRAF] Una cadena de cuatro eslabones. |
-| [VO] Uno: no se pide. En dos años, la orina se mira a uno de cada tres diabéticos y a cuatro de cada cien hipertensos. | [GRAF] Eslabón 1 se rompe. Dos barras: 35 % y 4 %. |
-| [VO] Dos: cuando se pide, una sola muestra engaña. La mitad de los positivos no se repiten en la siguiente. | [GRAF] Eslabón 2. Dos tubos: uno rojo, el siguiente verde. [TXT] "1 de cada 2". |
-| [VO] Tres: lo que sale en la analítica no se convierte en diagnóstico. Más del ochenta por ciento de quienes tienen el riñón dañado no lo tiene apuntado en su historia. | [GRAF] Eslabón 3. Una ficha clínica en blanco. [TXT] "> 80 % · REVEAL-CKD". |
-| [VO] Y cuatro: aunque se diagnostique, solo entre uno y tres de cada diez reciben el tratamiento que protege el riñón y el corazón. | [GRAF] Eslabón 4. [TXT] "10-33 % con iSGLT2". |
-| [VO] Para la diabetes, se criba con un cuestionario. Encuentra la mitad. | [GRAF] FINDRISC: una hoja de preguntas. [TXT] "52 %". |
-| [VO] Y todo esto cae sobre un médico que tiene mil quinientos pacientes y diez minutos para cada uno. | [GRAF] Un reloj de 10 minutos sobre una pila de fichas. |
-
-## 4. La idea (3:05-3:30)
-
-| Audio | Visual |
-|---|---|
-| [VO] Así que le dimos la vuelta. | [SFX] corte. Fondo limpio. |
-| [VO] El paciente se mide en casa, fácil, y las veces que haga falta. | [GRAF] Casa → móvil → tira. |
-| [VO] El médico recibe una lista ya ordenada: a quién mirar primero y qué pedirle. | [GRAF] Lista con tres grupos. |
-| [VO] Y en medio, un modelo que sabe cuánto fiarse de cada medida. | [GRAF] Entre los dos, una curva de probabilidad que se estrecha con cada medida. [TXT] "LatentHealth". |
-
-## 5. La app, con Julián (3:30-5:00)
-
-| Audio | Visual |
-|---|---|
-| [VO] El sistema recorre el cupo y ve que a Julián le falta la orina, y que su tensión de consulta estaba en ciento cuarenta y seis. | [APP] Móvil: notificación "Tu centro de salud te manda un kit". |
-| [VO] Le llega un kit con solo lo que le falta: tres tiras. Y le prestan un manguito una semana. Nadie compra nada. | [GRAF] Render del kit: caja con tres tiras y manguito. Glucómetro y reloj en gris ("solo si hace falta"). |
-| [VO] Antes de la tira, cuatro preguntas. ¿Has hecho ejercicio fuerte? ¿Tienes fiebre? ¿Escozor al orinar? | [APP] Pantalla de preguntas, toques en "No". |
-| [VO] Si alguna es que sí, el resultado no sería fiable, y la app le dice que espere. | [APP] Inserto: Marta, "Hoy no. Espera 3 días tras la regla". |
-| [VO] Con la primera orina de la mañana, moja la tira y le hace una foto. | [APP] Cámara encuadrando la tira; marco guía; destello. |
-| [VO] La app no le da un número suelto. Le dice qué hacer. "Ya está", "repite mañana", o "manda el tubo". | [APP] Resultado: "Repite mañana" con barra de probabilidad 14 %. |
-| [VO] Cada medida mueve la probabilidad. Solo repite quien sale dudoso. | [GRAF] Curva de probabilidad que se desplaza con cada tira: 14 % → 75 % con el tubo. |
-| [VO] La tensión, una semana, mañana y noche. El pulso, con su reloj; o con la cámara del móvil, con el dedo encima. | [APP] Calendario de tensión llenándose. Pantalla de pulso con dedo sobre cámara. |
-| [VO] Si el reloj graba un electrocardiograma, treinta segundos bastan para sospechar que el corazón bombea poco. | [APP] Pantalla "ECG 30 s" con trazo dibujándose. |
-| [VO] Y si el sistema sospecha diabetes, una sola glucosa en ayunas, en la farmacia de la esquina. | [APP] Tarjeta "Pásate por la farmacia antes de desayunar". |
-| [VO] Al final, Julián recibe un mensaje: hemos visto albúmina en tu orina de forma repetida. Tu centro te llamará. | [APP] Pantalla final con check. |
-
-## 6. El médico (5:00-5:40)
-
-| Audio | Visual |
-|---|---|
-| [VO] Al otro lado está su médico. No recibe cien alertas. Recibe una lista. | [APP] Pantalla de escritorio: "Mi cupo · 1.500 pacientes". |
-| [VO] Arriba, lo que ya está claro y no consta: Julián, albuminuria repetida sin diagnóstico. | [APP] Grupo "Actuar" con Julián resaltado. |
-| [VO] Después, a quién le falta una prueba, ordenados por la probabilidad de encontrar algo nuevo, y cuál pedir primero. | [APP] Grupo "Medir" con barras de probabilidad y botón "pedir". |
-| [VO] Y abajo, los que están bien estudiados. Ocupan una línea. | [APP] "Sin pendientes: 3 de 11". |
-| [VO] En la ficha, cada valor con su incertidumbre: medido, estimado, o medido en casa. | [APP] Ficha de Julián con intervalos. |
-
-## 7. Cómo se ha hecho y qué sale (5:40-6:50)
-
-| Audio | Visual |
-|---|---|
-| [VO] Nada de esto es una regla inventada. Cada pieza está entrenada y comprobada con personas reales. | [GRAF] Logos de datos: NHANES, PhysioNet, Zenodo, MUSIC, PREDIMED. |
-| [VO] El corazón del sistema es un filtro bayesiano: el mismo tipo de modelo que sigue a un avión con un radar ruidoso. Sigue la albúmina verdadera de Julián con medidas que, solas, engañan. | [GRAF] Puntos ruidosos (tiras) y una línea suave con su banda que se estrecha. |
-| [VO] Para el riesgo cardiovascular, en España se usa SCORE2. Nuestro modelo, entrenado con quién murió de verdad en diez años, ordena mejor el riesgo, y sobre todo en diabéticos e hipertensos. Sin sacar sangre. | [GRAF] Barras AUC: SCORE2 0,755 · LatentHealth 0,808 (diabetes o hipertensión). [TXT] "+0,054". |
-| [VO] Para la diabetes oculta, frente al cuestionario de hoy: con los mismos análisis, encuentra tres de cada cuatro casos en lugar de uno de cada dos. | [GRAF] Dos rejillas de 100 diabéticos ocultos: 52 encontrados frente a 75. |
-| [VO] El detector de arritmia acierta con el noventa y siete por ciento de área bajo la curva en ocho mil quinientos registros reales. | [GRAF] Medidor 0,97. |
-| [VO] Y con treinta segundos de electrocardiograma de una derivación, detectamos el corazón débil con un 0,88 frente al ecocardiograma. Hoy eso exige ir al hospital. | [GRAF] Tres barras: pulso 0,68 · ECG 0,88 · ECG y sonido 0,91. |
-| [VO] También sabemos lo que no funciona, y lo decimos: el pulso solo no basta para el corazón débil. Y estos datos son de Estados Unidos y de China: antes de usarse, hay que validarlo en España. | [TXT] "Lo que no sabemos todavía" con tres puntos. |
-
-## 8. Lo que salvaría (6:50-7:30)
-
-| Audio | Visual |
-|---|---|
-| [VO] ¿Y cuánto importa todo esto? | Fondo oscuro. |
-| [VO] En España hay más de un millón de personas con albuminuria que nadie ha visto. | [GRAF] Mapa de puntos de España llenándose. [TXT] "≈ 1,8 millones · estimación". |
-| [VO] Si la mitad se mide en casa y la mitad de esos empieza el tratamiento, eso son unas mil doscientas muertes menos cada año. | [GRAF] Contador hasta 1.200. [TXT] "muertes evitadas al año · escenario central (100-3.900)". |
-| [VO] Doce mil en diez años. | [GRAF] Contador hasta 12.000. |
-| [VO] Julián no lo notará. No habrá un día en que le salvemos la vida. Simplemente, dentro de diez años, seguirá aquí. | [GRAF] La silueta de Julián, ahora con un nieto al lado. Todo verde. |
-| [VO] LatentHealth. Lo que tu cuerpo ya sabe, a tiempo. | [TXT] Logo. "Reto 1 · Hackathon Boehringer". |
+Tags: **[VO]** voice-over · **[TXT]** on-screen text · **[GRAF]** animated graphic ·
+**[APP]** app screen · **[SFX]** sound.
 
 ---
 
-## Fuentes que salen en pantalla
+## 0. Hook (0:00-0:30)
 
-- UACR en dos años al 4,1 % de los hipertensos (96 de cada 100 sin ella) y al 35,1 % de los
-  diabéticos: Shin et al., *Hypertension* 2021 (3,7 millones de adultos de 24 cohortes).
-- 113.620 muertes por enfermedades del sistema circulatorio: INE, 2024.
-- 15,1 % de ERC: estudio ENRICA (Gorostidi et al., *Nefrología* 2018).
-- Diabetes 13,8 %, 6,0 % sin saberlo: di@bet.es (Soriguer et al., *Diabetologia* 2012).
-- 37 % de hipertensos sin diagnosticar: di@bet.es (Menéndez et al., *Rev Esp Cardiol* 2016).
-- > 80 % de ERC 3 sin diagnóstico: REVEAL-CKD. 10-33 % con iSGLT2: ver `docs/solucion.md`.
-- Resultados propios: `reports/riesgo_en_casa.md`, `reports/diabetes_en_casa.md`, `reports/ritmo.md`,
+| Audio | Visual |
+|---|---|
+| [VO] This is Julián. He's sixty-two and he feels fine. | [GRAF] Julián's silhouette drawing itself in a thin line. [TXT] "Julián, 62 · made-up character" (small, bottom). |
+| [VO] He's had high blood pressure for years. He takes his pill. He sees his doctor once a year. | [GRAF] Three icons appear: pill, calendar, office visit. All green. |
+| [VO] What nobody has ever checked is his urine. | [GRAF] The silhouette's kidney lights up. A drop falls. |
+| [VO] And there's albumin in his urine: the first sign that the kidney, and with it the heart, is starting to get damaged. | [GRAF] The drop turns amber. A pulse line slowly flattening. |
+| [VO] Ninety-six out of a hundred people with hypertension are never asked for that test. | [GRAF] Grid of 100 people; 96 stay gray, 4 light up. [TXT] "96 out of 100" · small source: Shin et al., *Hypertension* 2021. |
+| [VO] This is about how to find Julián in time. Without him having to go anywhere. | [TXT] LatentHealth logo. [SFX] soft hit. |
+
+## 1. Why it matters (0:30-1:20)
+
+| Audio | Visual |
+|---|---|
+| [VO] Diabetes, hypertension, kidney and heart are not four problems. They're one. | [GRAF] Four circles moving closer and overlapping into a knot. |
+| [VO] High blood pressure and sugar damage small vessels. The kidney leaks albumin. And that same damage reaches the heart. | [GRAF] Arrows run through the knot: vessel → kidney → heart. |
+| [VO] In Spain, heart and vascular disease kill more than a hundred and thirteen thousand people a year. It's the leading cause of death. | [GRAF] Big number counting up to 113,620. [TXT] "deaths per year · INE 2024". |
+| [VO] One in seven adults has chronic kidney disease. | [GRAF] 7 people, one fills in. [TXT] "15% · ENRICA study". |
+| [VO] One in two people with diabetes doesn't know it. And one in three with hypertension doesn't either. | [GRAF] Two split bars: diabetes 6 of 13.8% unaware; hypertension 37% undiagnosed. [TXT] "di@bet.es". |
+| [VO] The problem isn't that we lack treatments. We have them, and they work. The problem is they arrive late. | [GRAF] A timeline: "damage starts" ... "diagnosis" with a huge gap in between marked in amber. |
+
+## 2. What is measured (1:20-2:15)
+
+| Audio | Visual |
+|---|---|
+| [VO] To see this damage in time, you only need a few measurements. | [GRAF] Julián's silhouette, with six dots lighting up one by one. |
+| [VO] In urine, albumin: the albumin-to-creatinine ratio. It's the earliest sign. | [GRAF] Kidney dot → card "Urine · albumin/creatinine · earliest". |
+| [VO] In blood, kidney filtration and glucose. | [GRAF] Cards "Blood · eGFR" and "Glucose". |
+| [VO] Blood pressure, but measured properly: a week at home, not one reading at the office. | [GRAF] Card "Blood pressure · 7 days, morning and night". Mini calendar with 28 dots. |
+| [VO] And the heart: whether it beats in rhythm, and whether it pumps strongly. Today, only an echocardiogram tells you the latter. | [GRAF] Cards "Rhythm · ECG" and "Pumping · echocardiogram (hospital)". |
+| [VO] Almost all of this can be measured without leaving home. But that's not how it's done today. | [GRAF] The cards split into two groups: "at home" (5) and "hospital" (1). |
+
+## 3. Where it fails today (2:15-3:05)
+
+| Audio | Visual |
+|---|---|
+| [VO] Today the pathway depends on someone remembering to order the test. And it breaks in four places. | [GRAF] A chain of four links. |
+| [VO] One: it isn't ordered. Over two years, urine is checked in one in three people with diabetes and four in a hundred with hypertension. | [GRAF] Link 1 breaks. Two bars: 35% and 4%. |
+| [VO] Two: when it is ordered, a single sample misleads. Half of the positives don't repeat on the next one. | [GRAF] Link 2. Two lab tubes: one red, the next green. [TXT] "1 in 2". |
+| [VO] Three: what shows up in the lab test doesn't become a diagnosis. More than eighty percent of people with a damaged kidney don't have it recorded in their chart. | [GRAF] Link 3. A blank clinical record. [TXT] "> 80% · REVEAL-CKD". |
+| [VO] And four: even when it's diagnosed, only one to three in ten get the treatment that protects the kidney and the heart. | [GRAF] Link 4. [TXT] "10-33% on SGLT2 inhibitors". |
+| [VO] For diabetes, screening uses a questionnaire. It finds half. | [GRAF] FINDRISC: a question sheet. [TXT] "52%". |
+| [VO] And all of this lands on a doctor with fifteen hundred patients and ten minutes for each one. | [GRAF] A 10-minute clock on top of a stack of records. |
+
+## 4. The idea (3:05-3:30)
+
+| Audio | Visual |
+|---|---|
+| [VO] So we turned it around. | [SFX] cut. Clean background. |
+| [VO] The patient measures at home, easily, as many times as needed. | [GRAF] House → phone → strip. |
+| [VO] The doctor gets a list that's already ranked: who to look at first and what to order. | [GRAF] List with three groups. |
+| [VO] And in between, a model that knows how far to trust each measurement. | [GRAF] Between the two, a probability curve that narrows with each measurement. [TXT] "LatentHealth". |
+
+## 5. The app, with Julián (3:30-5:00)
+
+| Audio | Visual |
+|---|---|
+| [VO] The system goes through the practice list and sees that Julián is missing a urine test, and that his office blood pressure was a hundred forty-six. | [APP] Phone: notification "Your health center is sending you a kit". |
+| [VO] He gets a kit with only what he's missing: three strips. And they lend him a BP cuff for a week. Nobody buys anything. | [GRAF] Kit render: box with three strips and a BP cuff. Glucometer and watch in gray ("only if needed"). |
+| [VO] Before the strip, four questions. Have you exercised hard? Do you have a fever? Does it burn when you pee? | [APP] Questions screen, taps on "No". |
+| [VO] If any answer is yes, the result wouldn't be reliable, and the app tells him to wait. | [APP] Insert: Marta, "Not today. Wait 3 days after your period". |
+| [VO] With the first urine of the morning, he dips the strip and takes a photo. | [APP] Camera framing the strip; guide frame; flash. |
+| [VO] The app doesn't give him a bare number. It tells him what to do. "All done", "repeat tomorrow", or "send the lab tube". | [APP] Result: "Repeat tomorrow" with probability bar 14%. |
+| [VO] Every measurement moves the probability. Only those with an uncertain result repeat. | [GRAF] Probability curve shifting with each strip: 14% → 75% with the lab tube. |
+| [VO] Blood pressure, for a week, morning and night. Pulse, with his watch; or with the phone camera, finger on top. | [APP] Blood pressure calendar filling up. Pulse screen with finger on camera. |
+| [VO] If the watch records an electrocardiogram, thirty seconds are enough to suspect the heart is pumping weakly. | [APP] "ECG 30 s" screen with a trace drawing itself. |
+| [VO] And if the system suspects diabetes, a single fasting glucose, at the corner pharmacy. | [APP] Card "Stop by the pharmacy before breakfast". |
+| [VO] At the end, Julián gets a message: we've seen albumin in your urine repeatedly. Your health center will call you. | [APP] Final screen with a check mark. |
+
+## 6. The doctor (5:00-5:40)
+
+| Audio | Visual |
+|---|---|
+| [VO] On the other side is his doctor. She doesn't get a hundred alerts. She gets a list. | [APP] Desktop screen: "My practice list · 1,500 patients". |
+| [VO] At the top, what's already clear and not on record: Julián, repeated albuminuria with no diagnosis. | [APP] "Act" group with Julián highlighted. |
+| [VO] Next, who's missing a test, ranked by the probability of finding something new, and which one to order first. | [APP] "Measure" group with probability bars and an "order" button. |
+| [VO] And at the bottom, those who are well worked up. They take up one line. | [APP] "Nothing pending: 3 of 11". |
+| [VO] In the patient record, every value with its uncertainty: measured, estimated, or measured at home. | [APP] Julián's record with intervals. |
+
+## 7. How it was built and what comes out (5:40-6:50)
+
+| Audio | Visual |
+|---|---|
+| [VO] None of this is a made-up rule. Every piece is trained and checked on real people. | [GRAF] Data logos: NHANES, PhysioNet, Zenodo, MUSIC, PREDIMED. |
+| [VO] The heart of the system is a Bayesian filter: the same kind of model that tracks a plane with a noisy radar. It tracks Julián's true albumin with measurements that, on their own, mislead. | [GRAF] Noisy dots (strips) and a smooth line with a band that narrows. |
+| [VO] For cardiovascular risk, Spain uses SCORE2. Our model, trained on who actually died within ten years, ranks risk better, especially in people with diabetes or hypertension. Without drawing blood. | [GRAF] AUC bars: SCORE2 0.755 · LatentHealth 0.808 (diabetes or hypertension). [TXT] "+0.054". |
+| [VO] For hidden diabetes, against today's questionnaire: with the same number of lab tests, it finds three in four cases instead of one in two. | [GRAF] Two grids of 100 hidden diabetes cases: 52 found vs 75. |
+| [VO] The arrhythmia detector reaches ninety-seven percent area under the curve on eighty-five hundred real recordings. | [GRAF] Gauge 0.97. |
+| [VO] And with thirty seconds of single-lead electrocardiogram, we detect a weak heart with 0.88 against the echocardiogram. Today that requires a hospital visit. | [GRAF] Three bars: pulse 0.68 · ECG 0.88 · ECG and sound 0.91. |
+| [VO] We also know what doesn't work, and we say so: pulse alone isn't enough for a weak heart. And these data come from the United States and China: before use, it has to be validated in Spain. | [TXT] "What we don't know yet" with three bullet points. |
+
+## 8. What it would save (6:50-7:30)
+
+| Audio | Visual |
+|---|---|
+| [VO] So how much does all this matter? | Dark background. |
+| [VO] In Spain there are more than a million people with albuminuria that nobody has seen. | [GRAF] Dot map of Spain filling up. [TXT] "≈ 1.8 million · estimate". |
+| [VO] If half of them measure at home and half of those start treatment, that's about twelve hundred fewer deaths every year. | [GRAF] Counter up to 1,200. [TXT] "deaths averted per year · central scenario (100-3,900)". |
+| [VO] Twelve thousand in ten years. | [GRAF] Counter up to 12,000. |
+| [VO] Julián won't notice. There won't be a day when we save his life. He'll simply still be here ten years from now. | [GRAF] Julián's silhouette, now with a grandchild beside him. All green. |
+| [VO] LatentHealth. What your body already knows, in time. | [TXT] Logo. "Challenge 1 · Boehringer Hackathon". |
+
+---
+
+## Sources shown on screen
+
+- UACR within two years in 4.1% of people with hypertension (96 in 100 without it) and in 35.1% of
+  people with diabetes: Shin et al., *Hypertension* 2021 (3.7 million adults from 24 cohorts).
+- 113,620 deaths from diseases of the circulatory system: INE, 2024.
+- 15.1% CKD: ENRICA study (Gorostidi et al., *Nefrología* 2018).
+- Diabetes 13.8%, 6.0% unaware: di@bet.es (Soriguer et al., *Diabetologia* 2012).
+- 37% of people with hypertension undiagnosed: di@bet.es (Menéndez et al., *Rev Esp Cardiol* 2016).
+- > 80% of CKD stage 3 undiagnosed: REVEAL-CKD. 10-33% on SGLT2 inhibitors: see `docs/solucion.md`.
+- Our own results: `reports/riesgo_en_casa.md`, `reports/diabetes_en_casa.md`, `reports/ritmo.md`,
   `reports/fraccion_eyeccion.md`.
-- Vidas: `reports/vidas_salvadas.md` (estimación con supuestos; iSGLT2 RR 0,86, *Lancet* 2022).
+- Lives: `reports/vidas_salvadas.md` (estimate built on assumptions; SGLT2 inhibitors RR 0.86, *Lancet* 2022).
 
-## Versión de 3 minutos
+## 3-minute version
 
-0 (gancho, 25 s) → 1 resumido (cifra de muertes y "llegan tarde", 20 s) → 3 (los cuatro fallos,
-35 s) → 4 (la idea, 15 s) → 5 resumido (kit, tira, resultado, 40 s) → 6 (la lista, 20 s) → 7 solo
-SCORE2 y diabetes (20 s) → 8 (25 s).
+0 (hook, 25 s) → 1 condensed (death toll and "they arrive late", 20 s) → 3 (the four failures,
+35 s) → 4 (the idea, 15 s) → 5 condensed (kit, strip, result, 40 s) → 6 (the list, 20 s) → 7 only
+SCORE2 and diabetes (20 s) → 8 (25 s).

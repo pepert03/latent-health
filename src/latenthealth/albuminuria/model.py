@@ -1,31 +1,30 @@
-"""Modelo probabilístico de la albuminuria.
+"""Probabilistic model of albuminuria.
 
-Variable oculta ``x``: log del UACR verdadero (mg/g) en la escala de la primera orina
-de la mañana, que es la muestra que recomiendan las guías.
+Hidden variable ``x``: log of the true UACR (mg/g) on the first-morning-urine scale, the
+sample recommended by guidelines.
 
-Prior (lo que se sabe del paciente antes de medir): mezcla de K normales ordenadas
-(normal, elevada, muy elevada) cuyos pesos y medias dependen de las covariables ``z``
-(edad, sexo, diabetes, FG)::
+Prior (what is known about the patient before measuring): mixture of K ordered normals
+(normal, elevated, very elevated) whose weights and means depend on the covariates ``z``
+(age, sex, diabetes, eGFR)::
 
     x | z ~ Σ_k π_k(z) N(μ_k + β·z, τ_k²),   π(z) = softmax(α_k + γ_k·z)
 
-Medida (cada muestra de orina, en log). El residuo ``r = y - x - b_tipo(x)`` es una mezcla::
+Measurement (each urine sample, in log). The residual ``r = y - x - b_type(x)`` is a mixture::
 
-    r ~ (1 - ρ) · t de Student(ν, 0, s)    variación habitual
-        + ρ     · t de Student(ν_e, δ, ω)  elevación transitoria (cola pesada)
-    log s     = log σ_tipo + η·z + η_u·u
-    logit ρ   = c_tipo + κ·z + λ_u·u
+    r ~ (1 - ρ) · Student t(ν, 0, s)    usual variation
+        + ρ     · Student t(ν_e, δ, ω)  transient elevation (heavy tail)
+    log s     = log σ_type + η·z + η_u·u
+    logit ρ   = c_type + κ·z + λ_u·u
 
-donde ``u = log(creatinina en orina / 100 mg/dl)`` mide lo diluida que está esa muestra
-(en orina muy diluida el cociente es menos fiable). ``b = 0`` para la primera orina de la
-mañana y, para la aleatoria, ``b(x) = b0 + b1 · (x - log 30)`` con x acotado entre 2 y
-300 mg/g: el exceso de la muestra aleatoria crece con la albuminuria. La elevación
-transitoria recoge muestras altas por causas pasajeras (ejercicio, postura, fiebre,
-infección, sangre). Si la albúmina sale por debajo del límite de detección solo se sabe
-que ``y < log(límite)`` (censura).
+where ``u = log(urine creatinine / 100 mg/dl)`` measures how diluted the sample is (in very
+dilute urine the ratio is less reliable). ``b = 0`` for first morning urine and, for a
+random sample, ``b(x) = b0 + b1 · (x - log 30)`` with x clipped between 2 and 300 mg/g: the
+random sample's excess grows with albuminuria. The transient elevation captures high
+samples from passing causes (exercise, posture, fever, infection, blood). If albumin is
+below the detection limit, all we know is ``y < log(limit)`` (censoring).
 
-Dinámica (supuesto de la literatura, no se puede ajustar con NHANES): el nivel
-verdadero sigue un paseo aleatorio, ``x(t + Δt) = x(t) + N(0, q² Δt)`` con Δt en años.
+Dynamics (assumption from the literature, cannot be fitted with NHANES): the true level
+follows a random walk, ``x(t + Δt) = x(t) + N(0, q² Δt)`` with Δt in years.
 """
 
 from __future__ import annotations
@@ -43,27 +42,27 @@ SAMPLE_TYPES = (FIRST_MORNING, RANDOM)
 
 A2_THRESHOLD = 30.0  # mg/g
 A3_THRESHOLD = 300.0  # mg/g
-N_COVARIATES = 4  # edad, mujer, diabetes, FG
-N_COMPONENTS = 3  # componentes del prior
+N_COVARIATES = 4  # age, female, diabetes, eGFR
+N_COMPONENTS = 3  # prior components
 
 _LOG_2PI = np.log(2.0 * np.pi)
 _LOG_2, _LOG_30, _LOG_300 = np.log(2.0), np.log(30.0), np.log(300.0)
 
 
 def bias_slope_term(x):
-    """Nivel centrado en 30 mg/g y acotado entre 2 y 300 (fuera de ese rango el exceso no cambia)."""
+    """Level centered at 30 mg/g and clipped between 2 and 300 (outside that range the excess does not change)."""
     return np.clip(x, _LOG_2, _LOG_300) - _LOG_30
 
 
 def dilution(ucr_mg_dl) -> np.ndarray:
-    """u = log(creatinina en orina / 100 mg/dl), acotado; 0 (típica) si se desconoce."""
+    """u = log(urine creatinine / 100 mg/dl), clipped; 0 (typical) if unknown."""
     ucr = np.asarray(ucr_mg_dl, dtype=float)
     u = np.log(np.clip(ucr, 8.0, 600.0) / 100.0)
     return np.where(np.isnan(u), 0.0, u)
 
 
 def covariates(age, female, diabetes, egfr=None) -> np.ndarray:
-    """Matriz (N, 4) de covariables estandarizadas. Sin FG se asume 90 (normal)."""
+    """(N, 4) matrix of standardized covariates. Without eGFR, 90 (normal) is assumed."""
     age = np.atleast_1d(np.asarray(age, dtype=float))
     female = np.broadcast_to(np.asarray(female, dtype=float), age.shape)
     diabetes = np.broadcast_to(np.asarray(diabetes, dtype=float), age.shape)
@@ -77,21 +76,21 @@ def covariates(age, female, diabetes, egfr=None) -> np.ndarray:
 
 
 def make_grid(n: int = 400, lo: float = 0.05, hi: float = 30000.0):
-    """Rejilla uniforme en log-UACR y su paso."""
+    """Uniform grid in log-UACR and its step."""
     x = np.linspace(np.log(lo), np.log(hi), n)
     return x, x[1] - x[0]
 
 
 @dataclass
 class Observations:
-    """Una muestra por paciente (arrays de longitud N), todas del mismo tipo."""
+    """One sample per patient (arrays of length N), all of the same type."""
 
-    y: np.ndarray  # log-UACR; NaN si no hay muestra; si está censurada, log del límite
+    y: np.ndarray  # log-UACR; NaN if no sample; if censored, log of the limit
     censored: np.ndarray
     sample_type: str
-    u: np.ndarray  # dilución de la muestra (ver ``dilution``)
-    # Desplazamiento del logit de elevación transitoria por el contexto de la muestra
-    # (ejercicio, fiebre, regla...; ver ``context``). 0 si no se sabe nada.
+    u: np.ndarray  # sample dilution (see ``dilution``)
+    # Shift of the transient-elevation logit from the sample context
+    # (exercise, fever, menstruation...; see ``context``). 0 if nothing is known.
     spike_offset: np.ndarray | float = 0.0
 
     @classmethod
@@ -135,39 +134,39 @@ NO_SPIKES = {
 
 @dataclass
 class AlbuminuriaParams:
-    # Prior de población
-    mu_low: float  # media del componente más bajo
-    log_gaps: list[float]  # μ_k = μ_{k-1} + exp(log_gap): medias ordenadas
+    # Population prior
+    mu_low: float  # mean of the lowest component
+    log_gaps: list[float]  # μ_k = μ_{k-1} + exp(log_gap): ordered means
     log_taus: list[float]
-    beta: list[float]  # desplazamiento común de las medias por covariables
-    alphas: list[float]  # logit de cada componente frente al primero
-    gammas: list[float]  # efectos de covariables en esos logits, (K-1) x 4 por filas
-    # Medida: variación habitual
-    bias_random: float  # exceso de la muestra aleatoria (log) con un nivel verdadero de 30 mg/g
+    beta: list[float]  # common shift of the means by covariates
+    alphas: list[float]  # logit of each component vs the first
+    gammas: list[float]  # covariate effects on those logits, (K-1) x 4 row-major
+    # Measurement: usual variation
+    bias_random: float  # random-sample excess (log) at a true level of 30 mg/g
     log_sigma_morning: float
     log_sigma_random: float
     eta: list[float]
     log_nu: float
-    bias_random_slope: float = 0.0  # cuánto crece ese exceso por unidad de log-nivel
+    bias_random_slope: float = 0.0  # how much that excess grows per unit of log-level
     eta_dilution: float = 0.0
-    # Medida: elevaciones transitorias (por defecto, ninguna)
+    # Measurement: transient elevations (none by default)
     logit_spike_random: float = NO_SPIKES["logit_spike_random"]
     logit_spike_morning: float = NO_SPIKES["logit_spike_morning"]
     kappa: list[float] = field(default_factory=lambda: [0.0] * N_COVARIATES)
     kappa_dilution: float = 0.0
-    log_spike_size: float = NO_SPIKES["log_spike_size"]  # δ: tamaño medio en log
+    log_spike_size: float = NO_SPIKES["log_spike_size"]  # δ: mean size in log
     log_spike_sd: float = NO_SPIKES["log_spike_sd"]  # ω
-    log_nu_spike: float = float(np.log(1000.0))  # cola de las elevaciones (t de Student; 1000 ≈ normal)
-    # Dilución típica de cada tipo de muestra (cuantiles de u), para predecir muestras futuras
+    log_nu_spike: float = float(np.log(1000.0))  # tail of the elevations (Student t; 1000 ≈ normal)
+    # Typical dilution of each sample type (quantiles of u), to predict future samples
     dilution_quantiles: dict = field(default_factory=lambda: {FIRST_MORNING: [0.0], RANDOM: [0.0]})
-    # Dinámica: supuesto, no ajustado (desviación típica del cambio verdadero en un año)
+    # Dynamics: assumed, not fitted (standard deviation of the true change over one year)
     drift_sd_per_year: float = 0.35
-    # Recalibración a otra población (ver ``recalibration``): se suma al logit de las
-    # componentes elevadas del prior. 0 = población de ajuste (NHANES).
+    # Recalibration to another population (see ``recalibration``): added to the logit of the
+    # elevated prior components. 0 = fitting population (NHANES).
     prior_logit_offset: float = 0.0
     meta: dict = field(default_factory=dict)
 
-    # --- vector de parámetros (para el ajuste) ---
+    # --- parameter vector (for fitting) ---
     def to_vector(self) -> np.ndarray:
         parts: list[float] = []
         for name, size in _FIELDS:
@@ -186,7 +185,7 @@ class AlbuminuriaParams:
 
     @classmethod
     def initial(cls) -> "AlbuminuriaParams":
-        """Punto de partida razonable para el ajuste."""
+        """Reasonable starting point for the fit."""
         zeros = [0.0] * N_COVARIATES
         return cls(
             mu_low=np.log(5.0),
@@ -211,7 +210,7 @@ class AlbuminuriaParams:
             log_nu_spike=np.log(4.0),
         )
 
-    # --- magnitudes derivadas ---
+    # --- derived quantities ---
     @property
     def nu(self) -> float:
         return float(np.exp(self.log_nu))
@@ -229,7 +228,7 @@ class AlbuminuriaParams:
         return float(np.exp(self.log_nu_spike))
 
     def bias_at(self, sample_type: str, x) -> np.ndarray:
-        """Desplazamiento de la muestra respecto al nivel verdadero x (0 en la primera de la mañana)."""
+        """Shift of the sample relative to the true level x (0 for first morning urine)."""
         x = np.asarray(x, dtype=float)
         if sample_type != RANDOM:
             return np.zeros_like(x)
@@ -241,7 +240,7 @@ class AlbuminuriaParams:
     def spike_logit_base(self, sample_type: str) -> float:
         return self.logit_spike_random if sample_type == RANDOM else self.logit_spike_morning
 
-    # --- guardar / cargar ---
+    # --- save / load ---
     def save(self, path) -> None:
         Path(path).write_text(json.dumps(asdict(self), indent=2, ensure_ascii=False), encoding="utf-8")
 
@@ -250,7 +249,7 @@ class AlbuminuriaParams:
         return cls(**json.loads(Path(path).read_text(encoding="utf-8")))
 
 
-# --- piezas del modelo, vectorizadas sobre N pacientes y G puntos de la rejilla ---
+# --- model pieces, vectorized over N patients and G grid points ---
 
 
 def _norm_logpdf(x, mean, sd):
@@ -271,7 +270,7 @@ def _t_logcdf(z, nu):
 
 
 def prior_components(p: AlbuminuriaParams, Z: np.ndarray):
-    """Medias (N, K), desviaciones (K,) y log-pesos (N, K) de las componentes del prior."""
+    """Means (N, K), standard deviations (K,) and log-weights (N, K) of the prior components."""
     offsets = np.concatenate([[0.0], np.cumsum(np.exp(p.log_gaps))])
     means = p.mu_low + (Z @ np.asarray(p.beta))[:, None] + offsets[None, :]
     gammas = np.asarray(p.gammas).reshape(len(p.alphas), Z.shape[1])
@@ -281,28 +280,28 @@ def prior_components(p: AlbuminuriaParams, Z: np.ndarray):
 
 
 def log_prior(p: AlbuminuriaParams, Z: np.ndarray, x: np.ndarray) -> np.ndarray:
-    """log p(x | z) en la rejilla, (N, G)."""
+    """log p(x | z) on the grid, (N, G)."""
     means, taus, log_w = prior_components(p, Z)
     comp = log_w[:, :, None] + _norm_logpdf(x[None, None, :], means[:, :, None], taus[None, :, None])
     return logsumexp(comp, axis=1)
 
 
 def noise_scale(p: AlbuminuriaParams, Z: np.ndarray, sample_type: str, u) -> np.ndarray:
-    """Escala de la variación habitual de cada muestra, (N,)."""
+    """Scale of the usual variation of each sample, (N,)."""
     return p.sigma(sample_type) * np.exp(Z @ np.asarray(p.eta) + p.eta_dilution * np.asarray(u))
 
 
 def spike_prob(p: AlbuminuriaParams, Z: np.ndarray, sample_type: str, u, offset=0.0) -> np.ndarray:
-    """Probabilidad de elevación transitoria de cada muestra, (N,).
+    """Probability of a transient elevation for each sample, (N,).
 
-    ``offset`` desplaza el logit según el contexto de la muestra (0 si no se conoce).
+    ``offset`` shifts the logit according to the sample context (0 if unknown).
     """
     logit = p.spike_logit_base(sample_type) + Z @ np.asarray(p.kappa) + p.kappa_dilution * np.asarray(u)
     return expit(logit + np.asarray(offset, dtype=float))
 
 
 def log_obs(p, obs: Observations, Z, x) -> np.ndarray:
-    """log p(y | x) en la rejilla, (N, G). Las muestras que faltan (NaN) aportan 0."""
+    """log p(y | x) on the grid, (N, G). Missing samples (NaN) contribute 0."""
     y = np.asarray(obs.y, dtype=float)
     s = noise_scale(p, Z, obs.sample_type, obs.u)[:, None]
     rho = spike_prob(p, Z, obs.sample_type, obs.u, obs.spike_offset)[:, None]
@@ -310,7 +309,7 @@ def log_obs(p, obs: Observations, Z, x) -> np.ndarray:
     z = r / s
     base = np.log1p(-rho) + _t_logpdf(z, p.nu) - np.log(s)
     spike = np.log(rho) + _t_logpdf((r - p.spike_size) / p.spike_sd, p.nu_spike) - np.log(p.spike_sd)
-    with np.errstate(invalid="ignore"):  # filas sin muestra (NaN): se ponen a 0 al final
+    with np.errstate(invalid="ignore"):  # rows without a sample (NaN): set to 0 at the end
         out = np.logaddexp(base, spike)
     rows = np.flatnonzero(np.asarray(obs.censored, bool) & ~np.isnan(y))
     if rows.size:
@@ -323,7 +322,7 @@ def log_obs(p, obs: Observations, Z, x) -> np.ndarray:
 
 
 def posterior(p, Z, observations: list[Observations], x) -> np.ndarray:
-    """Posterior normalizada en la rejilla (N, G) dadas muestras tomadas en el mismo momento."""
+    """Normalized posterior on the grid (N, G) given samples taken at the same time."""
     lp = log_prior(p, Z, x)
     for obs in observations:
         lp = lp + log_obs(p, obs, Z, x)
@@ -333,9 +332,9 @@ def posterior(p, Z, observations: list[Observations], x) -> np.ndarray:
 
 
 def new_sample_survival(p, Z, sample_type, log_threshold, x, u=None, spike_offset=0.0) -> np.ndarray:
-    """P(nueva muestra ≥ umbral | x), (N, G). Sin ``u`` se promedia sobre la dilución típica.
+    """P(new sample ≥ threshold | x), (N, G). Without ``u`` it averages over the typical dilution.
 
-    ``log_threshold`` puede ser un escalar o un array (N,), con un umbral por fila.
+    ``log_threshold`` can be a scalar or an (N,) array, with one threshold per row.
     """
     us = [np.asarray(u, float)] if u is not None else [np.full(Z.shape[0], q) for q in p.dilution_quantiles[sample_type]]
     threshold = np.reshape(np.asarray(log_threshold, dtype=float), (-1, 1))
@@ -349,14 +348,14 @@ def new_sample_survival(p, Z, sample_type, log_threshold, x, u=None, spike_offse
 
 
 def prob_new_sample_above(p, Z, post, sample_type, threshold, x, u=None) -> np.ndarray:
-    """P(una nueva muestra de este tipo dé un UACR ≥ umbral | lo que se sabe), (N,)."""
+    """P(a new sample of this type gives UACR ≥ threshold | what is known), (N,)."""
     return (post * new_sample_survival(p, Z, sample_type, np.log(threshold), x, u)).sum(axis=1)
 
 
 def simulate(p, Z, rng, u: dict | None = None) -> tuple[np.ndarray, dict]:
-    """Simula el nivel verdadero y una muestra de cada tipo por paciente (log-UACR).
+    """Simulates the true level and one sample of each type per patient (log-UACR).
 
-    ``u`` da la dilución de cada muestra por tipo; sin ella se sortea entre los cuantiles típicos.
+    ``u`` gives each sample's dilution by type; without it, it is drawn from the typical quantiles.
     """
     n = Z.shape[0]
     means, taus, log_w = prior_components(p, Z)

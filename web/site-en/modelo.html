@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LatentHealth · The model, live</title>
+    <meta
+      name="description"
+      content="LatentHealth's Bayesian albuminuria filter, live: add home strips or lab samples and watch what the model believes change."
+    />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="preload" href="fonts/archivo-latin-wdth-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="fonts/chivo-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="css/modelo.css" />
+    <script>document.documentElement.classList.add('js')</script>
+  </head>
+  <body>
+    <header class="top">
+      <a class="brand" href="./" aria-label="LatentHealth, back to the home page">
+        <img src="img/logos/01-carta-logotipo.svg" alt="" width="226" height="18" />
+      </a>
+      <nav class="top-nav" aria-label="Navigation">
+        <a class="btn btn-ghost lang-switch" href="?lang=es" hreflang="es" lang="es" aria-label="Ver en español">ES</a>
+        <a class="btn btn-ghost" href="./">
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5" /><path d="m11 18-6-6 6-6" /></svg>
+          Back to home
+        </a>
+        <a class="btn" href="index.html#app">
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="2.6" /><path d="M10.5 18.5h3" /></svg>
+          Try the app
+        </a>
+      </nav>
+    </header>
+
+    <main class="lab" id="modelo">
+      <header class="lab-head">
+        <h1 class="title">The model, live</h1>
+        <p class="lede">
+          Every change is a real request to the Bayesian filter running on this computer: add samples and watch the
+          uncertainty narrow.
+        </p>
+      </header>
+
+      <!-- 1 · What the model knows: patient, samples and the form to add another -->
+      <section class="panel p-in rv" id="lab-in" aria-labelledby="lab-in-h">
+        <h2 class="ph" id="lab-in-h">
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6" /><path d="M5 20.5c.7-3.7 3.5-5.8 7-5.8s6.3 2.1 7 5.8" /></svg>
+          What the model knows
+        </h2>
+
+        <div class="field">
+          <label for="lab-example">Sample patient</label>
+          <select id="lab-example"></select>
+        </div>
+        <div class="two">
+          <div class="field">
+            <label for="lab-age">Age <output id="lab-age-out" for="lab-age"></output></label>
+            <input type="range" id="lab-age" min="30" max="90" step="1" value="58" />
+          </div>
+          <div class="field">
+            <label for="lab-egfr">eGFR, ml/min/1.73&nbsp;m² <output id="lab-egfr-out" for="lab-egfr"></output></label>
+            <input type="range" id="lab-egfr" min="15" max="120" step="1" value="88" />
+          </div>
+        </div>
+        <div class="two">
+          <div class="field">
+            <span class="lbl" id="lab-sex-l">Sex</span>
+            <div class="seg" id="lab-sex" role="group" aria-labelledby="lab-sex-l">
+              <button type="button" data-v="true" aria-pressed="true">Female</button>
+              <button type="button" data-v="false" aria-pressed="false">Male</button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="lbl" id="lab-dm-l">Diabetes</span>
+            <div class="seg" id="lab-dm" role="group" aria-labelledby="lab-dm-l">
+              <button type="button" data-v="false" aria-pressed="true">No</button>
+              <button type="button" data-v="true" aria-pressed="false">Yes</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="samples-head">
+          <h3 class="sub">Urine samples <span class="count" id="lab-count">0</span></h3>
+          <button type="button" class="btn-text" id="lab-clear">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 7h15" /><path d="M9.5 7V4.8c0-.7.6-1.3 1.3-1.3h2.4c.7 0 1.3.6 1.3 1.3V7" /><path d="m6.5 7 .9 12.2c.1.8.7 1.3 1.5 1.3h6.2c.8 0 1.4-.5 1.5-1.3L17.5 7" /><path d="M10.2 11v5.5M13.8 11v5.5" /></svg>
+            Clear all
+          </button>
+        </div>
+        <ul class="samples" id="lab-samples" aria-label="Urine samples"></ul>
+
+        <div class="add" role="group" aria-label="Add a sample">
+          <div class="seg seg-kind" id="lab-kind" role="group" aria-label="Type of sample to add">
+            <button type="button" data-v="tira" aria-pressed="true">
+              <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="2.5" width="8" height="19" rx="1.6" /><rect x="10.2" y="9.5" width="3.6" height="3.6" rx=".6" /><rect x="10.2" y="15" width="3.6" height="3.6" rx=".6" /></svg>
+              Home strip
+            </button>
+            <button type="button" data-v="laboratorio" aria-pressed="false">
+              <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6" /><path d="M10 3v6.2L5 18.4A1.8 1.8 0 0 0 6.6 21h10.8a1.8 1.8 0 0 0 1.6-2.6L14 9.2V3" /><path d="M7.3 15h9.4" /></svg>
+              Lab
+            </button>
+          </div>
+          <div class="add-body" id="lab-add-strip">
+            <div class="picker" id="lab-pick-a"></div>
+            <div class="picker" id="lab-pick-c"></div>
+          </div>
+          <div class="add-body" id="lab-add-lab" hidden>
+            <div class="row">
+              <label for="lab-uacr"><b><abbr title="Urine albumin-to-creatinine ratio">UACR</abbr></b> mg/g</label>
+              <input type="number" id="lab-uacr" min="1" max="3000" step="1" value="45" inputmode="numeric" />
+            </div>
+            <div class="row">
+              <label for="lab-type"><b>Urine</b> type</label>
+              <select id="lab-type">
+                <option value="first_morning">First morning</option>
+                <option value="random">Random</option>
+              </select>
+            </div>
+          </div>
+          <div class="add-go">
+            <label class="date" for="lab-date">
+              <span>Date</span>
+              <input type="date" id="lab-date" title="Sample date" />
+            </label>
+            <button type="button" class="btn" id="lab-add">
+              <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+              Add sample
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <div class="lab-out" id="lab-out" aria-live="polite">
+        <!-- 2 · What it believes: the estimate and the distribution -->
+        <section class="panel p-est rv" style="--d: 90ms" aria-labelledby="lab-est-h">
+          <div class="est-head">
+            <h2 class="ph" id="lab-est-h">
+              <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 19.5h17" /><path d="M5 16c2.2 0 3-9.5 6-9.5s3.6 6 5.4 6c1.2 0 1.8-1.4 2.6-2.5" /></svg>
+              Albuminuria
+            </h2>
+            <span id="lab-state"></span>
+          </div>
+          <dl class="est">
+            <div>
+              <dt>Estimated true value</dt>
+              <dd class="big" id="lab-median">—</dd>
+            </div>
+            <div>
+              <dt>80% interval</dt>
+              <dd id="lab-interval">—</dd>
+            </div>
+          </dl>
+          <ul class="bars" id="lab-bars" aria-label="Probability of each category"></ul>
+          <div class="chart-box">
+            <svg
+              class="chart"
+              id="lab-chart"
+              viewBox="0 0 640 250"
+              role="img"
+              aria-label="Probability distribution of the true albumin/creatinine ratio, on a log scale"
+            ></svg>
+          </div>
+          <ul class="legend" aria-label="Chart legend">
+            <li><i class="sw sw-now"></i>What it believes now</li>
+            <li><i class="sw sw-int"></i>Its 80% interval</li>
+            <li><i class="sw sw-prior"></i>What it believed before measuring</li>
+            <li><i class="sw sw-med"></i>Median</li>
+            <li><svg viewBox="-8 -8 16 16" aria-hidden="true"><rect x="-5" y="-5" width="10" height="10" class="m-tira" /></svg>Strip</li>
+            <li><svg viewBox="-8 -8 16 16" aria-hidden="true"><circle r="5.5" class="m-fm" /></svg>Lab, first morning</li>
+            <li><svg viewBox="-8 -8 16 16" aria-hidden="true"><path d="M0-7 7 0 0 7-7 0z" class="m-rnd" /></svg>Lab, random</li>
+          </ul>
+        </section>
+
+        <!-- 3 · What to do: the message, the next step and the projection -->
+        <section class="panel p-next rv" style="--d: 180ms" aria-labelledby="lab-next-h">
+          <h2 class="ph" id="lab-next-h">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M8 12h8" /><path d="m12.8 8.5 3.5 3.5-3.5 3.5" /></svg>
+            What the model says
+          </h2>
+          <p class="say" id="lab-action"></p>
+          <div class="next" id="lab-next" hidden></div>
+          <h3 class="sub">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></svg>
+            If nothing is measured again
+          </h3>
+          <div class="fan-box">
+            <svg
+              class="fan"
+              id="lab-fan"
+              role="img"
+              aria-label="Projection if nothing is measured again: median and 80% interval today and at 3, 6 and 12 months, against the 30 mg/g threshold"
+            ></svg>
+          </div>
+          <table class="proj" id="lab-proj"></table>
+          <p class="src">Values in mg/g. Projection assumes drift; not validated on longitudinal data.</p>
+        </section>
+      </div>
+    </main>
+
+    <!-- Status bar: the connection to the model and the disclaimer -->
+    <footer class="status">
+      <div class="wire" id="lab-wire"><i></i><span>Waiting for the model…</span></div>
+      <p class="notice" role="note">
+        <b>Synthetic data</b> · Decision-support prototype, not a diagnosis · Models trained on NHANES (US)
+      </p>
+    </footer>
+
+    <script type="module">
+      import { initLab } from './js/model.js'
+      document.querySelectorAll('.rv').forEach((el) => el.classList.add('in'))
+      initLab()
+    </script>
+  </body>
+</html>

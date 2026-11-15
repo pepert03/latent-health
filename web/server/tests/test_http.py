@@ -1,14 +1,14 @@
-"""Comprobación de extremo a extremo por HTTP real.
+"""End-to-end check over real HTTP.
 
-Arranca el servidor como lo arranca ``web/start.ps1`` (``uv run ... uvicorn server.main:app``) en
-un puerto libre, espera a que termine la precarga de los modelos y llama a todas las rutas con las
-entradas que el propio servidor publica: ``/api/model/examples`` y ``/api/home/config``.
+Starts the server the way ``web/start.ps1`` does (``uv run ... uvicorn server.main:app``) on a
+free port, waits for the models to warm up and calls every route with the inputs the server
+itself publishes: ``/api/model/examples`` and ``/api/home/config``.
 
     uv run --with-requirements web/server/requirements-dev.txt pytest web/server/tests/test_http.py -q -s
 
-Con ``-s`` se ve lo que ha tardado la precarga. No puede quedarse colgado: cada petición tiene
-límite de tiempo, la espera del arranque también, y un temporizador apaga el servidor si el módulo
-entero pasa de ``TOTAL_LIMIT`` segundos. El servidor se apaga siempre, pase lo que pase.
+With ``-s`` you see how long the warm-up took. It cannot hang: each request has a time limit,
+so does the startup wait, and a timer shuts the server down if the whole module exceeds
+``TOTAL_LIMIT`` seconds. The server is always shut down, whatever happens.
 """
 
 from __future__ import annotations
@@ -35,28 +35,28 @@ import pytest
 
 REPO_DIR = Path(__file__).resolve().parents[3]
 
-STARTUP_LIMIT = 300.0  # s: arranque más precarga de modelos (lo normal son unos 30 s)
-REQUEST_LIMIT = 60.0  # s por petición (la más lenta medida, /assess, tarda 1,5 s)
-TOTAL_LIMIT = 600.0  # s para el módulo entero; pasado ese tiempo se apaga el servidor
+STARTUP_LIMIT = 300.0  # s: startup plus model warm-up (usually about 30 s)
+REQUEST_LIMIT = 60.0  # s per request (the slowest measured, /assess, takes 1.5 s)
+TOTAL_LIMIT = 600.0  # s for the whole module; after that the server is shut down
 
-# Si está pytest-timeout, que corte él también; sin el complemento la marca solo daría un aviso.
+# If pytest-timeout is installed, let it cut too; without the plugin the mark would only warn.
 if importlib.util.find_spec("pytest_timeout") is not None:
     pytestmark = pytest.mark.timeout(TOTAL_LIMIT + 60)
 
 
 # --------------------------------------------------------------------------------------
-# Cliente HTTP mínimo (biblioteca estándar): lo que llega por el cable, sin intermediarios
+# Minimal HTTP client (standard library): what comes over the wire, with no middlemen
 # --------------------------------------------------------------------------------------
 
-_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))  # nunca por un proxy
+_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))  # never through a proxy
 
 
 def _reject_constant(name: str) -> Any:
-    raise ValueError(f"El JSON trae {name}, que no es JSON estricto.")
+    raise ValueError(f"The JSON contains {name}, which is not strict JSON.")
 
 
 def strict_json(raw: bytes) -> Any:
-    """Lee JSON como lo lee un navegador: NaN, Infinity y -Infinity son un error."""
+    """Reads JSON as a browser does: NaN, Infinity and -Infinity are an error."""
     return json.loads(raw.decode("utf-8"), parse_constant=_reject_constant)
 
 
@@ -73,11 +73,11 @@ class Reply:
 @dataclass(frozen=True)
 class Server:
     base: str
-    seconds_to_listen: float  # del arranque del proceso al primer /api/health
-    seconds_to_ready: float  # del arranque del proceso a models_ready
+    seconds_to_listen: float  # from process start to the first /api/health
+    seconds_to_ready: float  # from process start to models_ready
 
     def call(self, path: str, body: Any = None) -> Reply:
-        """GET si no hay cuerpo; POST con JSON si lo hay. Un 4xx o 5xx se devuelve, no se lanza."""
+        """GET without a body; POST with JSON if there is one. A 4xx or 5xx is returned, not raised."""
         data = None if body is None else json.dumps(body).encode("utf-8")
         request = urllib.request.Request(
             self.base + path,
@@ -92,7 +92,7 @@ class Server:
             return Reply(error.code, error.headers.get("content-type", ""), error.read())
 
     def ok(self, path: str, body: Any = None) -> Any:
-        """Llama y exige 200 con JSON estricto; devuelve el JSON."""
+        """Calls and requires a 200 with strict JSON; returns the JSON."""
         reply = self.call(path, body)
         assert reply.status == 200, f"{path} -> {reply.status}: {reply.raw[:400]!r}"
         assert reply.content_type.startswith("application/json"), f"{path}: {reply.content_type}"
@@ -100,7 +100,7 @@ class Server:
 
 
 # --------------------------------------------------------------------------------------
-# Arranque y apagado del servidor
+# Server startup and shutdown
 # --------------------------------------------------------------------------------------
 
 
@@ -111,7 +111,7 @@ def _free_port() -> int:
 
 
 def _stop(process: subprocess.Popen[bytes]) -> None:
-    """Apaga el servidor y sus hijos (``uv run`` lanza uvicorn en un proceso hijo). Se puede repetir."""
+    """Shuts down the server and its children (``uv run`` starts uvicorn in a child process). Idempotent."""
     if process.poll() is None:
         try:
             if os.name == "nt":
@@ -133,24 +133,24 @@ def _tail(path: Path, lines: int = 30) -> str:
     try:
         return "\n".join(path.read_text(encoding="utf-8", errors="replace").splitlines()[-lines:])
     except OSError:
-        return "(sin registro)"
+        return "(no log)"
 
 
 @pytest.fixture(scope="module")
 def server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Server]:
     uv = shutil.which("uv")
     if uv is None:
-        pytest.skip("uv no está en el PATH: no se puede arrancar el servidor como en la demo.")
+        pytest.skip("uv is not on the PATH: cannot start the server as in the demo.")
 
     port = _free_port()
     base = f"http://127.0.0.1:{port}"
-    log_path = tmp_path_factory.mktemp("servidor") / "uvicorn.log"
+    log_path = tmp_path_factory.mktemp("server") / "uvicorn.log"
 
     env = dict(os.environ)
-    # El entorno del servidor lo decide uv desde la raíz, no el que ejecuta estos tests.
+    # uv decides the server's environment from the root, not the one running these tests.
     env.pop("VIRTUAL_ENV", None)
-    # Los tests no llaman a ningún modelo de lenguaje: sin credenciales y con la API apuntando a
-    # un puerto cerrado de esta máquina, el asistente contesta siempre en modo guiado.
+    # The tests call no language model: with no credentials and the API pointing to a closed
+    # port on this machine, the assistant always answers in guided mode.
     for name in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"):
         env.pop(name, None)
     env["ANTHROPIC_BASE_URL"] = "http://127.0.0.1:9"
@@ -167,7 +167,7 @@ def server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Server]:
         process = subprocess.Popen(
             command, cwd=REPO_DIR, env=env, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, **group
         )
-        atexit.register(_stop, process)  # por si pytest muere sin pasar por el finally
+        atexit.register(_stop, process)  # in case pytest dies without reaching the finally
         watchdog = threading.Timer(TOTAL_LIMIT, _stop, args=(process,))
         watchdog.daemon = True
         watchdog.start()
@@ -177,13 +177,13 @@ def server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Server]:
             while True:
                 elapsed = time.monotonic() - started
                 if process.poll() is not None:
-                    pytest.fail(f"El servidor terminó solo (código {process.returncode}):\n{_tail(log_path)}")
+                    pytest.fail(f"The server exited on its own (code {process.returncode}):\n{_tail(log_path)}")
                 if elapsed > STARTUP_LIMIT:
-                    pytest.fail(f"El servidor no estuvo listo en {STARTUP_LIMIT:.0f} s:\n{_tail(log_path)}")
+                    pytest.fail(f"The server was not ready within {STARTUP_LIMIT:.0f} s:\n{_tail(log_path)}")
                 try:
                     reply = probe.call("/api/health")
                 except (urllib.error.URLError, OSError):
-                    time.sleep(0.25)  # todavía no escucha
+                    time.sleep(0.25)  # not listening yet
                     continue
                 assert reply.status == 200, f"/api/health -> {reply.status}"
                 if listening is None:
@@ -193,8 +193,8 @@ def server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Server]:
                 time.sleep(0.25)
             ready = time.monotonic() - started
             print(
-                f"\n[test_http] servidor en {base}: escucha a los {listening:.1f} s, "
-                f"modelos precargados a los {ready:.1f} s"
+                f"\n[test_http] server at {base}: listening after {listening:.1f} s, "
+                f"models warmed up after {ready:.1f} s"
             )
             yield Server(base, listening, ready)
         finally:
@@ -204,7 +204,7 @@ def server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Server]:
 
 
 # --------------------------------------------------------------------------------------
-# Estado, documentación y sitio
+# Status, docs and site
 # --------------------------------------------------------------------------------------
 
 EXPECTED_PATHS = {
@@ -230,7 +230,7 @@ def test_health_reports_models_ready(server: Server):
 
 def test_openapi_lists_every_route_and_docs_are_served(server: Server):
     paths = set(server.ok("/api/openapi.json")["paths"])
-    # Si aparece una ruta nueva, este test avisa de que falta llamarla aquí (y tiparla en la web).
+    # If a new route appears, this test flags that it must be called here (and typed in the web app).
     assert paths == EXPECTED_PATHS
     docs = server.call("/api/docs")
     assert docs.status == 200 and docs.content_type.startswith("text/html")
@@ -238,7 +238,7 @@ def test_openapi_lists_every_route_and_docs_are_served(server: Server):
 
 def test_site_is_served_from_the_same_port(server: Server):
     if not server.ok("/api/health")["site_built"]:
-        pytest.skip("No hay sitio que servir (falta web/site/index.html).")
+        pytest.skip("No site to serve (web/site/index.html is missing).")
     page = server.call("/")
     assert page.status == 200 and page.content_type.startswith("text/html")
     assert b"<html" in page.raw.lower()
@@ -251,7 +251,7 @@ def test_unknown_api_route_is_a_json_404(server: Server):
 
 
 # --------------------------------------------------------------------------------------
-# Modelo en vivo: todas las entradas de /api/model/examples
+# Live model: every input in /api/model/examples
 # --------------------------------------------------------------------------------------
 
 
@@ -266,7 +266,7 @@ def test_model_examples_run_on_every_model_route(server: Server):
         assert len(albuminuria["trajectory"]) == len(albuminuria["samples"]) == len(patient["albuminuria"].get("samples", []))
 
         assess = server.ok("/api/model/assess", patient["assess"])
-        # La evaluación completa y el filtro suelto ven las mismas muestras: mismo estado.
+        # The full assessment and the standalone filter see the same samples: same status.
         assert assess["albuminuria"]["status"] == albuminuria["status"], patient["id"]
         assert len(assess["kdigo_joint"]) == 6 and all(len(row["cells"]) == 3 for row in assess["kdigo_joint"])
         total = sum(cell["p"] for row in assess["kdigo_joint"] for cell in row["cells"])
@@ -288,22 +288,22 @@ def test_model_routes_are_deterministic_over_http(server: Server):
         assert first.raw == second.raw, path
 
 
-def test_model_domain_error_is_a_400_in_spanish(server: Server):
+def test_model_domain_error_is_a_400_with_a_message(server: Server):
     body = dict(server.ok("/api/model/examples")["patients"][0]["albuminuria"])
     body["samples"] = [{"kind": "laboratorio", "date": "2026-11-10", "uacr": 45, "sample_type": "first_morning"}]
-    body["as_of"] = "2026-11-01"  # anterior a la muestra
+    body["as_of"] = "2026-11-01"  # before the sample
     reply = server.call("/api/model/albuminuria", body)
     assert reply.status == 400, reply.raw[:300]
     detail = reply.json()["detail"]
     assert isinstance(detail, str) and detail.strip()
 
-    malformed = server.call("/api/model/albuminuria", {"as_of": "2026-11-14"})  # falta el paciente
+    malformed = server.call("/api/model/albuminuria", {"as_of": "2026-11-14"})  # the patient is missing
     assert malformed.status == 422
     assert isinstance(malformed.json()["detail"], list)
 
 
 # --------------------------------------------------------------------------------------
-# En casa: todo lo que publica /api/home/config
+# At home: everything /api/home/config publishes
 # --------------------------------------------------------------------------------------
 
 
@@ -312,9 +312,9 @@ def _patient_body(preset: dict[str, Any]) -> dict[str, Any]:
 
 
 def _play(server: Server, config: dict[str, Any], script: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Reproduce un recorrido guiado contra /step como lo hace la web (ver la ruta /config).
+    """Replays a guided walkthrough against /step as the web app does (see the /config route).
 
-    Devuelve las respuestas y el último cuerpo enviado.
+    Returns the responses and the last body sent.
     """
     preset = next(p for p in config["patients"] if p["id"] == script["patient_id"])
     body: dict[str, Any] = {
@@ -355,7 +355,7 @@ def test_home_step_works_for_every_patient_and_channel(server: Server):
     config = server.ok("/api/home/config")
     for preset in config["patients"]:
         for channel in config["channels"]:
-            for name in (channel["value"], channel["key"]):  # el canal vale por su nombre o por su clave
+            for name in (channel["value"], channel["key"]):  # the channel works by its name or its key
                 body = {"patient": _patient_body(preset), "channel": name, "today": config["today"], "samples": []}
                 step = server.ok("/api/home/step", body)
                 assert step["kit"]["channel"] == channel["value"], (preset["id"], name)
@@ -368,12 +368,12 @@ def test_home_scripts_play_to_the_end(server: Server):
     for script in config["scripts"]:
         seen, _ = _play(server, config, script)
         last = seen[-1]
-        assert last["finished"] is True, f"{script['id']}: termina en «{last['action']}»"
+        assert last["finished"] is True, f"{script['id']}: ends at \"{last['action']}\""
         assert last["patient_message"] and last["clinician_note"]
         samples = [item for item in script["steps"] if item["kind"] != "respuestas"]
         assert len(last["samples"]) == len(last["assessment"]["trajectory"]) == len(samples), script["id"]
         dates = [dt.date.fromisoformat(step["on"]) for step in seen]
-        assert dates == sorted(dates), f"{script['id']}: las fechas retroceden"
+        assert dates == sorted(dates), f"{script['id']}: dates go backwards"
 
 
 def test_home_measurements_at_home(server: Server):
@@ -383,12 +383,12 @@ def test_home_measurements_at_home(server: Server):
 
     readings = [{"date": day, "sbp": 142 + i, "dbp": 88, "evening": evening} for i, day in enumerate(days) for evening in (False, True)]
     bp = server.ok("/api/home/bp", {"readings": readings})
-    assert bp["days"] == 6 and bp["n"] == 12 and bp["valid"] is True  # se descarta el primer día
+    assert bp["days"] == 6 and bp["n"] == 12 and bp["valid"] is True  # the first day is discarded
     assert 0.0 <= bp["p_high"] <= 1.0 and bp["message"]
 
     for preset in config["patients"]:
         who = {"age": preset["age"], "female": preset["female"]}
-        # Dos pulsos irregulares suben la probabilidad; una semana de pulsos regulares la baja.
+        # Two irregular pulses raise the probability; a week of regular pulses lowers it.
         irregular = server.ok("/api/home/rhythm", {**who, "checks": [{"date": day, "irregular": True} for day in days[:2]]})
         regular = server.ok("/api/home/rhythm", {**who, "checks": [{"date": day, "irregular": False} for day in days]})
         nothing = server.ok("/api/home/rhythm", who)
@@ -408,21 +408,21 @@ def test_home_chat_answers_in_guided_mode(server: Server):
     config = server.ok("/api/home/config")
     script = config["scripts"][0]
     _, body = _play(server, config, script)
-    body["messages"] = [{"role": "user", "content": "¿Cuándo me toca la próxima prueba?"}]
+    body["messages"] = [{"role": "user", "content": "When is my next test due?"}]
     chat = server.ok("/api/home/chat", body)
-    # El servidor de este test no tiene credenciales ni salida a la API: contesta con frases fijas.
+    # This test's server has no credentials and no API access: it answers with fixed sentences.
     assert chat["mode"] == "guiado" and chat["model"] is None
     assert chat["reply"].strip()
 
 
-def test_home_domain_error_is_a_400_in_spanish(server: Server):
+def test_home_domain_error_is_a_400_with_a_message(server: Server):
     config = server.ok("/api/home/config")
     patient = _patient_body(config["patients"][0])
-    late = {"kind": "tubo", "date": "2026-12-01", "uacr": 40}  # posterior a «hoy»
+    late = {"kind": "tubo", "date": "2026-12-01", "uacr": 40}  # after "today"
     reply = server.call("/api/home/step", {"patient": patient, "today": config["today"], "samples": [late]})
     assert reply.status == 400, reply.raw[:300]
     assert isinstance(reply.json()["detail"], str)
 
-    malformed = server.call("/api/home/step", {"today": config["today"]})  # falta el paciente
+    malformed = server.call("/api/home/step", {"today": config["today"]})  # the patient is missing
     assert malformed.status == 422
     assert isinstance(malformed.json()["detail"], list)

@@ -1,4 +1,4 @@
-"""Evaluación integrada, lista del cupo, recalibración y pacientes de prueba."""
+"""Integrated assessment, practice-list worklist, recalibration and test patients."""
 
 from dataclasses import replace
 from datetime import date, timedelta
@@ -17,12 +17,13 @@ from latenthealth.albuminuria import (
     UrineSample,
 )
 from latenthealth.albuminuria.model import covariates
-from latenthealth.assessment import HOME_GLUCOSE_TEST, PANEL_DIR, ClinicalRecord, assess, describe
+from latenthealth.assessment import PANEL_DIR, ClinicalRecord, assess, describe, home_glucose_test
 from latenthealth.cohort import record_from_row
 from latenthealth.cvrisk import HIGH, VERY_HIGH
 from latenthealth.decision import Utilities
 from latenthealth.diabetes import GlucoseReading
 from latenthealth.home import BPReading, HomeLab, RhythmCheck
+from latenthealth.i18n import use_lang
 from latenthealth.kidney_trend import EgfrMeasurement, TreatmentStart
 from latenthealth.recalibration import (
     age_group,
@@ -39,7 +40,7 @@ from latenthealth.worklist import describe as describe_worklist
 
 needs_models = pytest.mark.skipif(
     not PANEL_DIR.exists() or not any(PANEL_DIR.glob("*.joblib")) or not DEFAULT_PARAMS_PATH.exists(),
-    reason="faltan los modelos (scripts/fit_albuminuria.py y scripts/fit_panel.py)",
+    reason="models missing (scripts/fit_albuminuria.py and scripts/fit_panel.py)",
 )
 D0 = date(2026, 11, 16)
 
@@ -49,7 +50,7 @@ def yearly(values):
     return [EgfrMeasurement(D0 - timedelta(days=365 * (n - 1 - i)), v) for i, v in enumerate(values)]
 
 
-# --- Evaluación integrada ---
+# --- Integrated assessment ---
 
 
 @needs_models
@@ -66,9 +67,14 @@ def test_egfr_history_gives_a_trend_and_an_alert():
     falling = ClinicalRecord(age=68, female=True, diabetes=True, egfr_history=yearly([88, 79, 68, 60, 49]))
     a = assess(falling, as_of=D0)
     assert a.egfr_trend.status == "descenso_rapido"
-    assert any("Descenso" in alert for alert in a.alerts)
+    assert any("Rapid eGFR decline" in alert for alert in a.alerts)
     assert a.kdigo_g["G3a"] > 0.5
-    assert "TENDENCIA DEL FG" in describe(a)
+    assert "eGFR TREND" in describe(a)
+    with use_lang("es"):
+        a_es = assess(falling, as_of=D0)
+        text_es = describe(a_es)
+    assert any(alert.startswith("Descenso rápido del FG: -") and alert.endswith(" ml/min/1,73 m² al año.") for alert in a_es.alerts)
+    assert "TENDENCIA DEL FG" in text_es and "  Tendencia: descenso rápido; pendiente " in text_es
     stable = assess(replace(falling, egfr_history=yearly([75, 77, 74, 76, 75])), as_of=D0)
     assert stable.egfr_trend.status == "estable" and not stable.alerts
 
@@ -86,10 +92,10 @@ def test_capillary_result_updates_the_estimate_without_replacing_it():
     base = ClinicalRecord(age=74, female=True, hypertension=True, bp_meds=True, bmi=31)
     without = assess(base)
     with_lab = assess(replace(base, home_labs={"egfr": HomeLab(48.0)}))
-    assert with_lab.blood["egfr"].source == "capilar en casa" and not with_lab.blood["egfr"].measured
+    assert with_lab.blood["egfr"].source == "finger-prick at home" and not with_lab.blood["egfr"].measured
     assert with_lab.p_egfr_below_60 > without.p_egfr_below_60
     assert with_lab.blood["egfr"].high - with_lab.blood["egfr"].low < without.blood["egfr"].high - without.blood["egfr"].low
-    assert any(r.test.startswith("Creatinina") for r in with_lab.recommendations)
+    assert any(r.test.startswith("Creatinine") for r in with_lab.recommendations)
 
 
 @needs_models
@@ -102,7 +108,7 @@ def test_home_blood_pressure_and_rhythm_reach_alerts_and_recommendations():
     checks = [RhythmCheck(D0 - timedelta(days=2), True), RhythmCheck(D0 - timedelta(days=1), True)]
     a = assess(ClinicalRecord(age=72, female=False, sbp=132, home_bp=readings, rhythm_checks=checks), as_of=D0)
     assert a.home_bp.valid and a.home_bp.p_high > 0.9
-    assert any("Tensión alta en casa" in alert for alert in a.alerts)
+    assert any("High blood pressure at home" in alert for alert in a.alerts)
     assert a.p_af > 0.5 and any(r.test == "ECG" for r in a.recommendations)
     quiet = assess(ClinicalRecord(age=72, female=False, sbp=128, rhythm_checks=[RhythmCheck(D0, False)]), as_of=D0)
     assert quiet.p_af < 0.05 and not any(r.test == "ECG" for r in quiet.recommendations)
@@ -110,7 +116,7 @@ def test_home_blood_pressure_and_rhythm_reach_alerts_and_recommendations():
 
 @needs_models
 def test_cardiovascular_category_and_what_the_urine_would_change():
-    # FG 50 medido y lípidos conocidos; sin orina. La albuminuria subiría la categoría.
+    # eGFR 50 measured and lipids known; no urine. Albuminuria would raise the category.
     rec = ClinicalRecord(age=52, female=True, sbp=118, measured={"egfr": 50.0, "total_cholesterol": 180, "hdl": 65, "hba1c": 5.3})
     a = assess(rec)
     assert a.cv.recorded == 0
@@ -131,7 +137,7 @@ def test_cardiovascular_category_and_what_the_urine_would_change():
 
 @needs_models
 def test_unknown_egfr_and_albuminuria_are_not_treated_as_independent():
-    # Una albuminuria muy alta hace más probable un FG bajo, y al revés.
+    # Very high albuminuria makes a low eGFR more likely, and vice versa.
     high = [UrineSample(D0, 900.0, RANDOM, creatinine_mg_dl=90)]
     rec = ClinicalRecord(age=71, female=False, diabetes=True, hypertension=True, urine_samples=high)
     together = assess(rec, population="nhanes", joint="bayes")
@@ -139,7 +145,7 @@ def test_unknown_egfr_and_albuminuria_are_not_treated_as_independent():
     assert together.kdigo_joint.sum() == pytest.approx(1.0)
     assert together.kdigo_joint.shape == (6, 3)
     assert together.albuminuria.egfr_components
-    # La probabilidad conjunta de FG < 60 y albuminuria no es el producto de las marginales.
+    # The joint probability of eGFR < 60 and albuminuria is not the product of the marginals.
     j = together.kdigo_joint
     assert j[2:, 1:].sum() != pytest.approx(j[2:].sum() * j[:, 1:].sum(), abs=1e-4)
     assert apart.kdigo_joint[2:, 1:].sum() == pytest.approx(apart.kdigo_joint[2:].sum() * apart.kdigo_joint[:, 1:].sum(), abs=1e-6)
@@ -157,38 +163,38 @@ def test_thresholds_change_what_is_recommended():
     relaxed = assess(rec, thresholds=Utilities(tests_creatinine=2, tests_home_glucose=2).thresholds())
     eager = assess(rec, thresholds=Utilities(tests_creatinine=200, tests_home_glucose=200).thresholds())
     names = lambda a: {r.test for r in a.recommendations}  # noqa: E731
-    assert HOME_GLUCOSE_TEST in names(eager) and HOME_GLUCOSE_TEST not in names(relaxed)
+    assert home_glucose_test() in names(eager) and home_glucose_test() not in names(relaxed)
 
 
 @needs_models
 def test_glucose_is_measured_with_little_suspicion_and_the_analysis_follows_the_reading():
-    """Dos pasos: glucosa capilar desde el 2 %; el análisis, si con esa glucosa sigue en el 2 % o más."""
+    """Two steps: capillary glucose from 2%; the lab test if, with that glucose, it stays at 2% or more."""
     cuts = Utilities().thresholds()
     assert cuts.home_glucose == pytest.approx(0.02) and cuts.hba1c == pytest.approx(0.02)
     rec = ClinicalRecord(age=59, female=True, bmi=27.0, waist=92, sbp=138, dbp=86)
     first = assess(rec)
     assert 0.02 < first.p_diabetes < 0.05
-    assert HOME_GLUCOSE_TEST in {r.test for r in first.recommendations}
+    assert home_glucose_test() in {r.test for r in first.recommendations}
     normal = replace(rec, home_glucose=[GlucoseReading(D0, 88.0, 10.0)])
     high = replace(rec, home_glucose=[GlucoseReading(D0, 148.0, 10.0)])
     assert "HbA1c" not in {r.test for r in assess(normal).recommendations}
     assert "HbA1c" in {r.test for r in assess(high).recommendations}
 
 
-# --- Lista del cupo ---
+# --- Practice-list worklist ---
 
 
 @needs_models
 def test_worklist_puts_clear_findings_first_and_leaves_out_the_well_studied():
     cupo = {
-        "sana": ClinicalRecord(
+        "healthy": ClinicalRecord(
             age=45, female=True, sbp=116,
             measured={"egfr": 101, "hba1c": 5.2, "total_cholesterol": 180, "hdl": 65},
             urine_samples=[UrineSample(D0 - timedelta(days=30), 4.0, FIRST_MORNING, creatinine_mg_dl=110)],
         ),
-        "sin estudiar": ClinicalRecord(age=79, female=False, hypertension=True, bp_meds=True, sbp=150, diabetes=True),
-        "algo pendiente": ClinicalRecord(age=58, female=False, sbp=128, measured={"egfr": 88, "total_cholesterol": 190, "hdl": 50}),
-        "albuminuria confirmada": ClinicalRecord(
+        "unstudied": ClinicalRecord(age=79, female=False, hypertension=True, bp_meds=True, sbp=150, diabetes=True),
+        "something pending": ClinicalRecord(age=58, female=False, sbp=128, measured={"egfr": 88, "total_cholesterol": 190, "hdl": 50}),
+        "confirmed albuminuria": ClinicalRecord(
             age=70, female=False, diabetes=True,
             urine_samples=[
                 UrineSample(D0 - timedelta(days=130), 140.0, FIRST_MORNING, creatinine_mg_dl=110),
@@ -198,17 +204,22 @@ def test_worklist_puts_clear_findings_first_and_leaves_out_the_well_studied():
         ),
     }  # fmt: skip
     rows = rank_cupo(cupo, as_of=D0)
-    assert [r.patient_id for r in rows][0] == "albuminuria confirmada"
+    assert [r.patient_id for r in rows][0] == "confirmed albuminuria"
     groups = {r.patient_id: r.group for r in rows}
-    assert groups == {"albuminuria confirmada": ACT, "sin estudiar": MEASURE, "algo pendiente": MEASURE, "sana": NOTHING}
+    assert groups == {"confirmed albuminuria": ACT, "unstudied": MEASURE, "something pending": MEASURE, "healthy": NOTHING}
     measure = [r for r in rows if r.group == MEASURE]
-    assert measure[0].patient_id == "sin estudiar" and measure[0].p_finding > measure[1].p_finding
+    assert measure[0].patient_id == "unstudied" and measure[0].p_finding > measure[1].p_finding
     assert measure[0].test in ("orina", "creatinina", "glucosa")
     text = describe_worklist(rows)
-    assert "ACTUAR" in text and "MEDIR" in text and "Sin pendientes: 1 de 4" in text
+    assert "ACT:" in text and "MEASURE:" in text and "Nothing pending: 1 of 4" in text
+    with use_lang("es"):
+        text_es = describe_worklist(rank_cupo(cupo, as_of=D0))
+    assert "ACTUAR: hallazgos claros que no constan en la historia" in text_es
+    assert "MEDIR: probabilidad de un hallazgo nuevo si se completan las pruebas" in text_es
+    assert text_es.endswith("Sin pendientes: 1 de 4 pacientes.")
 
 
-# --- Recalibración ---
+# --- Recalibration ---
 
 
 def test_shift_below_moves_only_the_event_odds():
@@ -246,7 +257,7 @@ def test_2009_equation_cut_is_a_bit_higher_on_the_2021_scale():
     assert np.all((cuts > 60) & (cuts < 68))
 
 
-@pytest.mark.skipif(not DEFAULT_PARAMS_PATH.exists(), reason="faltan los parámetros ajustados")
+@pytest.mark.skipif(not DEFAULT_PARAMS_PATH.exists(), reason="fitted parameters missing")
 def test_prior_offset_is_recovered_from_the_prevalence_it_produces():
     params = AlbuminuriaParams.load(DEFAULT_PARAMS_PATH)
     rng = np.random.default_rng(2)
@@ -258,7 +269,7 @@ def test_prior_offset_is_recovered_from_the_prevalence_it_produces():
     assert target > float(weights @ sample_prevalence(params, Z, RANDOM))
 
 
-# --- Pacientes de prueba ---
+# --- Test patients ---
 
 
 def test_record_from_a_nhanes_row_hides_what_is_not_given():

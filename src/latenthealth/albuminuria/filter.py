@@ -1,13 +1,13 @@
-"""Filtro de la albuminuria de un paciente.
+"""Albuminuria filter for one patient.
 
-Recorre sus muestras de orina en orden (filtro bayesiano en rejilla, con paseo aleatorio
-entre fechas), devuelve el estado actual con su incertidumbre, la decisión clínica y
-cuánto ayudaría pedir otra muestra.
+Walks through the patient's urine samples in order (grid Bayesian filter with a random walk
+between dates) and returns the current state with its uncertainty, the clinical decision and
+how much another sample would help.
 
-Admite muestras de laboratorio (``UrineSample``) y tiras hechas en casa (``StripSample``),
-con las respuestas de contexto de cada una. Si el filtrado glomerular no está medido se le
-puede pasar su distribución (``egfr_mixture``): el filtro se resuelve para cada valor y se
-mezcla, de modo que la albuminuria y el filtrado dejan de tratarse como independientes.
+Accepts lab samples (``UrineSample``) and home strips (``StripSample``), each with its context
+answers. If eGFR is not measured, its distribution can be passed (``egfr_mixture``): the filter
+is solved for each value and mixed, so albuminuria and eGFR are no longer treated as
+independent.
 """
 
 from __future__ import annotations
@@ -31,28 +31,42 @@ from .model import (
     log_prior,
     make_grid,
 )
+from ..i18n import Labels, fmt_date, fmt_short_date, t
 from .strip import StripSample, StripSpec, outcome_table
 
-STATUS_LABELS = {
-    "sin_medir": "Sin medir",
-    "descartada": "Descartada",
-    "dudosa": "Dudosa",
-    "pendiente_cronicidad": "Muy probable, falta cronicidad",
-    "confirmada": "Confirmada",
-}
-SAMPLE_LABELS = {FIRST_MORNING: "primera orina de la mañana", RANDOM: "muestra aleatoria"}
+# Keys are machine status values (kept in Spanish, shared with the web API); values are display labels.
+STATUS_LABELS = Labels(
+    {
+        "sin_medir": ("Sin medir", "Not measured"),
+        "descartada": ("Descartada", "Ruled out"),
+        "dudosa": ("Dudosa", "Doubtful"),
+        "pendiente_cronicidad": ("Muy probable, falta cronicidad", "Very likely, chronicity pending"),
+        "confirmada": ("Confirmada", "Confirmed"),
+    }
+)
+SAMPLE_LABELS = Labels(
+    {
+        FIRST_MORNING: ("primera orina de la mañana", "first morning urine"),
+        RANDOM: ("muestra aleatoria", "random sample"),
+    }
+)
+
+
+def format_date(day: date, weekday: bool = True) -> str:
+    """Long date in the current language (thin wrapper over ``i18n.fmt_date``)."""
+    return fmt_date(day, weekday=weekday)
 
 
 @dataclass
 class UrineSample:
-    """Muestra medida en el laboratorio (cuantitativa)."""
+    """Sample measured in the lab (quantitative)."""
 
     date: date
-    uacr: float  # mg/g; si censored=True es el límite superior ("< valor")
+    uacr: float  # mg/g; if censored=True it is the upper limit ("< value")
     sample_type: str = FIRST_MORNING
     censored: bool = False
-    creatinine_mg_dl: float | None = None  # creatinina en orina de esa muestra (dilución)
-    context: SampleContext | None = None  # respuestas del paciente sobre la muestra
+    creatinine_mg_dl: float | None = None  # urine creatinine of this sample (dilution)
+    context: SampleContext | None = None  # patient answers about the sample
 
 
 Sample = UrineSample | StripSample
@@ -71,17 +85,17 @@ class Patient:
 class TrajectoryPoint:
     date: date
     median: float  # mg/g
-    low: float  # percentil 10
-    high: float  # percentil 90
-    p_a2_plus: float  # suavizada: usa todas las muestras
+    low: float  # 10th percentile
+    high: float  # 90th percentile
+    p_a2_plus: float  # smoothed: uses all samples
 
 
 @dataclass
 class EgfrComponent:
-    """Albuminuria condicionada a un valor del filtrado glomerular."""
+    """Albuminuria conditional on one eGFR value."""
 
     egfr: float
-    weight: float  # probabilidad de ese valor una vez vistas las muestras de orina
+    weight: float  # probability of that value after seeing the urine samples
     p_a1: float
     p_a2: float
     p_a3: float
@@ -102,10 +116,10 @@ class AlbuminuriaAssessment:
     chronicity_met: bool
     next_sample_resolves: dict[str, float]
     trajectory: list[TrajectoryPoint]
-    repeat_from: date | None = None  # fecha desde la que una muestra alta cumple la cronicidad
-    log_evidence: float = 0.0  # log-verosimilitud de las muestras (para comparar hipótesis)
+    repeat_from: date | None = None  # date from which a high sample meets chronicity
+    log_evidence: float = 0.0  # log-likelihood of the samples (to compare hypotheses)
     egfr_components: list[EgfrComponent] = field(default_factory=list)
-    belief: np.ndarray | None = field(default=None, repr=False)  # distribución actual en la rejilla
+    belief: np.ndarray | None = field(default=None, repr=False)  # current distribution on the grid
 
     @property
     def p_a2_plus(self) -> float:
@@ -113,11 +127,11 @@ class AlbuminuriaAssessment:
 
 
 class AlbuminuriaFilter:
-    """Umbrales de decisión: ``confirm`` y ``discard`` sobre P(UACR verdadero ≥ 30).
+    """Decision thresholds: ``confirm`` and ``discard`` on P(true UACR ≥ 30).
 
-    La cronicidad (criterio KDIGO de más de 3 meses) exige dos momentos separados al
-    menos ``chronicity_days`` en los que, con las muestras disponibles hasta entonces,
-    P(≥ 30) sea al menos ``chronicity_level``.
+    Chronicity (KDIGO criterion of more than 3 months) requires two time points at least
+    ``chronicity_days`` apart at which, with the samples available up to then, P(≥ 30) is at
+    least ``chronicity_level``.
     """
 
     def __init__(
@@ -137,7 +151,7 @@ class AlbuminuriaFilter:
         self._a3 = self.x >= np.log(A3_THRESHOLD)
         self._tables: dict = {}
 
-    # --- piezas ---
+    # --- building blocks ---
     @staticmethod
     def covariates(patient: Patient) -> np.ndarray:
         return covariates(patient.age, patient.female, patient.diabetes, patient.egfr)
@@ -151,7 +165,7 @@ class AlbuminuriaFilter:
         return w / w.sum()
 
     def transition(self, days: float) -> np.ndarray | None:
-        """K[i, j] = p(x_i tras ``days`` días | x_j). None si el cambio es despreciable."""
+        """K[i, j] = p(x_i after ``days`` days | x_j). None if the change is negligible."""
         sd = self.p.drift_sd_per_year * np.sqrt(max(days, 0.0) / 365.25)
         if sd < self.dx / 4:
             return None
@@ -164,7 +178,7 @@ class AlbuminuriaFilter:
         return spike_offset(context, female, age)
 
     def strip_table(self, spec: StripSpec, z: np.ndarray, sample_type: str, offset: float = 0.0) -> np.ndarray:
-        """P(lectura | x) de todas las lecturas posibles de una tira para este paciente (con caché)."""
+        """P(reading | x) for every possible strip reading for this patient (cached)."""
         key = (spec, sample_type, round(offset, 4), z.tobytes())
         if key not in self._tables:
             if len(self._tables) > 512:
@@ -173,7 +187,7 @@ class AlbuminuriaFilter:
         return self._tables[key]
 
     def log_likelihood(self, sample: Sample, z: np.ndarray) -> np.ndarray:
-        """log p(muestra | x) en la rejilla."""
+        """log p(sample | x) on the grid."""
         offset = self._context_offset(sample.context, z)
         if isinstance(sample, StripSample):
             a, c = sample.outcome
@@ -202,19 +216,19 @@ class AlbuminuriaFilter:
         days_ahead: float = 0,
         strip: StripSpec | None = None,
     ) -> float:
-        """P(que una muestra más deje P(≥ 30) por encima de ``confirm`` o por debajo de ``discard``).
+        """P(one more sample leaves P(≥ 30) above ``confirm`` or below ``discard``).
 
-        Con ``strip`` la muestra es una tira de ese tipo; sin ella, una muestra de laboratorio.
+        With ``strip`` the sample is a strip of that kind; without it, a lab sample.
         """
         K = self.transition(days_ahead)
         b = belief if K is None else K @ belief
         if strip is not None:
             table = self.strip_table(strip, z, sample_type)
-            dens = table.reshape(-1, self.x.size)  # una fila por lectura posible
+            dens = table.reshape(-1, self.x.size)  # one row per possible reading
         else:
-            y = self.x  # resultados posibles, en la misma rejilla
+            y = self.x  # possible results, on the same grid
             zr = np.repeat(z, y.size, axis=0)
-            quantiles = self.p.dilution_quantiles[sample_type]  # la dilución de la muestra futura no se conoce
+            quantiles = self.p.dilution_quantiles[sample_type]  # the future sample's dilution is unknown
             dens = sum(
                 np.exp(log_obs(self.p, Observations(y, np.zeros(y.size, bool), sample_type, np.full(y.size, q)), zr, self.x))
                 for q in quantiles
@@ -224,9 +238,9 @@ class AlbuminuriaFilter:
         resolved = (pa2 >= self.confirm) | (pa2 <= self.discard)
         return float((py * resolved).sum() / py.sum())
 
-    # --- evaluación completa ---
+    # --- full assessment ---
     def _run(self, z: np.ndarray, samples: list[Sample], as_of: date | None):
-        """Filtro y suavizado para unas covariables. Devuelve lo necesario para mezclar hipótesis."""
+        """Filtering and smoothing for one covariate set. Returns what is needed to mix hypotheses."""
         belief = self._prior(z)
         if not samples:
             return {"current": belief, "filtered": [], "smoothed": [], "log_ev": np.zeros(0)}
@@ -247,7 +261,7 @@ class AlbuminuriaFilter:
             log_ev.append(total)
             previous = s.date
 
-        # Paso hacia atrás (suavizado) para la trayectoria.
+        # Backward pass (smoothing) for the trajectory.
         smoothed = [None] * len(samples)
         smoothed[-1] = filtered[-1]
         message = np.ones_like(belief)
@@ -272,13 +286,13 @@ class AlbuminuriaFilter:
         update_weights: bool = True,
         detail: bool = True,
     ) -> AlbuminuriaAssessment:
-        """Estado de la albuminuria del paciente.
+        """The patient's albuminuria state.
 
-        ``egfr_mixture`` es la distribución del filtrado glomerular cuando no está medido:
-        pares (valor, probabilidad). Con ``update_weights`` esas probabilidades se actualizan
-        con lo que dicen las muestras de orina (regla de Bayes); sin él se toman como están.
-        ``detail=False`` se salta el cálculo de cuánto ayudaría otra muestra, que es lo más lento
-        (para evaluar a mucha gente de una vez).
+        ``egfr_mixture`` is the eGFR distribution when it is not measured: (value, probability)
+        pairs. With ``update_weights`` those probabilities are updated with what the urine
+        samples say (Bayes' rule); without it they are taken as given. ``detail=False`` skips
+        computing how much another sample would help, the slowest part (for assessing many
+        people at once).
         """
         samples = sorted(patient.samples, key=lambda s: s.date)
         mixture = egfr_mixture or [(patient.egfr, 1.0)]
@@ -289,7 +303,7 @@ class AlbuminuriaFilter:
 
         n = len(samples)
         if n and update_weights:
-            log_ev = np.stack([r["log_ev"] for r in runs], axis=1)  # (muestras, hipótesis)
+            log_ev = np.stack([r["log_ev"] for r in runs], axis=1)  # (samples, hypotheses)
             lw = np.log(prior_w)[None, :] + log_ev
             peak = lw.max(axis=1, keepdims=True)
             weights = np.exp(lw - peak)
@@ -317,7 +331,7 @@ class AlbuminuriaFilter:
         trajectory = [self._point(s.date, w) for s, w in zip(samples, smoothed)]
         as_of = as_of or samples[-1].date
 
-        # Cronicidad: dos momentos con P(≥30) alta usando solo lo medido hasta cada uno.
+        # Chronicity: two time points with high P(≥30), each using only what was measured up to then.
         high = [s.date for s, w in zip(samples, filtered) if self.p_a2_plus(w) >= self.chronicity_level]
         chronic = bool(high) and (high[-1] - high[0]).days >= self.chronicity_days
         repeat_from = high[0] + timedelta(days=self.chronicity_days) if high else None
@@ -344,32 +358,49 @@ class AlbuminuriaFilter:
         a2_or_a3 = "A3" if p_a3 > p_a2 else "A2"
         resolves = {}
         if detail and status in ("sin_medir", "dudosa"):
-            resolves = {t: self.resolve_probability(w, z, t) for t in (FIRST_MORNING, RANDOM)}
+            resolves = {kind: self.resolve_probability(w, z, kind) for kind in (FIRST_MORNING, RANDOM)}
 
         if status == "sin_medir":
-            action = (
+            action = t(
                 f"Pedir UACR en primera orina de la mañana. Probabilidad de albuminuria antes de medir: "
-                f"{point.p_a2_plus:.0%}."
+                f"{point.p_a2_plus:.0%}.",
+                f"Order UACR on a first morning urine sample. Probability of albuminuria before measuring: "
+                f"{point.p_a2_plus:.0%}.",
             )
         elif status == "descartada":
-            action = "Sin albuminuria. Repetir el cribado según la guía (anual en diabetes)."
+            action = t(
+                "Sin albuminuria. Repetir el cribado según la guía (anual en diabetes).",
+                "No albuminuria. Repeat screening as per guidelines (yearly in diabetes).",
+            )
         elif status == "dudosa":
-            action = "Repetir en primera orina de la mañana, evitando ejercicio intenso, fiebre o infección de orina."
+            action = t(
+                "Repetir en primera orina de la mañana, evitando ejercicio intenso, fiebre o infección de orina.",
+                "Repeat on a first morning urine sample, avoiding intense exercise, fever or urinary tract infection.",
+            )
             if resolves:
-                action += (
+                action += t(
                     f" Probabilidad de que resuelva la duda: {resolves[FIRST_MORNING]:.0%} "
-                    f"(con una muestra aleatoria, {resolves[RANDOM]:.0%})."
+                    f"(con una muestra aleatoria, {resolves[RANDOM]:.0%}).",
+                    f" Probability that it settles the doubt: {resolves[FIRST_MORNING]:.0%} "
+                    f"(with a random sample, {resolves[RANDOM]:.0%}).",
                 )
         elif status == "pendiente_cronicidad":
-            when = f" a partir del {repeat_from:%d/%m/%Y}" if repeat_from else ""
-            action = (
+            if not repeat_from:
+                when = ""
+            else:
+                when = t(f" a partir del {repeat_from:%d/%m/%Y}", f" from {fmt_date(repeat_from, weekday=False)}")
+            action = t(
                 f"Albuminuria {a2_or_a3} muy probable. Repetir{when} para cumplir el criterio de "
-                "cronicidad (más de 3 meses)."
+                "cronicidad (más de 3 meses).",
+                f"{a2_or_a3} albuminuria very likely. Repeat{when} to meet the chronicity "
+                "criterion (more than 3 months).",
             )
         else:
-            action = (
+            action = t(
                 f"Albuminuria persistente {a2_or_a3}: registrar ERC (categoría {a2_or_a3}) y revisar el "
-                "tratamiento nefroprotector según la guía."
+                "tratamiento nefroprotector según la guía.",
+                f"Persistent {a2_or_a3} albuminuria: record CKD (category {a2_or_a3}) and review "
+                "kidney-protective treatment as per guidelines.",
             )
         return AlbuminuriaAssessment(
             as_of=as_of,
@@ -393,16 +424,22 @@ class AlbuminuriaFilter:
 
 
 def describe(assessment: AlbuminuriaAssessment) -> str:
-    """Resumen en texto para el médico."""
+    """Text summary for the clinician."""
     a = assessment
     lines = [
-        f"Estado: {STATUS_LABELS[a.status]}",
-        f"UACR verdadero estimado: {a.median:.0f} mg/g (80 %: {a.low:.0f}-{a.high:.0f})",
-        f"Probabilidades: A1 {a.p_a1:.0%} · A2 {a.p_a2:.0%} · A3 {a.p_a3:.0%}",
-        f"Acción: {a.action}",
+        t(f"Estado: {STATUS_LABELS[a.status]}", f"Status: {STATUS_LABELS[a.status]}"),
+        t(
+            f"UACR verdadero estimado: {a.median:.0f} mg/g (80 %: {a.low:.0f}-{a.high:.0f})",
+            f"Estimated true UACR: {a.median:.0f} mg/g (80%: {a.low:.0f}-{a.high:.0f})",
+        ),
+        t("Probabilidades", "Probabilities") + f": A1 {a.p_a1:.0%} · A2 {a.p_a2:.0%} · A3 {a.p_a3:.0%}",
+        t(f"Acción: {a.action}", f"Action: {a.action}"),
     ]
     if a.trajectory:
-        lines.append("Trayectoria (con todas las muestras):")
-        for t in a.trajectory:
-            lines.append(f"  {t.date:%d/%m/%Y}: {t.median:.0f} mg/g ({t.low:.0f}-{t.high:.0f}), P(≥30) = {t.p_a2_plus:.0%}")
+        lines.append(t("Trayectoria (con todas las muestras):", "Trajectory (using all samples):"))
+        for point in a.trajectory:
+            lines.append(
+                f"  {fmt_short_date(point.date)}: {point.median:.0f} mg/g ({point.low:.0f}-{point.high:.0f}), "
+                f"P(≥30) = {point.p_a2_plus:.0%}"
+            )
     return "\n".join(lines)

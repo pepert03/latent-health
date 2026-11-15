@@ -1,8 +1,8 @@
-"""Pacientes de prueba a partir de NHANES: una fila del panel convertida en historia clínica.
+"""Test patients from NHANES: a panel row turned into a clinical record.
 
-Sirve para validar la evaluación completa y la lista del cupo con personas reales: se le da
-al sistema solo lo que tendríal médico (historia, y si se quiere una orina o parte de la
-analítica) y se compara con lo que de verdad midió NHANES.
+Used to validate the full assessment and the practice list on real people: the system gets
+only what the doctor would have (history, and optionally a urine sample or part of the
+blood panel) and is compared with what NHANES actually measured.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ import numpy as np
 from .albuminuria import RANDOM, UrineSample
 from .assessment import ClinicalRecord
 
-SAMPLE_DATE = date(2010, 6, 1)  # fecha ficticia de la muestra de NHANES
+SAMPLE_DATE = date(2010, 6, 1)  # fictitious NHANES sample date
 
 
 def _flag(v) -> bool:
@@ -26,10 +26,10 @@ def _value(v) -> float | None:
 
 
 def record_from_row(row, urine: bool = True, labs: tuple[str, ...] = (), censored: bool = False) -> ClinicalRecord:
-    """Historia clínica de una persona de NHANES (fila de ``panel.load_panel``).
+    """Clinical record of one NHANES participant (a row of ``panel.load_panel``).
 
-    ``urine`` añade su muestra aleatoria; ``labs`` son las variables de la analítica que se dan
-    por medidas (por ejemplo ``("total_cholesterol", "hdl")``). Lo que no se da queda oculto.
+    ``urine`` adds their random urine sample; ``labs`` are the lab variables given as
+    measured (e.g. ``("total_cholesterol", "hdl")``). Anything not given stays hidden.
     """
     record = ClinicalRecord(
         age=float(row.age),

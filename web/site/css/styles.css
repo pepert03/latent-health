@@ -312,6 +312,12 @@ button {
   width: 16px;
   height: 16px;
 }
+.nav .lang-switch {
+  min-width: 36px;
+  padding: 0 8px;
+  font: 500 12px/1 var(--mono);
+  letter-spacing: 0.08em;
+}
 .btn {
   white-space: nowrap;
 }
@@ -327,6 +333,29 @@ button {
   }
   .nav .btn-ghost {
     padding: 0 10px;
+  }
+}
+
+@media (max-width: 420px) {
+  /* Sitio para el botón de idioma en móviles estrechos */
+  .nav-actions {
+    gap: 2px;
+  }
+  .brand img {
+    height: 13px;
+  }
+  .nav .lang-switch {
+    min-width: 30px;
+    padding: 0 6px;
+  }
+  .nav .btn:not(.btn-ghost) .i {
+    display: none;
+  }
+  .nav .btn:not(.btn-ghost) {
+    padding: 0 10px;
+  }
+  .nav .btn-ghost:not(.lang-switch) {
+    padding: 0 8px;
   }
 }
 
