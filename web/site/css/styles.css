@@ -378,6 +378,11 @@ button {
     transform: none;
   }
 }
+/* El titular de portada es una frase larga: va algo más pequeño que el resto de .display para caber en cuatro líneas. */
+.hero .display {
+  font-size: clamp(34px, 4.3vw, 62px);
+  line-height: 1.02;
+}
 .hero .lede {
   margin-top: clamp(20px, 2vw, 28px);
 }

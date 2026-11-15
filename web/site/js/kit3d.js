@@ -928,11 +928,10 @@ function paintCarton(stripImg) {
 
   // ── Frente ──
   const F = (v) => X(2.8 + v)
-  drawLogo(ctx, F(0.6), X(1.08), X(0.3))
-  text(ctx, 'Kit de orina', F(0.55), X(2.72), X(0.7), { weight: 800, stretch: 'expanded', spacing: -X(0.01) })
-  text(ctx, 'en casa', F(0.55), X(3.52), X(0.7), { weight: 800, stretch: 'expanded', spacing: -X(0.01) })
-  text(ctx, '3 tiras de albúmina', F(0.6), X(4.42), X(0.3), { weight: 500, color: C.ink2 })
-  text(ctx, 'y creatinina', F(0.6), X(4.84), X(0.3), { weight: 500, color: C.ink2 })
+  // la marca manda: logotipo a todo el ancho arriba, la tira en el centro y el nombre del producto debajo
+  drawLogo(ctx, F(0.5), X(1.8), X(0.425))
+  text(ctx, 'Kit de orina en casa', F(0.5), X(7.3), X(0.4), { weight: 800, stretch: 'expanded' })
+  text(ctx, '3 tiras de albúmina y creatinina', F(0.5), X(7.85), X(0.26), { weight: 500, color: C.ink2 })
   // la tira, dibujada a tamaño real (la misma de toda la web)
   if (stripImg) {
     const real = STRIP.l <= 6.5
@@ -940,7 +939,7 @@ function paintCarton(stripImg) {
     const sw = X(lcm)
     const sh = (sw * TIRA.h) / TIRA.w
     const sx = F((BOX.w - lcm) / 2)
-    const sy = X(7.0) - sh / 2
+    const sy = X(4.6) - sh / 2
     ctx.save()
     ctx.shadowColor = 'rgba(13,34,38,0.22)'
     ctx.shadowBlur = X(0.12)
@@ -958,12 +957,12 @@ function paintCarton(stripImg) {
 
   // ── Lateral derecho: nombre en vertical y los recuadros LOT / CAD ──
   const R = (v) => X(9.8 + v)
-  drawLogo(ctx, R(0.55), X(1.15), X(0.36), { word: false })
+  drawLogo(ctx, R(0.55), X(1.4), X(0.6), { word: false })
   ctx.save()
   ctx.translate(R(1.22), X(8.3))
   ctx.rotate(-Math.PI / 2)
-  text(ctx, 'Kit de orina en casa', 0, 0, X(0.44), { weight: 800, stretch: 'expanded' })
-  text(ctx, '3 tiras de albúmina y creatinina', 0, X(0.5), X(0.22), { weight: 500, color: C.ink2 })
+  text(ctx, 'Kit de orina en casa', 0, 0, X(0.32), { weight: 800, stretch: 'expanded' })
+  text(ctx, '3 tiras de albúmina y creatinina', 0, X(0.42), X(0.2), { weight: 500, color: C.ink2 })
   ctx.restore()
   lotBox(ctx, R(0.35), X(10.6), X(2.1), X(0.5), 'LOT', 'L2611A')
   lotBox(ctx, R(0.35), X(11.25), X(2.1), X(0.5), 'CAD', '2027-11')
