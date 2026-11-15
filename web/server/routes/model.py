@@ -1050,6 +1050,16 @@ def _examples(lang_code: str = "en") -> ExamplesOut:
         return _build_examples()
 
 
+# Titles of the demo patients in Spanish (scripts/demo.py keeps the English ones), in the same order.
+_TITLES_ES = (
+    "Hipertenso de 62 años, nunca se le ha pedido UACR",
+    "Diabética de 58 años con una muestra aleatoria de 38 mg/g",
+    "Diabético de 70 años, FG 52, tres muestras en cuatro meses",
+    "Mujer de 45 años, una muestra aleatoria de 260 mg/g en orina muy diluida",
+    "Hombre de 78 años, obeso, hipertenso y con cardiopatía isquémica, sin analítica reciente",
+)
+
+
 def _build_examples() -> ExamplesOut:
     patients = []
     for number, (title, record) in enumerate(_demo_patients().items(), start=1):
@@ -1057,7 +1067,7 @@ def _build_examples() -> ExamplesOut:
         patients.append(
             PatientExampleOut(
                 id=f"p{number}",
-                title=re.sub(r"^\d+\.\s*", "", title),
+                title=_TITLES_ES[number - 1] if is_es() and number <= len(_TITLES_ES) else re.sub(r"^\d+\.\s*", "", title),
                 assess=AssessIn(
                     **{name: getattr(record, name) for name in _RECORD_FIELDS},
                     measured=MeasuredLabsIn(**record.measured),
