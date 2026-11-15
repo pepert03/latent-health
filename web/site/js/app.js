@@ -463,7 +463,7 @@ function screenDoctor() {
     .map((m) => `<div class="sent"><p class="dt">Enviado el ${fecha(m.date)}${m.attach ? ' · con tus pruebas de casa' : ''}</p><p>${esc(m.text)}</p></div>`)
     .join('')
   return `<h3>Mi médico</h3>
-    <div class="a-card a-doc"><span class="avatar">JR</span><div><b>Dr. Javier Ruiz</b><span>Medicina de familia · tu centro de salud</span></div></div>
+    <div class="a-card a-doc"><span class="avatar">CR</span><div><b>Carmen Ruiz</b><span>Medicina de familia · tu centro de salud</span></div></div>
     <label for="doc-text" class="a-date">Tu mensaje</label>
     <textarea id="doc-text" rows="4" placeholder="Cuéntale qué necesitas"></textarea>
     <div class="toggle-row"><span>Adjuntar mis pruebas de casa</span><button type="button" class="switch" role="switch" id="doc-attach" data-act="attach" aria-checked="true" aria-label="Adjuntar mis pruebas de casa"></button></div>

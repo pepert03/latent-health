@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Diagrama del circuito de LatentHealth</title>
+    <!-- Fuente del diagrama del README: se exporta a docs/img/circuito.png con un navegador sin ventana. -->
+    <style>
+      @font-face {
+        font-family: 'Archivo';
+        src: url('../../web/site/fonts/archivo-latin-wdth-normal.woff2') format('woff2');
+        font-weight: 100 900;
+        font-stretch: 62% 125%;
+      }
+      @font-face {
+        font-family: 'Archivo';
+        src: url('../../web/site/fonts/archivo-latin-ext-wdth-normal.woff2') format('woff2');
+        font-weight: 100 900;
+        font-stretch: 62% 125%;
+        unicode-range: U+0100-024F;
+      }
+      @font-face {
+        font-family: 'Chivo Mono';
+        src: url('../../web/site/fonts/chivo-mono-latin-wght-normal.woff2') format('woff2');
+        font-weight: 100 900;
+      }
+      :root {
+        --ink: #0d2226;
+        --ink2: #44575a;
+        --ink3: #6f7f81;
+        --line: #c9d3cf;
+        --teal: #0b7774;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+      body {
+        width: 1200px;
+        padding: 56px 60px 52px;
+        background: #fff;
+        color: var(--ink);
+        font: 400 16px/1.45 Archivo, sans-serif;
+      }
+      .head {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        padding-bottom: 22px;
+        border-bottom: 1.5px solid var(--ink);
+      }
+      h1 {
+        font: 800 expanded 34px/1.02 Archivo;
+        letter-spacing: -0.02em;
+      }
+      .mono {
+        font: 500 13px/1.4 'Chivo Mono', monospace;
+        color: var(--ink2);
+      }
+      .bars {
+        display: flex;
+        gap: 4px;
+      }
+      .bars i {
+        width: 9px;
+        height: 24px;
+        border-radius: 2px;
+      }
+      .cols {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+      }
+      .col {
+        padding: 26px 26px 0 0;
+        position: relative;
+      }
+      .col + .col {
+        padding-left: 26px;
+        border-left: 1px solid var(--line);
+      }
+      .n {
+        display: flex;
+        gap: 9px;
+        align-items: center;
+        font: 500 13px/1 'Chivo Mono', monospace;
+        color: var(--ink2);
+      }
+      .n::before {
+        content: '';
+        width: 11px;
+        height: 11px;
+        background: var(--sq);
+      }
+      h2 {
+        margin-top: 16px;
+        font: 700 expanded 22px/1.08 Archivo;
+        letter-spacing: -0.015em;
+      }
+      .col p {
+        margin-top: 10px;
+        font-size: 15px;
+        color: var(--ink2);
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+        margin-top: 18px;
+        border-top: 1px solid var(--line);
+      }
+      li {
+        padding: 9px 0;
+        border-bottom: 1px solid var(--line);
+        font-size: 14.5px;
+      }
+      li b {
+        font-weight: 650;
+      }
+      .flow {
+        position: relative;
+        height: 106px;
+        margin-top: 26px;
+      }
+      .flow svg {
+        position: absolute;
+        inset: 0;
+        overflow: visible;
+      }
+      .foot {
+        margin-top: 8px;
+        display: flex;
+        justify-content: space-between;
+        gap: 30px;
+        padding-top: 18px;
+        border-top: 1.5px solid var(--ink);
+      }
+      .foot b {
+        font: 700 expanded 17px/1.2 Archivo;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="head">
+      <h1>El circuito</h1>
+      <div class="bars" aria-hidden="true"><i style="background: #f6ec9b"></i><i style="background: #c8de6e"></i><i style="background: #5fbe8c"></i><i style="background: #0b7774"></i></div>
+    </div>
+
+    <div class="cols">
+      <div class="col" style="--sq: #f6ec9b">
+        <p class="n">01 · el cupo</p>
+        <h2>La historia clínica</h2>
+        <p>Cada noche recorre los 1.500 pacientes del médico: edad, diagnósticos, tratamientos y las analíticas que haya.</p>
+      </div>
+      <div class="col" style="--sq: #c8de6e">
+        <p class="n">02 · el motor</p>
+        <h2>Cuánto fiarse de cada medida</h2>
+        <ul>
+          <li><b>Albuminuria:</b> filtro bayesiano</li>
+          <li><b>Sangre:</b> panel virtual</li>
+          <li><b>Riesgo CV:</b> desenlaces reales</li>
+          <li><b>Ritmo, FE, diabetes</b></li>
+        </ul>
+      </div>
+      <div class="col" style="--sq: #5fbe8c">
+        <p class="n">03 · en casa</p>
+        <h2>Solo lo que falta</h2>
+        <ul>
+          <li>Tira de orina y app</li>
+          <li>Reloj: pulso y ECG</li>
+          <li>Tensiómetro, una semana</li>
+          <li>Glucosa en la farmacia</li>
+          <li>Tubo al laboratorio</li>
+        </ul>
+      </div>
+      <div class="col" style="--sq: #0b7774">
+        <p class="n">04 · la consulta</p>
+        <h2>Una lista, no cien alertas</h2>
+        <ul>
+          <li><b>Actuar:</b> lo claro que no consta</li>
+          <li><b>Medir:</b> la prueba que más aporta</li>
+          <li>Petición, nota y código, escritos</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="flow" aria-hidden="true">
+      <svg viewBox="0 0 1080 106" width="1080" height="106">
+        <defs>
+          <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 1 9 5 0 9" fill="none" stroke="#0d2226" stroke-width="1.6" /></marker>
+          <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 1 9 5 0 9" fill="none" stroke="#0b7774" stroke-width="1.6" /></marker>
+        </defs>
+        <g fill="none" stroke-width="1.6">
+          <path d="M8 22H254" stroke="#0d2226" marker-end="url(#a)" />
+          <path d="M278 22H524" stroke="#0d2226" marker-end="url(#a)" />
+          <path d="M548 22H794" stroke="#0d2226" marker-end="url(#a)" />
+          <path d="M675 32V62Q675 72 665 72H415Q405 72 405 62V34" stroke="#0b7774" stroke-dasharray="6 6" marker-end="url(#b)" />
+        </g>
+        <g font-family="Chivo Mono, monospace" font-size="12.5" fill="#44575a">
+          <text x="10" y="12">probabilidad de hallazgo</text>
+          <text x="280" y="12">kit a la medida</text>
+          <text x="550" y="12">cuando ya se sabe</text>
+          <text x="540" y="96" fill="#0b7774" text-anchor="middle">cada medida vuelve y estrecha la duda</text>
+        </g>
+      </svg>
+    </div>
+
+    <div class="foot">
+      <b>Solo repite quien sale dudoso.</b>
+      <span class="mono">El médico decide; lo repetitivo ya viene hecho.</span>
+    </div>
+  </body>
+</html>

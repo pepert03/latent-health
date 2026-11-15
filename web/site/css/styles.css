@@ -1744,6 +1744,7 @@ button {
   opacity: 0;
 }
 .scr.on .answer {
+  opacity: 1;
   animation: bubIn 0.45s var(--ease) 2.4s both;
 }
 .ui-sent {
@@ -1969,8 +1970,14 @@ button {
   padding: 80px var(--px) 30px;
 }
 .device--show {
-  --dw: min(330px, 39svh);
+  --dw: min(360px, 40svh);
   justify-self: center;
+  margin-right: clamp(0px, 6vw, 110px);
+}
+@media (max-width: 900px) {
+  .device--show {
+    margin-right: 0;
+  }
 }
 .feats {
   margin-top: 30px;
@@ -3316,4 +3323,186 @@ body::after {
 .watch-list .wl small {
   color: var(--teal);
   font-weight: 650;
+}
+
+/* ================================================================== el circuito (antes del kit) */
+.circuit {
+  max-width: var(--max);
+  margin-inline: auto;
+  padding: 0 var(--px) clamp(90px, 11vw, 150px);
+}
+.circuit-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 30em);
+  justify-content: space-between;
+  align-items: end;
+  gap: 30px;
+  padding-bottom: 24px;
+  border-bottom: 1.5px solid var(--ink);
+}
+.circuit-head h2 {
+  font: 800 expanded clamp(34px, 4.4vw, 60px) / 1 var(--sans);
+  letter-spacing: -0.03em;
+}
+.circuit-head > p {
+  font-size: 18px;
+  color: var(--ink2);
+  text-wrap: pretty;
+}
+.circuit-cols {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  list-style: none;
+  padding: 0;
+}
+.circuit-cols > li {
+  padding: 28px 28px 0 0;
+}
+.circuit-cols > li + li {
+  padding-left: 28px;
+  border-left: 1px solid var(--line);
+}
+.circuit-n {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font: 500 13px/1 var(--mono);
+  color: var(--ink2);
+}
+.circuit-n::before {
+  content: '';
+  width: 11px;
+  height: 11px;
+  background: var(--sq);
+}
+.circuit-cols h3 {
+  margin-top: 16px;
+  font: 700 expanded clamp(19px, 1.7vw, 23px) / 1.08 var(--sans);
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+.circuit-cols > li > p:not(.circuit-n) {
+  margin-top: 12px;
+  font-size: 15.5px;
+  color: var(--ink2);
+}
+.circuit-cols ul {
+  margin-top: 18px;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+.circuit-cols ul li {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 15px;
+}
+.circuit-cols b {
+  font-weight: 650;
+}
+.circuit-flow {
+  position: relative;
+  aspect-ratio: 1080 / 106;
+  margin-top: 30px;
+}
+.circuit-flow svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.cf-l {
+  position: absolute;
+  top: 0;
+  font: 500 12.5px/1 var(--mono);
+  color: var(--ink2);
+  white-space: nowrap;
+}
+.cf-back-l {
+  left: 50%;
+  top: auto;
+  bottom: -2px;
+  translate: -50% 0;
+  color: var(--teal);
+}
+.circuit-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 30px;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1.5px solid var(--ink);
+}
+.circuit-foot b {
+  font: 700 expanded 18px/1.2 var(--sans);
+}
+.circuit-foot span {
+  font: 500 13px/1.4 var(--mono);
+  color: var(--ink2);
+}
+/* Entrada: las columnas suben una tras otra y las flechas se dibujan */
+.js .circuit-cols > li {
+  opacity: 0;
+  translate: 0 18px;
+  transition: opacity 0.6s var(--ease), translate 0.7s var(--ease);
+  transition-delay: calc(var(--k) * 0.12s);
+}
+.circuit.in .circuit-cols > li {
+  opacity: 1;
+  translate: none;
+}
+.js .circuit .cf-line {
+  stroke-dasharray: 260;
+  stroke-dashoffset: 260;
+  transition: stroke-dashoffset 0.7s var(--ease);
+}
+.js .circuit .cf-line:nth-child(2) {
+  transition-delay: 0.25s;
+}
+.js .circuit .cf-line:nth-child(3) {
+  transition-delay: 0.5s;
+}
+.circuit.in .cf-line {
+  stroke-dashoffset: 0;
+}
+.js .circuit .cf-back,
+.js .circuit .cf-l {
+  opacity: 0;
+  transition: opacity 0.6s ease 0.9s;
+}
+.circuit.in .cf-back,
+.circuit.in .cf-l {
+  opacity: 1;
+}
+@media (max-width: 900px) {
+  .circuit-head {
+    grid-template-columns: 1fr;
+  }
+  .circuit-cols {
+    grid-template-columns: 1fr 1fr;
+    row-gap: 10px;
+  }
+  .circuit-cols > li:nth-child(3) {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .circuit-flow {
+    display: none;
+  }
+  .circuit-foot {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+@media (max-width: 560px) {
+  .circuit-cols {
+    grid-template-columns: 1fr;
+  }
+  .circuit-cols > li,
+  .circuit-cols > li + li {
+    padding: 22px 0 0;
+    border-left: 0;
+  }
 }

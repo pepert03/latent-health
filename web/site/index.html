@@ -144,6 +144,76 @@
         <p>No faltan análisis. Falta que la prueba <em>llegue a casa</em>, y que repetirla <em>sirva de algo</em>.</p>
       </section>
 
+      <!-- ===================================== EL CIRCUITO ===================================== -->
+      <section class="circuit" id="circuito" aria-labelledby="circuito-h">
+        <div class="circuit-head">
+          <div>
+            <p class="tag">Cómo funciona</p>
+            <h2 id="circuito-h">El circuito</h2>
+          </div>
+          <p>No es un kit ni una app: es lo que une la historia clínica, al paciente en su casa y al médico.</p>
+        </div>
+        <ol class="circuit-cols">
+          <li style="--sq: var(--a10); --k: 0">
+            <p class="circuit-n">01 · el cupo</p>
+            <h3>La historia clínica</h3>
+            <p>Cada noche recorre los 1.500 pacientes del médico: edad, diagnósticos, tratamientos y las analíticas que haya.</p>
+          </li>
+          <li style="--sq: var(--a30); --k: 1">
+            <p class="circuit-n">02 · el motor</p>
+            <h3>Cuánto fiarse de cada medida</h3>
+            <ul>
+              <li><b>Albuminuria:</b> filtro bayesiano</li>
+              <li><b>Sangre:</b> panel virtual</li>
+              <li><b>Riesgo CV:</b> desenlaces reales</li>
+              <li><b>Ritmo, FE, diabetes</b></li>
+            </ul>
+          </li>
+          <li style="--sq: var(--a80); --k: 2">
+            <p class="circuit-n">03 · en casa</p>
+            <h3>Solo lo que falta</h3>
+            <ul>
+              <li>Tira de orina y app</li>
+              <li>Reloj: pulso y ECG</li>
+              <li>Tensiómetro, una semana</li>
+              <li>Glucosa en la farmacia</li>
+              <li>Tubo al laboratorio</li>
+            </ul>
+          </li>
+          <li style="--sq: var(--a150); --k: 3">
+            <p class="circuit-n">04 · la consulta</p>
+            <h3>Una lista, no cien alertas</h3>
+            <ul>
+              <li><b>Actuar:</b> lo claro que no consta</li>
+              <li><b>Medir:</b> la prueba que más aporta</li>
+              <li>Petición, nota y código, escritos</li>
+            </ul>
+          </li>
+        </ol>
+        <div class="circuit-flow" aria-hidden="true">
+          <svg viewBox="0 0 1080 106">
+            <defs>
+              <marker id="cf-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 1 9 5 0 9" fill="none" stroke="#0d2226" stroke-width="1.6" /></marker>
+              <marker id="cf-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 1 9 5 0 9" fill="none" stroke="#0b7774" stroke-width="1.6" /></marker>
+            </defs>
+            <g fill="none" stroke-width="1.6">
+              <path class="cf-line" d="M8 22H254" stroke="#0d2226" marker-end="url(#cf-a)" />
+              <path class="cf-line" d="M278 22H524" stroke="#0d2226" marker-end="url(#cf-a)" />
+              <path class="cf-line" d="M548 22H794" stroke="#0d2226" marker-end="url(#cf-a)" />
+              <path class="cf-back" d="M675 32V62Q675 72 665 72H415Q405 72 405 62V34" stroke="#0b7774" stroke-dasharray="6 6" marker-end="url(#cf-b)" />
+            </g>
+          </svg>
+          <span class="cf-l" style="left: 1%">probabilidad de hallazgo</span>
+          <span class="cf-l" style="left: 26%">kit a la medida</span>
+          <span class="cf-l" style="left: 51%">cuando ya se sabe</span>
+          <span class="cf-l cf-back-l">cada medida vuelve y estrecha la duda</span>
+        </div>
+        <div class="circuit-foot">
+          <b>Solo repite quien sale dudoso.</b>
+          <span>El médico decide; lo repetitivo ya viene hecho.</span>
+        </div>
+      </section>
+
       <!-- ===================================== EL KIT ===================================== -->
       <section class="scrolly kit" id="kit" data-steps="4" style="--steps: 4">
         <div class="pin">
@@ -363,9 +433,9 @@
                 <div class="ui">
                   <div class="ui-in">
                     <p class="a-title">Mi médico</p>
-                    <div class="a-card a-doc"><span class="avatar">JR</span><div><b>Dr. Javier Ruiz</b><span>Medicina de familia</span></div></div>
+                    <div class="a-card a-doc"><span class="avatar">CR</span><div><b>Carmen Ruiz</b><span>Medicina de familia</span></div></div>
                     <div class="a-card">
-                      <p>Hola, doctor. La app me ha pedido el tubo y ya lo he mandado. ¿Tengo que pedir cita?</p>
+                      <p>Hola, Carmen. La app me ha pedido el tubo y ya lo he mandado. ¿Tengo que pedir cita?</p>
                       <p class="ui-attach"><i></i>Mis pruebas de casa, adjuntas</p>
                     </div>
                     <span class="a-btn">Enviar a mi médico</span>
@@ -467,7 +537,7 @@
             <ul>
               <li><b>Julián, 62</b><span>Albuminuria repetida en casa, sin enfermedad renal registrada</span></li>
               <li><b>Manuel, 77</b><span>Pulso irregular dos días · P(fibrilación auricular) 73 %</span></li>
-              <li><b>Carmen, 59</b><span>Tensión en casa 149/91 sin hipertensión registrada</span></li>
+              <li><b>Lucía, 59</b><span>Tensión en casa 149/91 sin hipertensión registrada</span></li>
             </ul>
             <p>Medir</p>
             <ul>

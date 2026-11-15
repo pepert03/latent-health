@@ -263,10 +263,10 @@ const PATIENTS = [
   {
     id: 'carmen',
     group: 'act',
-    name: 'Carmen Prieto Gómez',
-    short: 'Carmen Prieto',
-    first: 'Carmen',
-    ini: 'CP',
+    name: 'Lucía Prieto Gómez',
+    short: 'Lucía Prieto',
+    first: 'Lucía',
+    ini: 'LP',
     age: 59,
     sex: 'M',
     cip: '3346',
@@ -280,7 +280,7 @@ const PATIENTS = [
     ],
     action: 'registrar',
     doneLabel: 'Registrado · I10',
-    toast: 'Hipertensión registrada en la historia de Carmen: I10.',
+    toast: 'Hipertensión registrada en la historia de Lucía: I10.',
     last: 'Semana de tensión el 05-11/11',
     ctx: ['Tensión en consulta: 138/86. En casa, todos los días por encima de 135/85.'],
     samples: [['lab', 7, '2026-10-07']],
@@ -306,7 +306,7 @@ const PATIENTS = [
       ['A valorar', 'Una media en casa de 135/85 o más confirma la hipertensión.', 'ESC 2024 · hipertensión'],
       ['A valorar', 'Con la hipertensión confirmada, la guía recomienda fármaco además de los cambios en el estilo de vida.', 'ESC 2024 · hipertensión'],
     ],
-    msg: 'Hola, Carmen. Tu semana de tensión ha salido alta: 149/91 de media. Te llamamos para darte cita y hablar de cómo bajarla. El manguito lo puedes devolver en el centro o en tu farmacia.',
+    msg: 'Hola, Lucía. Tu semana de tensión ha salido alta: 149/91 de media. Te llamamos para darte cita y hablar de cómo bajarla. El manguito lo puedes devolver en el centro o en tu farmacia.',
   },
   {
     id: 'rosa',
@@ -719,7 +719,7 @@ const MESSAGES = [
     id: 'pilar',
     when: 'Ayer, 19:42',
     unread: true,
-    text: 'Hola, doctor. La app me ha pedido el tubo y ya lo he mandado. ¿Tengo que pedir cita?',
+    text: 'Hola, Carmen. La app me ha pedido el tubo y ya lo he mandado. ¿Tengo que pedir cita?',
     sugg: [
       'No hace falta cita por ahora, Pilar. Cuando llegue el resultado del laboratorio, la app te dirá qué hacer y yo también lo veré. Si hiciera falta, te llamamos.',
       'Gracias, Pilar. Pide cita para dentro de dos semanas y lo vemos juntos con el resultado.',
@@ -733,7 +733,7 @@ const MESSAGES = [
     text: 'Ya he terminado la semana de la tensión. ¿Devuelvo el manguito en el centro o en la farmacia?',
     sugg: [
       'Puedes devolverlo en el centro o en tu farmacia, como te venga mejor. Ya he visto la semana: te llamamos para darte cita y hablar de la tensión.',
-      'Gracias, Carmen. Devuélvelo en la farmacia. Te llamamos esta semana para verte.',
+      'Gracias, Lucía. Devuélvelo en la farmacia. Te llamamos esta semana para verte.',
     ],
   },
   {
@@ -1538,7 +1538,7 @@ function shellHTML() {
       <p class="dr-brand"><span class="dr-pads" aria-hidden="true"><i></i><i></i><i></i><i></i></span>LatentHealth<span>Consulta</span></p>
       <label class="dr-search">${ico('search', 'sm')}<span class="dr-sr">Buscar paciente o CIP</span><input type="search" id="dr-q" placeholder="Buscar paciente o CIP" autocomplete="off" spellcheck="false" /><kbd aria-hidden="true">/</kbd></label>
       <p class="dr-date">${ico('cal', 'sm')}<span>Lunes, 16 de noviembre</span></p>
-      <div class="dr-user"><span class="dr-av is-me" aria-hidden="true">JR</span><span><b>Dr. Javier Ruiz</b><small>Medicina de familia</small></span></div>
+      <div class="dr-user"><span class="dr-av is-me" aria-hidden="true">CR</span><span><b>Carmen Ruiz</b><small>Medicina de familia</small></span></div>
     </header>
     <div class="dr-body">
       <nav class="dr-side" aria-label="Secciones de la consulta">

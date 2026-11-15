@@ -71,6 +71,7 @@ const dots = $('#dots')
 const lit = new Set([12, 38, 61, 87])
 dots.innerHTML = Array.from({ length: 100 }, (_, i) => `<i class="${lit.has(i) ? 'on' : ''}" style="--i:${i}"></i>`).join('')
 onView(dots, (el) => el.classList.add('in'))
+onView($('#circuito'), (el) => el.classList.add('in'), 0.25)
 
 // Contadores: de 0 al número, una vez.
 function countUp(el) {
