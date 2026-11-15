@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <script>
+      (function () {
+        var q = new URLSearchParams(location.search), l = q.get('lang')
+        if (l !== 'es' && l !== 'en') return
+        try { localStorage.setItem('lh_lang', l) } catch (e) {}
+        if (l === 'es') return
+        q.delete('lang')
+        var s = q.toString(), page = location.pathname.split('/').pop()
+        location.replace('../' + l + '/' + page + (s ? '?' + s : '') + location.hash)
+      })()
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="LatentHealth: un kit de orina que llega a casa, una app que lee la tira con la cámara y te dice qué hacer, y una lista ordenada para tu médico."
+    />
+    <title>LatentHealth · El aviso del riñón, medido en casa</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="preload" href="fonts/archivo-latin-wdth-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="css/styles.css" />
+    <link rel="stylesheet" href="css/medico.css" />
+    <script>
+      document.documentElement.classList.add('js')
+      if (new URLSearchParams(location.search).has('estatico')) document.documentElement.classList.add('static')
+    </script>
+  </head>
+  <body>
+    <header class="nav" id="nav">
+      <a class="brand" href="#top" aria-label="LatentHealth, inicio">
+        <img src="img/logos/01-carta-logotipo.svg" alt="" width="214" height="17" />
+      </a>
+      <div class="nav-actions">
+        <a class="btn btn-small btn-ghost lang-switch" href="../en/" onclick="try{localStorage.setItem('lh_lang','en')}catch(e){}" hreflang="en" lang="en" aria-label="View in English">EN</a>
+        <a class="btn btn-small btn-ghost" href="modelo.html" aria-label="Probar el modelo">
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 19.5h17" /><path d="M5 16c2.2 0 3-9.5 6-9.5s3.6 6 5.4 6c1.2 0 1.8-1.4 2.6-2.5" /></svg>
+          <span>Probar el modelo</span>
+        </a>
+        <a class="btn btn-small" href="#app">
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="2.6" /><path d="M10.5 18.5h3" /></svg>
+          <span>Probar la app</span>
+        </a>
+      </div>
+    </header>
+
+    <main>
+      <!-- ===================================== PORTADA ===================================== -->
+      <section class="hero" id="top">
+        <div class="ink-layer" id="ink-hero" aria-hidden="true"></div>
+        <div class="hero-copy">
+          <p class="tag">Detección precoz cardio-renal-metabólica, medida en casa</p>
+          <h1 class="display">
+            <span class="ln"><span>Invertir en prevención hoy</span></span>
+            <span class="ln"><span>es ahorrar en salud mañana.</span></span>
+          </h1>
+          <p class="lede">
+            La primera señal de que el riñón y el corazón se están dañando sale en la orina, años antes que cualquier
+            síntoma. LatentHealth la mide en casa: un kit, una app que lee la tira con la cámara y una lista para tu
+            médico.
+          </p>
+          <div class="actions">
+            <a class="btn" href="#kit">
+              <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.8 7.6 12 3.3l8.2 4.3v8.8L12 20.7l-8.2-4.3Z" /><path d="m3.8 7.6 8.2 4.3 8.2-4.3M12 11.9v8.8" /></svg>
+              Ver el kit
+            </a>
+            <a class="btn btn-ghost" href="#app">
+              <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="2.6" /><path d="M10.5 18.5h3" /></svg>
+              Probar la app
+            </a>
+          </div>
+        </div>
+
+        <div class="flatlay" aria-hidden="true">
+          <div class="device">
+            <i class="d-btn d-act"></i><i class="d-btn d-up"></i><i class="d-btn d-down"></i><i class="d-btn d-pow"></i>
+            <div class="d-screen">
+              <div class="d-island"></div>
+              <div class="d-status"><span>8:02</span><span class="d-icons"></span></div>
+              <div class="ui">
+                <div class="ui-in">
+                  <div class="a-head">
+                    <div><p class="a-date">Lunes, 16 de noviembre</p><p class="a-title">Hoy</p></div>
+                    <span class="avatar">PG</span>
+                  </div>
+                  <div class="a-hero">
+                    <span class="a-pads"><i></i><i></i><i></i><i></i></span>
+                    <p class="a-kicker">Hoy toca</p>
+                    <p class="a-big">Tira de orina</p>
+                    <p>Con la primera orina del día. Son tres minutos.</p>
+                    <span class="a-btn light">Empezar la prueba</span>
+                  </div>
+                  <div class="a-grid">
+                    <div class="a-wid">
+                      <p class="a-kicker">Tu kit</p>
+                      <p class="a-big">2 tiras</p>
+                      <p class="kitline viz"><i></i><i></i><i class="used"></i><i class="tube"></i></p>
+                    </div>
+                    <div class="a-wid">
+                      <p class="a-kicker">Tensión</p>
+                      <p class="a-big">129/80</p>
+                      <p class="minibars viz"><i style="--h: 62%; --k: 0"></i><i style="--h: 70%; --k: 1"></i><i style="--h: 55%; --k: 2"></i><i style="--h: 60%; --k: 3"></i><i style="--h: 66%; --k: 4"></i><i style="--h: 52%; --k: 5"></i><i style="--h: 58%; --k: 6"></i></p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="d-tabs">
+                <span class="on"><svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1Z" /></svg>Hoy</span>
+                <span><svg viewBox="0 0 24 24"><path d="M4 19V9m6 10V5m6 14v-7m4 7H3" /></svg>Registro</span>
+                <span><svg viewBox="0 0 24 24"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 4Z" /></svg>Asistente</span>
+                <span><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" /></svg>Mi médico</span>
+              </div>
+              <div class="d-home"></div>
+              <div class="d-glass"></div>
+            </div>
+          </div>
+          <div class="hero-strip" id="hero-tira"></div>
+          <div class="chart">
+            <p><b>Albúmina</b> mg/l</p>
+            <ol>
+              <li style="background: var(--a10)">10</li>
+              <li class="read" style="background: var(--a30)">30</li>
+              <li style="background: var(--a80)">80</li>
+              <li class="inv" style="background: var(--a150)">150</li>
+            </ol>
+            <p><b>Creatinina</b> mg/dl</p>
+            <ol>
+              <li style="background: var(--c10)">10</li>
+              <li style="background: var(--c50)">50</li>
+              <li class="read" style="background: var(--c100)">100</li>
+              <li style="background: var(--c200)">200</li>
+              <li class="inv" style="background: var(--c300)">300</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================== EL PROBLEMA ===================================== -->
+      <section class="problem" id="porque">
+        <div>
+          <p class="mega"><span data-count="96">96</span></p>
+          <p class="problem-of">de cada 100</p>
+        </div>
+        <div>
+          <p class="statement">
+            hipertensos nunca se hacen la prueba de orina que avisa primero. En los diabéticos, 65 de cada 100.
+          </p>
+          <div class="dots" id="dots" aria-hidden="true"></div>
+          <p class="src">Shin et al., Hypertension 2021 · 3,7 millones de adultos, dos años de seguimiento</p>
+        </div>
+      </section>
+
+      <section class="turn">
+        <p>No faltan análisis. Falta que la prueba <em>llegue a casa</em>, y que repetirla <em>sirva de algo</em>.</p>
+      </section>
+
+      <!-- ===================================== EL CIRCUITO ===================================== -->
+      <section class="circuit" id="circuito" aria-labelledby="circuito-h">
+        <div class="circuit-head">
+          <div>
+            <p class="tag">Cómo funciona</p>
+            <h2 id="circuito-h">El circuito</h2>
+          </div>
+          <p>No es un kit ni una app: es lo que une la historia clínica, al paciente en su casa y al médico.</p>
+        </div>
+        <ol class="circuit-cols">
+          <li style="--sq: var(--a10); --k: 0">
+            <p class="circuit-n">01 · el cupo</p>
+            <h3>La historia clínica</h3>
+            <p>Cada noche recorre los 1.500 pacientes del médico: edad, diagnósticos, tratamientos y las analíticas que haya.</p>
+          </li>
+          <li style="--sq: var(--a30); --k: 1">
+            <p class="circuit-n">02 · el motor</p>
+            <h3>Cuánto fiarse de cada medida</h3>
+            <ul>
+              <li><b>Albuminuria:</b> filtro bayesiano</li>
+              <li><b>Sangre:</b> panel virtual</li>
+              <li><b>Riesgo CV:</b> desenlaces reales</li>
+              <li><b>Ritmo, FE, diabetes</b></li>
+            </ul>
+          </li>
+          <li style="--sq: var(--a80); --k: 2">
+            <p class="circuit-n">03 · en casa</p>
+            <h3>Solo lo que falta</h3>
+            <ul>
+              <li>Tira de orina y app</li>
+              <li>Reloj: pulso y ECG</li>
+              <li>Tensiómetro, una semana</li>
+              <li>Glucosa en la farmacia</li>
+              <li>Tubo al laboratorio</li>
+            </ul>
+          </li>
+          <li style="--sq: var(--a150); --k: 3">
+            <p class="circuit-n">04 · la consulta</p>
+            <h3>Una lista, no cien alertas</h3>
+            <ul>
+              <li><b>Actuar:</b> lo claro que no consta</li>
+              <li><b>Medir:</b> la prueba que más aporta</li>
+              <li>Petición, nota y código, escritos</li>
+            </ul>
+          </li>
+        </ol>
+        <div class="circuit-flow" aria-hidden="true">
+          <svg viewBox="0 0 1080 106">
+            <defs>
+              <marker id="cf-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 1 9 5 0 9" fill="none" stroke="#0d2226" stroke-width="1.6" /></marker>
+              <marker id="cf-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 1 9 5 0 9" fill="none" stroke="#0b7774" stroke-width="1.6" /></marker>
+            </defs>
+            <g fill="none" stroke-width="1.6">
+              <path class="cf-line" d="M8 22H254" stroke="#0d2226" marker-end="url(#cf-a)" />
+              <path class="cf-line" d="M278 22H524" stroke="#0d2226" marker-end="url(#cf-a)" />
+              <path class="cf-line" d="M548 22H794" stroke="#0d2226" marker-end="url(#cf-a)" />
+              <path class="cf-back" d="M675 32V62Q675 72 665 72H415Q405 72 405 62V34" stroke="#0b7774" stroke-dasharray="6 6" marker-end="url(#cf-b)" />
+            </g>
+          </svg>
+          <span class="cf-l" style="left: 1%">probabilidad de hallazgo</span>
+          <span class="cf-l" style="left: 26%">kit a la medida</span>
+          <span class="cf-l" style="left: 51%">cuando ya se sabe</span>
+          <span class="cf-l cf-back-l">cada medida vuelve y estrecha la duda</span>
+        </div>
+        <div class="circuit-foot">
+          <b>Solo repite quien sale dudoso.</b>
+          <span>El médico decide; lo repetitivo ya viene hecho.</span>
+        </div>
+      </section>
+
+      <!-- ===================================== EL KIT ===================================== -->
+      <section class="scrolly kit" id="kit" data-steps="4" style="--steps: 4">
+        <div class="pin">
+          <div
+            class="kit-stage"
+            id="kit3d"
+            role="img"
+            aria-label="El kit de LatentHealth en 3D: una caja pequeña que se abre; salen tres sobres con una tira cada uno, un vaso plegable, la plantilla de color y dos tubos. Después, los complementos: el reloj y el tensiómetro."
+          >
+            <div class="kit-fallback" aria-hidden="true">
+              <img src="img/kit-0.webp" alt="" decoding="async" onerror="this.hidden = true" />
+              <img src="img/kit-1.webp" alt="" decoding="async" loading="lazy" onerror="this.hidden = true" />
+              <img src="img/kit-2.webp" alt="" decoding="async" loading="lazy" onerror="this.hidden = true" />
+              <img src="img/kit-3.webp" alt="" decoding="async" loading="lazy" onerror="this.hidden = true" />
+            </div>
+          </div>
+          <div class="kit-copy">
+            <p class="tag">El kit</p>
+            <ol class="story">
+              <li data-i="0">
+                <h2>Llega a casa sin pedirlo.</h2>
+                <p>Una cajita como la de un medicamento. Te la manda tu centro de salud cuando tu ficha dice que te falta la prueba, y cabe en el buzón.</p>
+              </li>
+              <li data-i="1">
+                <h2>Tres tiras, un vaso y una plantilla.</h2>
+                <p>Cada tira va en su sobre. El vaso se despliega y se tira después. La plantilla de color es donde la cámara lee la tira.</p>
+              </li>
+              <li data-i="2">
+                <h2>La app lee la tira sobre la plantilla.</h2>
+                <p>Las marcas de las esquinas y los parches de color corrigen la luz de tu casa. Si quedan dudas, te pide un tubo: vuelve al laboratorio en la misma caja, con el franqueo pagado.</p>
+              </li>
+              <li data-i="3">
+                <h2>Complementos, solo si te faltan.</h2>
+                <p>Tu reloj, si ya tienes uno, para el pulso y un ECG de 30 segundos. Un tensiómetro prestado una semana si tu tensión salió alta. La glucosa, una medida en la farmacia.</p>
+              </li>
+            </ol>
+            <div class="ticks" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================== LA APP, PANTALLA A PANTALLA ===================================== -->
+      <section class="scrolly showcase" id="funciones" data-steps="8" style="--steps: 8">
+        <div class="pin">
+          <div class="show-copy">
+            <p class="tag">La app</p>
+            <h2 class="show-title">Te dice qué hacer, no un número.</h2>
+            <ol class="feats">
+              <li data-i="0"><b>Te avisa el día que toca</b><span>La fecha la pone el modelo, según tus pruebas anteriores.</span></li>
+              <li data-i="1"><b>Pregunta antes, en el chat</b><span>Ejercicio fuerte, fiebre, regla o escozor: si hay algo, la prueba se aplaza.</span></li>
+              <li data-i="2"><b>Lee la tira sobre la plantilla</b><span>Las marcas y los parches de color corrigen la luz de tu casa antes de leer las dos almohadillas.</span></li>
+              <li data-i="3"><b>Una respuesta clara</b><span>Ya está, repite mañana o manda el tubo. Solo repite quien sale dudoso.</span></li>
+              <li data-i="4"><b>Tu registro</b><span>Cada prueba estrecha la duda. Ves tu valor estimado y cómo cambia.</span></li>
+              <li data-i="5"><b>Tu reloj, conectado</b><span>Apple Watch, Galaxy Watch, Pixel, Fitbit o Garmin: pulso cada día y un ECG de 30 s. Sin reloj, con la cámara.</span></li>
+              <li data-i="6"><b>Un asistente que explica</b><span>Pregúntale por tus pruebas. Orienta; no diagnostica.</span></li>
+              <li data-i="7"><b>Tu médico, a un mensaje</b><span>Con tus pruebas adjuntas, cuando quieras hablar con una persona.</span></li>
+            </ol>
+          </div>
+
+          <div class="device device--show" aria-hidden="true">
+            <i class="d-btn d-act"></i><i class="d-btn d-up"></i><i class="d-btn d-down"></i><i class="d-btn d-pow"></i>
+            <div class="d-screen">
+              <div class="d-island"></div>
+
+              <!-- 0 · Pantalla de bloqueo con la notificación -->
+              <div class="scr scr-lock" data-n="0">
+                <div class="d-status light"><span></span><span class="d-icons"></span></div>
+                <p class="lock-date">Lunes, 16 de noviembre</p>
+                <p class="lock-time">8:02</p>
+                <div class="notif">
+                  <span class="app-ico"><i></i><i></i><i></i><i></i></span>
+                  <div>
+                    <p class="notif-top"><b>LatentHealth</b><span>ahora</span></p>
+                    <p class="notif-title">Hoy toca tu tira de orina</p>
+                    <p class="notif-body">Con la primera orina del día. Son tres minutos.</p>
+                  </div>
+                </div>
+                <div class="lock-bottom"><i></i><i></i></div>
+              </div>
+
+              <!-- 1 · Las preguntas de antes, en el chat del asistente -->
+              <div class="scr scr-qa" data-n="1">
+                <div class="d-status"><span>8:03</span><span class="d-icons"></span></div>
+                <div class="ui">
+                  <div class="ui-in qa-in">
+                    <div class="a-steps"><i class="on"></i><i></i><i></i></div>
+                    <div class="a-chathead"><span class="bot"><i></i><i></i><i></i><i></i></span><div><b>Asistente</b><span>Antes de la prueba</span></div></div>
+                    <div class="qa-log">
+                      <p class="bub" style="--k: 0">Hola, Pilar. Antes de la tira, tres preguntas rápidas: si alguna es que sí, mejor otro día.</p>
+                      <p class="bub" style="--k: 1">¿Has hecho ejercicio intenso en las últimas 24 horas?</p>
+                      <p class="bub me" style="--k: 2">No</p>
+                      <p class="bub" style="--k: 3">¿Tienes fiebre hoy o la has tenido ayer?</p>
+                      <p class="bub me" style="--k: 4">No</p>
+                      <p class="bub" style="--k: 5">¿Notas escozor al orinar o tienes una infección de orina?</p>
+                      <p class="bub me" style="--k: 6">No</p>
+                      <p class="bub" style="--k: 7">Todo en orden. Coge el vaso y un sobre: te guío con la cámara.</p>
+                    </div>
+                    <div class="qa-actions">
+                      <div class="qa-reply qa-fake"><span>No</span><span>Sí</span></div>
+                      <span class="a-btn qa-go">Abrir la cámara</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 2 · Cámara: la tira sobre la plantilla de color -->
+              <div class="scr scr-cam" data-n="2">
+                <div class="d-status light"><span>8:04</span><span class="d-icons"></span></div>
+                <div class="cam-head"><span class="cam-flash"></span><span class="cam-mode">Tira de orina</span><span class="cam-x"></span></div>
+                <div class="cam" id="show-cam">
+                  <i class="cam-scan"></i>
+                  <p class="cam-pill cam-pill--find"><i></i>Buscando la plantilla…</p>
+                  <p class="cam-pill cam-pill--cal"><i></i>Plantilla encontrada · ajustando la luz</p>
+                  <p class="cam-pill cam-pill--ok ok"><i></i>Tira leída · no la muevas</p>
+                </div>
+                <div class="cam-bar">
+                  <div class="cam-zoom"><span>,5</span><span class="on">1×</span><span>2</span></div>
+                  <span class="cam-thumb"></span>
+                  <span class="cam-shutter"></span>
+                  <span class="cam-flip"></span>
+                </div>
+              </div>
+
+              <!-- 3 · Resultado -->
+              <div class="scr" data-n="3">
+                <div class="d-status"><span>8:05</span><span class="d-icons"></span></div>
+                <div class="ui">
+                  <div class="ui-in">
+                    <div class="a-steps"><i class="on"></i><i class="on"></i><i class="on"></i></div>
+                    <p class="a-date">Tu resultado</p>
+                    <p class="a-title">Repite mañana</p>
+                    <div class="ring a-ring" style="--v: 14">
+                      <svg viewBox="0 0 120 120"><circle class="ring-bg" cx="60" cy="60" r="50" /><circle class="ring-fg" cx="60" cy="60" r="50" style="stroke: var(--c200)" /></svg>
+                      <p><b>14 %</b><span>albúmina en orina</span></p>
+                    </div>
+                    <div class="bubble"><p class="who">LatentHealth</p><p>Con esta tira no se puede descartar. Mañana, con la primera orina del día, saldremos de dudas.</p></div>
+                    <span class="a-btn">Recuérdamelo mañana</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 4 · Registro -->
+              <div class="scr" data-n="4">
+                <div class="d-status"><span>9:10</span><span class="d-icons"></span></div>
+                <div class="ui">
+                  <div class="ui-in">
+                    <p class="a-title">Mi registro</p>
+                    <div class="a-card">
+                      <p class="a-kicker">Albúmina estimada</p>
+                      <p class="a-big">18 <small>mg/g</small></p>
+                      <div class="range"><i class="range-band" style="--a: 30%; --b: 62%"></i><i class="range-dot" style="--x: 48%"></i><i class="range-lim" style="--x: 60%"></i></div>
+                      <p class="a-hint">Entre 9 y 36 mg/g. Por debajo de 30 es normal.</p>
+                    </div>
+                    <div class="a-card">
+                      <p class="a-kicker">Cómo se estrecha la duda</p>
+                      <svg class="spark" viewBox="0 0 300 110" aria-hidden="true">
+                        <path class="spark-band" d="M10 14 C 90 26 150 44 290 52 L 290 70 C 150 76 90 92 10 104 Z" />
+                        <path class="spark-line" d="M10 62 C 90 64 150 62 290 61" />
+                        <circle cx="10" cy="58" r="5" /><circle cx="120" cy="68" r="5" /><circle cx="200" cy="60" r="5" /><circle cx="290" cy="61" r="5" />
+                      </svg>
+                    </div>
+                    <ul class="log">
+                      <li><i style="background: var(--c100)"></i><b>Tira</b><span class="dt">16 nov · repite mañana</span></li>
+                      <li><i style="background: var(--c100)"></i><b>Tira</b><span class="dt">17 nov · manda el tubo</span></li>
+                      <li><i style="background: var(--teal)"></i><b>Laboratorio</b><span class="dt">20 nov · 18 mg/g</span></li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 5 · El reloj -->
+              <div class="scr" data-n="5">
+                <div class="d-status"><span>9:11</span><span class="d-icons"></span></div>
+                <div class="ui">
+                  <div class="ui-in">
+                    <p class="a-title">Tu reloj</p>
+                    <div class="a-card a-watch on">
+                      <div class="a-watch-top">
+                        <svg class="ai" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="3.3" /><path d="M8.6 6l.8-3.2h5.2l.8 3.2M8.6 18l.8 3.2h5.2l.8-3.2" /><path d="M8.6 12.3h1.7l1-2 1.4 3.6 1-1.6h1.7" /></svg>
+                        <div><b>Apple Watch</b><span>Conectado · pulso cada día y ECG de 30 s</span></div>
+                        <i class="live"></i>
+                      </div>
+                      <svg class="ecg" viewBox="0 0 200 32" preserveAspectRatio="none"><path d="M0 22h14l3-4 3 4h6l2 5 3-24 3 27 2-8h8l4-5 4 5h16l3-4 3 4h6l2 5 3-24 3 27 2-8h8l4-5 4 5h16l3-4 3 4h6l2 5 3-24 3 27 2-8h8l4-5 4 5h12" /></svg>
+                      <p class="a-hint">Último ECG, hoy a las 8:12: ritmo regular, 68 lpm.</p>
+                    </div>
+                    <p class="a-sec">O conecta otro</p>
+                    <ul class="watch-list">
+                      <li><span class="wl"><svg class="ai" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="6" /><path d="M8.6 6.6l.8-3.8h5.2l.8 3.8M8.6 17.4l.8 3.8h5.2l.8-3.8" /></svg><span>Samsung Galaxy Watch</span><small>Conectar</small></span></li>
+                      <li><span class="wl"><svg class="ai" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="6" /><path d="M8.6 6.6l.8-3.8h5.2l.8 3.8M8.6 17.4l.8 3.8h5.2l.8-3.8" /></svg><span>Google Pixel Watch</span><small>Conectar</small></span></li>
+                      <li><span class="wl"><svg class="ai" viewBox="0 0 24 24"><rect x="7" y="5" width="10" height="14" rx="3" /><path d="M9 5l.6-2.2h4.8L15 5M9 19l.6 2.2h4.8L15 19" /></svg><span>Fitbit · Garmin · Withings</span><small>Conectar</small></span></li>
+                    </ul>
+                    <div class="a-card"><p class="a-kicker">Sin reloj</p><p>El pulso se mide con la cámara: el dedo sobre la lente, 30 segundos.</p></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 6 · Asistente -->
+              <div class="scr" data-n="6">
+                <div class="d-status"><span>9:12</span><span class="d-icons"></span></div>
+                <div class="ui">
+                  <div class="ui-in">
+                    <p class="a-title">Asistente</p>
+                    <div class="chat">
+                      <p class="bub">Hola, Pilar. Pregúntame por tus pruebas de casa.</p>
+                      <p class="bub me">¿Por qué tengo que repetir?</p>
+                      <p class="bub typing"><i></i><i></i><i></i></p>
+                      <p class="bub answer">Porque una tira sola puede engañar: el ejercicio o una infección la suben sin que haya daño. Con dos, el modelo ya sabe cuánto fiarse.</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="ui-input" style="position: absolute; left: 1.05em; right: 1.05em; bottom: 2.6em"><span>Escribe tu pregunta</span><i>↑</i></div>
+              </div>
+
+              <!-- 7 · Tu médico -->
+              <div class="scr" data-n="7">
+                <div class="d-status"><span>9:15</span><span class="d-icons"></span></div>
+                <div class="ui">
+                  <div class="ui-in">
+                    <p class="a-title">Mi médico</p>
+                    <div class="a-card a-doc"><span class="avatar">CR</span><div><b>Carmen Ruiz</b><span>Medicina de familia</span></div></div>
+                    <div class="a-card">
+                      <p>Hola, Carmen. La app me ha pedido el tubo y ya lo he mandado. ¿Tengo que pedir cita?</p>
+                      <p class="ui-attach"><i></i>Mis pruebas de casa, adjuntas</p>
+                    </div>
+                    <span class="a-btn">Enviar a mi médico</span>
+                    <p class="ui-sent"><i></i>Enviado. Te contestará en la app.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="d-home"></div>
+              <div class="d-glass"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================== PRUÉBALA ===================================== -->
+      <section class="try" id="app">
+        <div class="ink-layer" id="ink-try" aria-hidden="true"></div>
+        <div class="try-head">
+          <h2>Pruébala.</h2>
+          <p>
+            Con pacientes de ejemplo. Cada pantalla le pregunta al modelo de verdad, que corre en este ordenador: lo que
+            lees son sus respuestas, no un guion.
+          </p>
+        </div>
+        <div class="try-grid">
+          <aside class="demo" aria-label="Controles de la demo">
+            <p class="demo-h">Quién usa el móvil</p>
+            <div class="people" id="app-people"></div>
+            <p class="demo-h">Controles de la demo</p>
+            <button type="button" class="btn btn-small" data-act="advance" id="app-advance">
+              <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5 11 12l-7 5.5Z" /><path d="m12.5 6.5 7 5.5-7 5.5Z" /></svg>
+              Adelantar al día de la prueba
+            </button>
+            <button type="button" class="link" id="app-reset">Empezar de cero</button>
+            <details class="calls">
+              <summary>Peticiones al modelo</summary>
+              <ul id="app-calls"></ul>
+            </details>
+            <p class="demo-note">Datos sintéticos. No sale nada de este navegador.</p>
+          </aside>
+
+          <div class="device device--app" role="group" aria-label="Aplicación del paciente (maqueta interactiva)">
+            <i class="d-btn d-act"></i><i class="d-btn d-up"></i><i class="d-btn d-down"></i><i class="d-btn d-pow"></i>
+            <div class="d-screen">
+              <div class="d-island"></div>
+              <div class="d-status"><span>9:41</span><span class="d-icons"></span></div>
+              <div class="a-view" id="app-view" aria-live="polite"></div>
+              <nav class="a-tabs" role="tablist" aria-label="Secciones de la app" id="app-tabs">
+                <button type="button" role="tab" data-tab="hoy" aria-selected="true">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1Z" /></svg>Hoy
+                </button>
+                <button type="button" role="tab" data-tab="registro" aria-selected="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9m6 10V5m6 14v-7m4 7H3" /></svg>Registro
+                </button>
+                <button type="button" role="tab" data-tab="chat" aria-selected="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 4Z" /></svg>Asistente
+                </button>
+                <button type="button" role="tab" data-tab="medico" aria-selected="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" /></svg>Mi médico
+                </button>
+              </nav>
+              <div class="a-overlay" id="app-overlay"></div>
+              <div class="d-home"></div>
+              <div class="d-glass"></div>
+            </div>
+          </div>
+
+          <aside class="try-tips">
+            <p class="demo-h">Qué probar</p>
+            <ol>
+              <li>Adelanta al día de la prueba y contesta al asistente.</li>
+              <li>Elige colores altos en la tira: verás «Repite mañana».</li>
+              <li>Repite hasta que te pida el tubo.</li>
+              <li>Pregunta al asistente por qué.</li>
+              <li>Conecta tu reloj desde «Hoy».</li>
+            </ol>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ===================================== PARA EL MÉDICO ===================================== -->
+      <section class="doctor" id="medico">
+        <header class="dr-head">
+          <div>
+            <p class="tag">Para el médico</p>
+            <h2><span class="dr-l">Una lista.</span> <span class="dr-l">No cien alertas.</span></h2>
+          </div>
+          <p class="dr-lede">
+            Cada mañana, el cupo ordenado por lo que cambiaría. Lo repetitivo ya viene hecho: las tiras se leen en casa,
+            las dudas se resuelven allí y la petición, la nota y el mensaje al paciente llegan escritos.
+            <b>Al médico le queda decidir.</b>
+          </p>
+        </header>
+        <div class="dr-app" id="dr-app">
+          <!-- Sin JavaScript queda esta lista; js/medico.js la sustituye por la consulta entera. -->
+          <div class="dr-fallback">
+            <p>Actuar</p>
+            <ul>
+              <li><b>Julián, 62</b><span>Albuminuria repetida en casa, sin enfermedad renal registrada</span></li>
+              <li><b>Manuel, 77</b><span>Pulso irregular dos días · P(fibrilación auricular) 73 %</span></li>
+              <li><b>Lucía, 59</b><span>Tensión en casa 149/91 sin hipertensión registrada</span></li>
+            </ul>
+            <p>Medir</p>
+            <ul>
+              <li><b>Elena, 74</b><span>59 % · creatinina</span></li>
+              <li><b>Marta, 47</b><span>34 % · orina en casa</span></li>
+              <li><b>Antonio, 81</b><span>24 % · creatinina</span></li>
+            </ul>
+          </div>
+        </div>
+        <p class="dr-foot">
+          <span>Pacientes inventados. Las fichas las calcula el modelo; las cifras del cupo son de ejemplo.</span>
+          <span>Apoyo a la decisión: no diagnostica ni pauta tratamientos.</span>
+          <span><kbd>↑</kbd> <kbd>↓</kbd> recorren la lista · <kbd>/</kbd> busca</span>
+        </p>
+      </section>
+
+      <!-- ===================================== RESULTADOS ===================================== -->
+      <section class="proof" id="resultados">
+        <h2>Comprobado con datos reales.</h2>
+        <ol class="proof-list">
+          <li>
+            <p class="pn"><span data-count="75">75</span><small>de 100</small></p>
+            <p class="pt">diabetes ocultas encontradas con una glucosa en la farmacia. El cuestionario que se usa hoy encuentra 52, con los mismos análisis.</p>
+            <p class="ps">NHANES 2005-2018 · 27.300 adultos</p>
+          </li>
+          <li>
+            <p class="pn">0,88</p>
+            <p class="pt">de AUC para detectar un corazón que bombea poco con 30 segundos de ECG de una derivación, frente al ecocardiograma.</p>
+            <p class="ps">620 personas de dos hospitales</p>
+          </li>
+          <li>
+            <p class="pn">0,97</p>
+            <p class="pt">de AUC del detector de fibrilación auricular por el ritmo del pulso.</p>
+            <p class="ps">8.528 registros reales de PhysioNet</p>
+          </li>
+          <li>
+            <p class="pn">+0,054</p>
+            <p class="pt">de AUC sobre SCORE2 al ordenar el riesgo de muerte cardiovascular en diabéticos e hipertensos, sin sacar sangre.</p>
+            <p class="ps">12.710 personas con 10 años de seguimiento</p>
+          </li>
+        </ol>
+        <p class="proof-note">
+          Lo que falta: calibrar la lectura de la tira con muestras reales y validarlo en pacientes españoles. Los modelos
+          se entrenaron con datos de EE. UU. y China. <a href="modelo.html">Ver el modelo bayesiano en vivo</a>
+        </p>
+      </section>
+
+      <!-- ===================================== CIERRE ===================================== -->
+      <section class="closing">
+        <div class="ink-layer" id="ink-closing" aria-hidden="true"></div>
+        <p class="closing-num">≈&#8239;<span data-count="1200">1.200</span></p>
+        <p class="closing-txt">muertes menos al año en España si se usara.</p>
+        <p class="closing-src">Estimación con supuestos explícitos: albuminuria oculta tratada a tiempo con iSGLT2.</p>
+        <div class="closing-actions">
+          <a class="btn" href="#app">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="2.6" /><path d="M10.5 18.5h3" /></svg>
+            Probar la app
+          </a>
+          <a class="btn btn-ghost" href="modelo.html">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 19.5h17" /><path d="M5 16c2.2 0 3-9.5 6-9.5s3.6 6 5.4 6c1.2 0 1.8-1.4 2.6-2.5" /></svg>
+            Probar el modelo
+          </a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <div class="foot-row">
+        <p class="brand brand--foot"><img src="img/logos/01-carta-logotipo-negativo.svg" alt="LatentHealth" width="189" height="15" /></p>
+        <p>Hackathon Boehringer · Reto «Automatizar lo repetitivo». Prototipo de apoyo a la decisión: no diagnostica. Datos sintéticos.</p>
+      </div>
+      <details class="refs">
+        <summary>Fuentes</summary>
+        <ol>
+          <li>Shin JI, et al. Albuminuria testing in hypertension and diabetes. <i>Hypertension</i>. 2021;78(4):1042-52. <a href="https://doi.org/10.1161/HYPERTENSIONAHA.121.17323" target="_blank" rel="noopener">doi</a></li>
+          <li>INE. Defunciones según la causa de muerte, 2024. <a href="https://www.ine.es/dyngs/Prensa/pEDCM2024.htm" target="_blank" rel="noopener">ine.es</a></li>
+          <li>Tangri N, et al. Undiagnosed stage 3 CKD (REVEAL-CKD). <i>BMJ Open</i>. 2023;13:e067386. <a href="https://doi.org/10.1136/bmjopen-2022-067386" target="_blank" rel="noopener">doi</a></li>
+          <li>van Mil D, et al. Home-based albuminuria screening (THOMAS). <i>Lancet</i>. 2023;402:1052-64. <a href="https://doi.org/10.1016/S0140-6736(23)00876-0" target="_blank" rel="noopener">doi</a></li>
+          <li>Nuffield Department of Population Health Renal Studies Group. SGLT2 inhibitors meta-analysis. <i>Lancet</i>. 2022;400:1788-801.</li>
+          <li>NHANES 1999-2018, CDC/NCHS; PhysioNet/CinC 2017; Zenodo 16934966; MUSIC (PhysioNet). Cálculos del proyecto en la carpeta <span class="mono">reports/</span>.</li>
+        </ol>
+      </details>
+    </footer>
+
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>

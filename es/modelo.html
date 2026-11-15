@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <script>
+      (function () {
+        var q = new URLSearchParams(location.search), l = q.get('lang')
+        if (l !== 'es' && l !== 'en') return
+        try { localStorage.setItem('lh_lang', l) } catch (e) {}
+        if (l === 'es') return
+        q.delete('lang')
+        var s = q.toString(), page = location.pathname.split('/').pop()
+        location.replace('../' + l + '/' + page + (s ? '?' + s : '') + location.hash)
+      })()
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LatentHealth · El modelo, en vivo</title>
+    <meta
+      name="description"
+      content="El filtro bayesiano de la albuminuria de LatentHealth, en vivo: añade tiras de casa o muestras de laboratorio y mira cómo cambia lo que cree el modelo."
+    />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="preload" href="fonts/archivo-latin-wdth-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="fonts/chivo-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="css/modelo.css" />
+    <script>document.documentElement.classList.add('js')</script>
+  </head>
+  <body>
+    <header class="top">
+      <a class="brand" href="./" aria-label="LatentHealth, ir a la portada">
+        <img src="img/logos/01-carta-logotipo.svg" alt="" width="226" height="18" />
+      </a>
+      <nav class="top-nav" aria-label="Navegación">
+        <a class="btn btn-ghost lang-switch" href="../en/modelo.html" onclick="try{localStorage.setItem('lh_lang','en')}catch(e){}" hreflang="en" lang="en" aria-label="View in English">EN</a>
+        <a class="btn btn-ghost" href="./">
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5" /><path d="m11 18-6-6 6-6" /></svg>
+          Volver a la portada
+        </a>
+        <a class="btn" href="index.html#app">
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="2.6" /><path d="M10.5 18.5h3" /></svg>
+          Probar la app
+        </a>
+      </nav>
+    </header>
+
+    <main class="lab" id="modelo">
+      <header class="lab-head">
+        <h1 class="title">El modelo, en vivo</h1>
+        <p class="lede">
+          Cada cambio es una petición real al filtro bayesiano que corre en este ordenador: añade muestras y mira cómo
+          se estrecha la duda.
+        </p>
+      </header>
+
+      <!-- 1 · Lo que sabe el modelo: paciente, muestras y el formulario para añadir otra -->
+      <section class="panel p-in rv" id="lab-in" aria-labelledby="lab-in-h">
+        <h2 class="ph" id="lab-in-h">
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6" /><path d="M5 20.5c.7-3.7 3.5-5.8 7-5.8s6.3 2.1 7 5.8" /></svg>
+          Lo que sabe el modelo
+        </h2>
+
+        <div class="field">
+          <label for="lab-example">Paciente de ejemplo</label>
+          <select id="lab-example"></select>
+        </div>
+        <div class="two">
+          <div class="field">
+            <label for="lab-age">Edad <output id="lab-age-out" for="lab-age"></output></label>
+            <input type="range" id="lab-age" min="30" max="90" step="1" value="58" />
+          </div>
+          <div class="field">
+            <label for="lab-egfr">FG, ml/min/1,73&nbsp;m² <output id="lab-egfr-out" for="lab-egfr"></output></label>
+            <input type="range" id="lab-egfr" min="15" max="120" step="1" value="88" />
+          </div>
+        </div>
+        <div class="two">
+          <div class="field">
+            <span class="lbl" id="lab-sex-l">Sexo</span>
+            <div class="seg" id="lab-sex" role="group" aria-labelledby="lab-sex-l">
+              <button type="button" data-v="true" aria-pressed="true">Mujer</button>
+              <button type="button" data-v="false" aria-pressed="false">Hombre</button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="lbl" id="lab-dm-l">Diabetes</span>
+            <div class="seg" id="lab-dm" role="group" aria-labelledby="lab-dm-l">
+              <button type="button" data-v="false" aria-pressed="true">No</button>
+              <button type="button" data-v="true" aria-pressed="false">Sí</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="samples-head">
+          <h3 class="sub">Muestras de orina <span class="count" id="lab-count">0</span></h3>
+          <button type="button" class="btn-text" id="lab-clear">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 7h15" /><path d="M9.5 7V4.8c0-.7.6-1.3 1.3-1.3h2.4c.7 0 1.3.6 1.3 1.3V7" /><path d="m6.5 7 .9 12.2c.1.8.7 1.3 1.5 1.3h6.2c.8 0 1.4-.5 1.5-1.3L17.5 7" /><path d="M10.2 11v5.5M13.8 11v5.5" /></svg>
+            Quitar todas
+          </button>
+        </div>
+        <ul class="samples" id="lab-samples" aria-label="Muestras de orina"></ul>
+
+        <div class="add" role="group" aria-label="Añadir una muestra">
+          <div class="seg seg-kind" id="lab-kind" role="group" aria-label="Tipo de muestra que se añade">
+            <button type="button" data-v="tira" aria-pressed="true">
+              <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="2.5" width="8" height="19" rx="1.6" /><rect x="10.2" y="9.5" width="3.6" height="3.6" rx=".6" /><rect x="10.2" y="15" width="3.6" height="3.6" rx=".6" /></svg>
+              Tira en casa
+            </button>
+            <button type="button" data-v="laboratorio" aria-pressed="false">
+              <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6" /><path d="M10 3v6.2L5 18.4A1.8 1.8 0 0 0 6.6 21h10.8a1.8 1.8 0 0 0 1.6-2.6L14 9.2V3" /><path d="M7.3 15h9.4" /></svg>
+              Laboratorio
+            </button>
+          </div>
+          <div class="add-body" id="lab-add-strip">
+            <div class="picker" id="lab-pick-a"></div>
+            <div class="picker" id="lab-pick-c"></div>
+          </div>
+          <div class="add-body" id="lab-add-lab" hidden>
+            <div class="row">
+              <label for="lab-uacr"><b><abbr title="Cociente albúmina/creatinina">CAC</abbr></b> mg/g</label>
+              <input type="number" id="lab-uacr" min="1" max="3000" step="1" value="45" inputmode="numeric" />
+            </div>
+            <div class="row">
+              <label for="lab-type"><b>Tipo</b> de orina</label>
+              <select id="lab-type">
+                <option value="first_morning">Primera de la mañana</option>
+                <option value="random">Aleatoria</option>
+              </select>
+            </div>
+          </div>
+          <div class="add-go">
+            <label class="date" for="lab-date">
+              <span>Fecha</span>
+              <input type="date" id="lab-date" title="Fecha de la muestra" />
+            </label>
+            <button type="button" class="btn" id="lab-add">
+              <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+              Añadir muestra
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <div class="lab-out" id="lab-out" aria-live="polite">
+        <!-- 2 · Lo que cree: la estimación y la distribución -->
+        <section class="panel p-est rv" style="--d: 90ms" aria-labelledby="lab-est-h">
+          <div class="est-head">
+            <h2 class="ph" id="lab-est-h">
+              <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 19.5h17" /><path d="M5 16c2.2 0 3-9.5 6-9.5s3.6 6 5.4 6c1.2 0 1.8-1.4 2.6-2.5" /></svg>
+              Albuminuria
+            </h2>
+            <span id="lab-state"></span>
+          </div>
+          <dl class="est">
+            <div>
+              <dt>Valor verdadero estimado</dt>
+              <dd class="big" id="lab-median">—</dd>
+            </div>
+            <div>
+              <dt>Intervalo del 80&nbsp;%</dt>
+              <dd id="lab-interval">—</dd>
+            </div>
+          </dl>
+          <ul class="bars" id="lab-bars" aria-label="Probabilidad de cada categoría"></ul>
+          <div class="chart-box">
+            <svg
+              class="chart"
+              id="lab-chart"
+              viewBox="0 0 640 250"
+              role="img"
+              aria-label="Distribución de probabilidad del cociente albúmina/creatinina verdadero, en escala logarítmica"
+            ></svg>
+          </div>
+          <ul class="legend" aria-label="Leyenda de la gráfica">
+            <li><i class="sw sw-now"></i>Lo que cree ahora</li>
+            <li><i class="sw sw-int"></i>Su intervalo del 80&nbsp;%</li>
+            <li><i class="sw sw-prior"></i>Lo que creía antes de medir</li>
+            <li><i class="sw sw-med"></i>Mediana</li>
+            <li><svg viewBox="-8 -8 16 16" aria-hidden="true"><rect x="-5" y="-5" width="10" height="10" class="m-tira" /></svg>Tira</li>
+            <li><svg viewBox="-8 -8 16 16" aria-hidden="true"><circle r="5.5" class="m-fm" /></svg>Laboratorio, primera orina</li>
+            <li><svg viewBox="-8 -8 16 16" aria-hidden="true"><path d="M0-7 7 0 0 7-7 0z" class="m-rnd" /></svg>Laboratorio, aleatoria</li>
+          </ul>
+        </section>
+
+        <!-- 3 · Qué hacer: el mensaje, el siguiente paso y la proyección -->
+        <section class="panel p-next rv" style="--d: 180ms" aria-labelledby="lab-next-h">
+          <h2 class="ph" id="lab-next-h">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M8 12h8" /><path d="m12.8 8.5 3.5 3.5-3.5 3.5" /></svg>
+            Qué dice el modelo
+          </h2>
+          <p class="say" id="lab-action"></p>
+          <div class="next" id="lab-next" hidden></div>
+          <h3 class="sub">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></svg>
+            Si no se vuelve a medir
+          </h3>
+          <div class="fan-box">
+            <svg
+              class="fan"
+              id="lab-fan"
+              role="img"
+              aria-label="Proyección si no se vuelve a medir: mediana e intervalo del 80 % hoy y a 3, 6 y 12 meses, frente al umbral de 30 mg/g"
+            ></svg>
+          </div>
+          <table class="proj" id="lab-proj"></table>
+          <p class="src">Valores en mg/g. Proyección bajo supuesto de deriva, sin validar con datos longitudinales.</p>
+        </section>
+      </div>
+    </main>
+
+    <!-- Barra de estado: la conexión con el modelo y el aviso -->
+    <footer class="status">
+      <div class="wire" id="lab-wire"><i></i><span>Esperando al modelo…</span></div>
+      <p class="notice" role="note">
+        <b>Datos sintéticos</b> · Prototipo de apoyo a la decisión, no diagnostica · Modelos entrenados con NHANES (EE.&nbsp;UU.)
+      </p>
+    </footer>
+
+    <script type="module">
+      import { initLab } from './js/model.js'
+      document.querySelectorAll('.rv').forEach((el) => el.classList.add('in'))
+      initLab()
+    </script>
+  </body>
+</html>

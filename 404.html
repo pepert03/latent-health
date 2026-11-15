@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LatentHealth · 404</title>
+    <script>
+      ;(function () {
+        var p = location.pathname, m = p.match(/^(.*?\/)(es|en)\//)
+        // Home of the site: up to the language folder, otherwise the first folder (project pages).
+        var base = m ? m[1] : (p.match(/^\/[^/]+\//) || ['/'])[0]
+        location.replace(base + (m ? m[2] + '/' : '') + location.search + location.hash)
+      })()
+    </script>
+  </head>
+  <body style="font: 16px/1.5 system-ui, sans-serif; text-align: center; padding: 3rem 1rem">
+    <p>Página no encontrada · Page not found</p>
+  </body>
+</html>

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LatentHealth</title>
+    <link rel="icon" type="image/svg+xml" href="en/favicon.svg" />
+    <link rel="alternate" hreflang="es" href="es/" />
+    <link rel="alternate" hreflang="en" href="en/" />
+    <link rel="alternate" hreflang="x-default" href="./" />
+    <script>
+      // Language: ?lang=es|en (and it is remembered), the saved choice, the browser's languages.
+      ;(function () {
+        var q = new URLSearchParams(location.search), lang = q.get('lang'), saved = null
+        try { saved = localStorage.getItem('lh_lang') } catch (e) {}
+        if (lang === 'es' || lang === 'en') {
+          try { localStorage.setItem('lh_lang', lang) } catch (e) {}
+        } else if (saved === 'es' || saved === 'en') {
+          lang = saved
+        } else {
+          var langs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || '']
+          lang = String(langs[0] || '').toLowerCase().indexOf('es') === 0 ? 'es' : 'en'
+        }
+        q.delete('lang')
+        var s = q.toString()
+        location.replace(lang + '/' + (s ? '?' + s : '') + location.hash)
+      })()
+    </script>
+    <style>
+      body { font: 16px/1.5 system-ui, sans-serif; margin: 0; display: grid; place-items: center; min-height: 100vh; background: #f7f5f0; color: #1d1d1b; }
+      a { color: inherit; margin: 0 .5em; }
+    </style>
+  </head>
+  <body>
+    <p>LatentHealth · <a href="es/" hreflang="es" lang="es" onclick="try{localStorage.setItem('lh_lang','es')}catch(e){}">Español</a>
+      <a href="en/" hreflang="en" onclick="try{localStorage.setItem('lh_lang','en')}catch(e){}">English</a></p>
+  </body>
+</html>

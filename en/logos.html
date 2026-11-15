@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <script>
+      (function () {
+        var q = new URLSearchParams(location.search), l = q.get('lang')
+        if (l !== 'es' && l !== 'en') return
+        try { localStorage.setItem('lh_lang', l) } catch (e) {}
+        if (l === 'en') return
+        q.delete('lang')
+        var s = q.toString(), page = location.pathname.split('/').pop()
+        location.replace('../' + l + '/' + page + (s ? '?' + s : '') + location.hash)
+      })()
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Seven logo proposals for LatentHealth: app icon, logotype on white and on ink, and a one-color version." />
+    <title>LatentHealth logos</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <style>
+      /* Logo proposals · official "The strip" palette: bottle white, albumin scale, salmon and ink. */
+      @font-face {
+        font-family: "Archivo";
+        font-style: normal;
+        font-display: swap;
+        font-weight: 100 900;
+        font-stretch: 62% 125%;
+        src: url("fonts/archivo-latin-wdth-normal.woff2") format("woff2-variations");
+        unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+          U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+      }
+      @font-face {
+        font-family: "Archivo";
+        font-style: normal;
+        font-display: swap;
+        font-weight: 100 900;
+        font-stretch: 62% 125%;
+        src: url("fonts/archivo-latin-ext-wdth-normal.woff2") format("woff2-variations");
+        unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+          U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+      }
+      @font-face {
+        font-family: "Chivo Mono";
+        font-style: normal;
+        font-display: swap;
+        font-weight: 100 900;
+        src: url("fonts/chivo-mono-latin-wght-normal.woff2") format("woff2-variations");
+        unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+          U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+      }
+      :root {
+        --paper: #ffffff;
+        --ink: #0d2226;
+        --ink-soft: rgb(13 34 38 / 0.68);
+        --line: rgb(13 34 38 / 0.14);
+        --yellow: #f6ec9b;
+        --lime: #c8de6e;
+        --green: #5fbe8c;
+        --teal: #0b7774;
+        --salmon: #f29a78;
+        --sans: "Archivo", "Segoe UI", Arial, sans-serif;
+        --mono: "Chivo Mono", "Cascadia Mono", Consolas, monospace;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      html {
+        background: var(--paper);
+      }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font: 400 16px/1.5 var(--sans);
+        -webkit-font-smoothing: antialiased;
+      }
+      h1,
+      h2,
+      p,
+      figure {
+        margin: 0;
+      }
+      img {
+        display: block;
+        max-width: 100%;
+        height: auto;
+      }
+      a {
+        color: inherit;
+      }
+      :focus-visible {
+        outline: 3px solid var(--teal);
+        outline-offset: 3px;
+      }
+      .wrap {
+        max-width: 1600px;
+        margin-inline: auto;
+        padding: 40px clamp(16px, 3vw, 40px) 56px;
+      }
+
+      /* Header */
+      .head {
+        display: grid;
+        gap: 12px;
+        padding-bottom: 28px;
+        border-bottom: 1.5px solid var(--ink);
+      }
+      .tag {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font: 500 13px/1 var(--mono);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .tag::before {
+        content: "";
+        width: 11px;
+        height: 11px;
+        background: var(--lime);
+        box-shadow: inset 0 0 0 1px rgb(13 34 38 / 0.18);
+      }
+      h1 {
+        font: 700 clamp(30px, 3.4vw, 46px) / 1.04 var(--sans);
+        font-stretch: 125%;
+        letter-spacing: -0.02em;
+      }
+      .lede {
+        max-width: 62em;
+        color: var(--ink-soft);
+        text-wrap: pretty;
+      }
+
+      /* One row per proposal */
+      .prop {
+        display: grid;
+        grid-template-columns: 250px 184px 112px repeat(3, minmax(0, 1fr));
+        gap: 18px;
+        align-items: stretch;
+        padding: 22px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .txt {
+        display: grid;
+        align-content: start;
+        gap: 6px;
+      }
+      .num {
+        font: 500 13px/1 var(--mono);
+        letter-spacing: 0.06em;
+        color: var(--teal);
+      }
+      h2 {
+        font: 700 26px/1.1 var(--sans);
+        font-stretch: 125%;
+        letter-spacing: -0.015em;
+      }
+      .frase {
+        font-size: 15px;
+        line-height: 1.45;
+        color: var(--ink-soft);
+        text-wrap: pretty;
+      }
+      .cell {
+        display: grid;
+        grid-template-rows: 1fr auto;
+        gap: 8px;
+        min-width: 0;
+      }
+      figcaption {
+        font: 500 11px/1 var(--mono);
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
+      }
+      .icono a {
+        display: block;
+        width: 184px;
+        height: 184px;
+      }
+      /* an edge that follows the icon shape: without it, a white icon vanishes on the page */
+      .icono img {
+        filter: drop-shadow(0 0 0.75px rgb(13 34 38 / 0.5));
+      }
+      .inicio {
+        grid-template-rows: 1fr 1fr auto;
+      }
+      .pantalla {
+        display: grid;
+        justify-items: center;
+        align-content: center;
+        gap: 5px;
+        border-radius: 10px;
+        font: 500 11px/1 var(--sans);
+      }
+      .pantalla img {
+        width: 32px;
+        height: 32px;
+      }
+      .clara {
+        background: #e6ebe9;
+        color: var(--ink);
+      }
+      .oscura {
+        background: #24292b;
+        color: #fff;
+      }
+      .logo > a {
+        display: grid;
+        place-items: center;
+        padding: 18px;
+        border-radius: 4px;
+      }
+      .blanco > a,
+      .uno > a {
+        box-shadow: inset 0 0 0 1px var(--line);
+      }
+      .tinta > a {
+        background: var(--ink);
+      }
+
+      /* Medium screens: text on top, images below */
+      @media (max-width: 1399px) {
+        .prop {
+          grid-template-columns: 184px 112px repeat(3, minmax(0, 1fr));
+        }
+        .txt {
+          grid-column: 1 / -1;
+        }
+        .frase {
+          max-width: 60em;
+        }
+      }
+      @media (max-width: 980px) {
+        .prop {
+          grid-template-columns: 184px 1fr;
+        }
+        .logo {
+          grid-column: 1 / -1;
+        }
+        .logo > a {
+          min-height: 120px;
+        }
+        .inicio {
+          max-width: 140px;
+        }
+      }
+      @media (max-width: 520px) {
+        .prop {
+          grid-template-columns: 1fr 112px;
+        }
+        .icono a {
+          width: 100%;
+          height: auto;
+          max-width: 184px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <header class="head">
+        <p class="tag">LatentHealth · Brand</p>
+        <h1>Seven ideas for the logo</h1>
+        <p class="lede">
+          Each proposal is a different concept. For each one: the app icon, the same icon at 32 px as on a phone's
+          home screen, the logotype on white and on ink, and the one-color version. The strip palette and wide
+          Archivo, with the word converted to outlines. Click any image to open its SVG.
+        </p>
+      </header>
+      <section class="prop" id="p01" aria-labelledby="t01">
+        <div class="txt">
+          <p class="num">01</p>
+          <h2 id="t01">Chart</h2>
+          <p class="frase">Builds on the current logo: the four squares of the albumin chart, from yellow to teal, because reading the strip at home means matching its color against this scale.</p>
+        </div>
+        <figure class="cell icono">
+          <a href="img/logos/01-carta-icono.svg"><img src="img/logos/01-carta-icono.svg" width="184" height="184" alt="App icon for the Chart proposal" /></a>
+          <figcaption>App icon</figcaption>
+        </figure>
+        <figure class="cell inicio">
+          <div class="pantalla clara"><img src="img/logos/01-carta-icono.svg" width="32" height="32" alt="" /><span>LatentHealth</span></div>
+          <div class="pantalla oscura"><img src="img/logos/01-carta-icono.svg" width="32" height="32" alt="" /><span>LatentHealth</span></div>
+          <figcaption>At 32 px</figcaption>
+        </figure>
+        <figure class="cell logo blanco">
+          <a href="img/logos/01-carta-logotipo.svg"><img src="img/logos/01-carta-logotipo.svg" width="263" height="21" alt="Chart logotype on white" /></a>
+          <figcaption>On white</figcaption>
+        </figure>
+        <figure class="cell logo tinta">
+          <a href="img/logos/01-carta-logotipo-negativo.svg"><img src="img/logos/01-carta-logotipo-negativo.svg" width="263" height="21" alt="Chart logotype on ink" /></a>
+          <figcaption>On ink</figcaption>
+        </figure>
+        <figure class="cell logo uno">
+          <a href="img/logos/01-carta-mono.svg"><img src="img/logos/01-carta-mono.svg" width="263" height="21" alt="Chart logotype in one color" /></a>
+          <figcaption>One color</figcaption>
+        </figure>
+      </section>
+      <section class="prop" id="p02" aria-labelledby="t02">
+        <div class="txt">
+          <p class="num">02</p>
+          <h2 id="t02">Iceberg</h2>
+          <p class="frase">What causes symptoms is only the tip; the strip measures what lies below the waterline, and the deeper it goes, the further along the color scale.</p>
+        </div>
+        <figure class="cell icono">
+          <a href="img/logos/02-iceberg-icono.svg"><img src="img/logos/02-iceberg-icono.svg" width="184" height="184" alt="App icon for the Iceberg proposal" /></a>
+          <figcaption>App icon</figcaption>
+        </figure>
+        <figure class="cell inicio">
+          <div class="pantalla clara"><img src="img/logos/02-iceberg-icono.svg" width="32" height="32" alt="" /><span>LatentHealth</span></div>
+          <div class="pantalla oscura"><img src="img/logos/02-iceberg-icono.svg" width="32" height="32" alt="" /><span>LatentHealth</span></div>
+          <figcaption>At 32 px</figcaption>
+        </figure>
+        <figure class="cell logo blanco">
+          <a href="img/logos/02-iceberg-logotipo.svg"><img src="img/logos/02-iceberg-logotipo.svg" width="262" height="30" alt="Iceberg logotype on white" /></a>
+          <figcaption>On white</figcaption>
+        </figure>
+        <figure class="cell logo tinta">
+          <a href="img/logos/02-iceberg-logotipo-negativo.svg"><img src="img/logos/02-iceberg-logotipo-negativo.svg" width="262" height="30" alt="Iceberg logotype on ink" /></a>
+          <figcaption>On ink</figcaption>
+        </figure>
+        <figure class="cell logo uno">
+          <a href="img/logos/02-iceberg-mono.svg"><img src="img/logos/02-iceberg-mono.svg" width="262" height="30" alt="Iceberg logotype in one color" /></a>
+          <figcaption>One color</figcaption>
+        </figure>
+      </section>
+      <section class="prop" id="p03" aria-labelledby="t03">
+        <div class="txt">
+          <p class="num">03</p>
+          <h2 id="t03">Drop</h2>
+          <p class="frase">Where the drop touches the pad, color appears: one drop of urine at home reveals what was latent.</p>
+        </div>
+        <figure class="cell icono">
+          <a href="img/logos/03-gota-icono.svg"><img src="img/logos/03-gota-icono.svg" width="184" height="184" alt="App icon for the Drop proposal" /></a>
+          <figcaption>App icon</figcaption>
+        </figure>
+        <figure class="cell inicio">
+          <div class="pantalla clara"><img src="img/logos/03-gota-icono.svg" width="32" height="32" alt="" /><span>LatentHealth</span></div>
+          <div class="pantalla oscura"><img src="img/logos/03-gota-icono.svg" width="32" height="32" alt="" /><span>LatentHealth</span></div>
+          <figcaption>At 32 px</figcaption>
+        </figure>
+        <figure class="cell logo blanco">
+          <a href="img/logos/03-gota-logotipo.svg"><img src="img/logos/03-gota-logotipo.svg" width="240" height="33" alt="Drop logotype on white" /></a>
+          <figcaption>On white</figcaption>
+        </figure>
+        <figure class="cell logo tinta">
+          <a href="img/logos/03-gota-logotipo-negativo.svg"><img src="img/logos/03-gota-logotipo-negativo.svg" width="240" height="33" alt="Drop logotype on ink" /></a>
+          <figcaption>On ink</figcaption>
+        </figure>
+        <figure class="cell logo uno">
+          <a href="img/logos/03-gota-mono.svg"><img src="img/logos/03-gota-mono.svg" width="240" height="33" alt="Drop logotype in one color" /></a>
+          <figcaption>One color</figcaption>
+        </figure>
+      </section>
+      <section class="prop" id="p04" aria-labelledby="t04">
+        <div class="txt">
+          <p class="num">04</p>
+          <h2 id="t04">Home</h2>
+          <p class="frase">The pad under a roof, because the test is done at home with no appointment; in negative it is the brand button, ink with its lime square.</p>
+        </div>
+        <figure class="cell icono">
+          <a href="img/logos/04-casa-icono.svg"><img src="img/logos/04-casa-icono.svg" width="184" height="184" alt="App icon for the Home proposal" /></a>
+          <figcaption>App icon</figcaption>
+        </figure>
+        <figure class="cell inicio">
+          <div class="pantalla clara"><img src="img/logos/04-casa-icono.svg" width="32" height="32" alt="" /><span>LatentHealth</span></div>
+          <div class="pantalla oscura"><img src="img/logos/04-casa-icono.svg" width="32" height="32" alt="" /><span>LatentHealth</span></div>
+          <figcaption>At 32 px</figcaption>
+        </figure>
+        <figure class="cell logo blanco">
+          <a href="img/logos/04-casa-logotipo.svg"><img src="img/logos/04-casa-logotipo.svg" width="246" height="30" alt="Home logotype on white" /></a>
+          <figcaption>On white</figcaption>
+        </figure>
+        <figure class="cell logo tinta">
+          <a href="img/logos/04-casa-logotipo-negativo.svg"><img src="img/logos/04-casa-logotipo-negativo.svg" width="246" height="30" alt="Home logotype on ink" /></a>
+          <figcaption>On ink</figcaption>
+        </figure>
+        <figure class="cell logo uno">
+          <a href="img/logos/04-casa-mono.svg"><img src="img/logos/04-casa-mono.svg" width="246" height="30" alt="Home logotype in one color" /></a>
+          <figcaption>One color</figcaption>
+        </figure>
+      </section>
+      <section class="prop" id="p05" aria-labelledby="t05">
+        <div class="txt">
+          <p class="num">05</p>
+          <h2 id="t05">Rhythm</h2>
+          <p class="frase">Measuring several times: each measurement sits inside the previous one and the uncertainty narrows to the result, in Albers-style nested squares using the strip scale.</p>
+        </div>
+        <figure class="cell icono">
+          <a href="img/logos/05-ritmo-icono.svg"><img src="img/logos/05-ritmo-icono.svg" width="184" height="184" alt="App icon for the Rhythm proposal" /></a>
+          <figcaption>App icon</figcaption>
+        </figure>
+        <figure class="cell inicio">
+          <div class="pantalla clara"><img src="img/logos/05-ritmo-icono.svg" width="32" height="32" alt="" /><span>LatentHealth</span></div>
+          <div class="pantalla oscura"><img src="img/logos/05-ritmo-icono.svg" width="32" height="32" alt="" /><span>LatentHealth</span></div>
+          <figcaption>At 32 px</figcaption>
+        </figure>
+        <figure class="cell logo blanco">
+          <a href="img/logos/05-ritmo-logotipo.svg"><img src="img/logos/05-ritmo-logotipo.svg" width="243" height="28" alt="Rhythm logotype on white" /></a>
+          <figcaption>On white</figcaption>
+        </figure>
+        <figure class="cell logo tinta">
+          <a href="img/logos/05-ritmo-logotipo-negativo.svg"><img src="img/logos/05-ritmo-logotipo-negativo.svg" width="243" height="28" alt="Rhythm logotype on ink" /></a>
+          <figcaption>On ink</figcaption>
+        </figure>
+        <figure class="cell logo uno">
+          <a href="img/logos/05-ritmo-mono.svg"><img src="img/logos/05-ritmo-mono.svg" width="243" height="28" alt="Rhythm logotype in one color" /></a>
+          <figcaption>One color</figcaption>
+        </figure>
+      </section>
+      <section class="prop" id="p06" aria-labelledby="t06">
+        <div class="txt">
+          <p class="num">06</p>
+          <h2 id="t06">Strips</h2>
+          <p class="frase">The L and the H are made of strips and carry the test's two pads: albumin at the foot of the L and creatinine on the crossbar of the H.</p>
+        </div>
+        <figure class="cell icono">
+          <a href="img/logos/06-tiras-icono.svg"><img src="img/logos/06-tiras-icono.svg" width="184" height="184" alt="App icon for the Strips proposal" /></a>
+          <figcaption>App icon</figcaption>
+        </figure>
+        <figure class="cell inicio">
+          <div class="pantalla clara"><img src="img/logos/06-tiras-icono.svg" width="32" height="32" alt="" /><span>LatentHealth</span></div>
+          <div class="pantalla oscura"><img src="img/logos/06-tiras-icono.svg" width="32" height="32" alt="" /><span>LatentHealth</span></div>
+          <figcaption>At 32 px</figcaption>
+        </figure>
+        <figure class="cell logo blanco">
+          <a href="img/logos/06-tiras-logotipo.svg"><img src="img/logos/06-tiras-logotipo.svg" width="252" height="25" alt="Strips logotype on white" /></a>
+          <figcaption>On white</figcaption>
+        </figure>
+        <figure class="cell logo tinta">
+          <a href="img/logos/06-tiras-logotipo-negativo.svg"><img src="img/logos/06-tiras-logotipo-negativo.svg" width="252" height="25" alt="Strips logotype on ink" /></a>
+          <figcaption>On ink</figcaption>
+        </figure>
+        <figure class="cell logo uno">
+          <a href="img/logos/06-tiras-mono.svg"><img src="img/logos/06-tiras-mono.svg" width="252" height="25" alt="Strips logotype in one color" /></a>
+          <figcaption>One color</figcaption>
+        </figure>
+      </section>
+      <section class="prop" id="p07" aria-labelledby="t07">
+        <div class="txt">
+          <p class="num">07</p>
+          <h2 id="t07">Weight</h2>
+          <p class="frase">The word goes from a thin stroke to a black one without changing typeface (Archivo, weight 300 to 900): the latent becomes visible.</p>
+        </div>
+        <figure class="cell icono">
+          <a href="img/logos/07-peso-icono.svg"><img src="img/logos/07-peso-icono.svg" width="184" height="184" alt="App icon for the Weight proposal" /></a>
+          <figcaption>App icon</figcaption>
+        </figure>
+        <figure class="cell inicio">
+          <div class="pantalla clara"><img src="img/logos/07-peso-icono.svg" width="32" height="32" alt="" /><span>LatentHealth</span></div>
+          <div class="pantalla oscura"><img src="img/logos/07-peso-icono.svg" width="32" height="32" alt="" /><span>LatentHealth</span></div>
+          <figcaption>At 32 px</figcaption>
+        </figure>
+        <figure class="cell logo blanco">
+          <a href="img/logos/07-peso-logotipo.svg"><img src="img/logos/07-peso-logotipo.svg" width="239" height="29" alt="Weight logotype on white" /></a>
+          <figcaption>On white</figcaption>
+        </figure>
+        <figure class="cell logo tinta">
+          <a href="img/logos/07-peso-logotipo-negativo.svg"><img src="img/logos/07-peso-logotipo-negativo.svg" width="239" height="29" alt="Weight logotype on ink" /></a>
+          <figcaption>On ink</figcaption>
+        </figure>
+        <figure class="cell logo uno">
+          <a href="img/logos/07-peso-mono.svg"><img src="img/logos/07-peso-mono.svg" width="239" height="29" alt="Weight logotype in one color" /></a>
+          <figcaption>One color</figcaption>
+        </figure>
+      </section>
+    </main>
+  </body>
+</html>
