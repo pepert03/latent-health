@@ -4,7 +4,7 @@ Dos modos, y la respuesta dice siempre cuál se ha usado:
 
 - ``ia``: un modelo de lenguaje (Claude) redacta la respuesta a partir de lo que ha calculado el
   modelo clínico para ese paciente. Necesita credenciales de Anthropic en el entorno
-  (``ANTHROPIC_API_KEY`` o un perfil de ``ant auth login``).
+  (la variable ``ANTHROPIC_API_KEY``).
 - ``guiado``: sin credenciales, o si la llamada falla, contesta con frases fijas rellenadas con
   los mismos datos. La demo nunca depende de la red.
 
