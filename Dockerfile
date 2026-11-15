@@ -11,6 +11,7 @@ RUN pip install --no-cache-dir uv \
     && useradd -m -u 1000 user
 
 WORKDIR /app
+RUN chown user:user /app
 COPY --chown=user . /app
 USER user
 
