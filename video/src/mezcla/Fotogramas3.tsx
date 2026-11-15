@@ -1,9 +1,9 @@
-/** Fotogramas 6 a 8 del guion: la médica, los resultados y el cierre. */
+/** Fotogramas 6 a 8 del guion: el médico, los resultados y el cierre. */
 import React from "react";
 import { Persona } from "./Personajes";
 import { Cabecera, F, Fuente, Lienzo, P, Svg, linea } from "./sistema";
 
-// --- 6 · La médica ---
+// --- 6 · El médico ---
 
 const Grupo: React.FC<{ color: string; titulo: string; children: React.ReactNode }> = ({ color, titulo, children }) => (
   <div style={{ marginTop: 22 }}>
@@ -49,12 +49,12 @@ const FilaMedir: React.FC<{ nombre: string; prueba: string; p: number }> = ({ no
 
 export const M6Medica: React.FC = () => (
   <Lienzo>
-    <Cabecera x={120} y={80} ancho={1700} etiqueta="6 · La médica" titulo="No recibe cien alertas. Recibe una lista." tam={80} />
+    <Cabecera x={120} y={80} ancho={1700} etiqueta="6 · El médico" titulo="No recibe cien alertas. Recibe una lista." tam={80} />
     <Svg>
       <ellipse cx={360} cy={934} rx={160} ry={13} fill={P.tinta} opacity={0.07} />
       <g filter="url(#trazo)">
         <path d="M 130 930 L 330 930 M 362 930 L 640 930" {...linea()} />
-        <Persona x={360} y={930} s={1.28} bata mono ropa={P.tarjeta} brazo="M 68 -262 L 68 -112" />
+        <Persona x={360} y={930} s={1.28} bata gafas ropa={P.tarjeta} brazo="M 68 -262 L 68 -112" />
       </g>
     </Svg>
     <div

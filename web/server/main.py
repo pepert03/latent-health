@@ -89,12 +89,17 @@ class SPAStaticFiles(StaticFiles):
 
     async def get_response(self, path: str, scope):
         try:
-            return await super().get_response(path, scope)
+            response = await super().get_response(path, scope)
         except StarletteHTTPException as exc:
             parts = path.replace("\\", "/").split("/")  # en Windows la ruta llega con "\"
             if exc.status_code == 404 and parts[0] != "api" and "." not in parts[-1]:
-                return await super().get_response("index.html", scope)
-            raise
+                response = await super().get_response("index.html", scope)
+            else:
+                raise
+        # El sitio cambia a menudo durante la demo: que el navegador pregunte siempre si hay versión nueva
+        # (con ETag la respuesta es un 304 y no se vuelve a descargar).
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
 
 # Siempre lo último: el sitio compilado ocupa todo lo que no sea /api.

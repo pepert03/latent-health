@@ -1,7 +1,7 @@
 """Demostración del circuito completo con pacientes inventados (no son pacientes reales).
 
 1. El paciente en casa: qué le dice el sistema cada día, por tres canales distintos.
-2. La médica: la lista del cupo ordenada por lo que cambiaría, y la ficha de un paciente.
+2. El médico: la lista del cupo ordenada por lo que cambiaría, y la ficha de un paciente.
 3. El kit de cada paciente (solo lo que le falta) y el pulso con el reloj o con la cámara.
 4. El corazón en 30 segundos: dos grabaciones reales (si están descargadas) valoradas con cada
    nivel de aparato.
@@ -218,7 +218,7 @@ CUPO = {
 
 
 def carmen() -> None:
-    title("2. LA MÉDICA: LISTA DEL CUPO")
+    title("2. EL MÉDICO: LISTA DEL CUPO")
     rows = rank_cupo(CUPO, as_of=D0)
     print(describe_worklist(rows))
     for name in ("Rosa (68), FG que baja año tras año", "Antonio (81), sin analítica en años"):

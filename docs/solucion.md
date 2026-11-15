@@ -4,7 +4,7 @@ Reto 1 del hackathon de Boehringer: que el médico de atención primaria detecte
 pacientes con riesgo cardiovascular (diabetes, hipertensión, enfermedad renal crónica,
 insuficiencia cardíaca) sin añadirle trabajo.
 
-La apuesta: **el paciente se mide en casa, fácil y las veces que haga falta; la médica recibe una
+La apuesta: **el paciente se mide en casa, fácil y las veces que haga falta; el médico recibe una
 lista ya ordenada.** Entre los dos hay un modelo que sabe cuánto fiarse de cada medida.
 
 ## 1. El problema, con datos
@@ -39,7 +39,7 @@ El contexto español empuja en la misma dirección:
 
 Por eso el producto no es "un modelo de riesgo más". Es un sistema que **cierra el circuito de la
 albuminuria desde casa**, **estima con su incertidumbre lo que falta para el diagnóstico** y le
-dice a la médica a quién mirar y qué pedirle.
+dice al médico a quién mirar y qué pedirle.
 
 ### Qué parte de la enfermedad cardiovascular cubre
 
@@ -71,7 +71,7 @@ enfermedades del corazón:
    al orinar). Si alguna es que sí, la prueba se aplaza.
 4. **Hace la tira y el sistema le contesta**: "ya está", "repite mañana" o "manda el tubo". Solo
    repite quien tiene un resultado dudoso.
-5. **La médica abre la lista.** Arriba, los hallazgos claros que no constan en la historia. Debajo,
+5. **El médico abre la lista.** Arriba, los hallazgos claros que no constan en la historia. Debajo,
    los pacientes ordenados por la probabilidad de hallazgo nuevo, con la prueba que más aporta.
 
 `scripts/demo_casa.py` lo enseña con pacientes inventados. Un recorrido:
@@ -90,7 +90,7 @@ Marta, 47 años, diabética  ·  canal: aplicación
   22/02  [FIN]      Hemos encontrado albúmina en la orina de forma repetida. Tu centro te llamará.
 ```
 
-Y la lista de la médica:
+Y la lista del médico:
 
 ```
 ACTUAR: hallazgos claros que no constan en la historia
@@ -566,7 +566,7 @@ Lo que dicen los datos, sin adornos:
   riesgo predice un 26,5 % y se observa un 25,9 %. El 20 % de más riesgo recoge el 70 % de las
   muertes; con SCORE2, el 62 %.
 
-**A igual edad y sexo.** Casi todo el AUC de 0,8 es la edad, que la médica ya conoce. Entre dos
+**A igual edad y sexo.** Casi todo el AUC de 0,8 es la edad, que el médico ya conoce. Entre dos
 personas de la misma edad y sexo, SCORE2 acierta a cuál dar más riesgo el 58,7 % de las veces
 (el azar es el 50 %); la historia clínica, el 64,7 %; y el modelo de casa, el 66,9 %. Lo que se
 sabe por encima del azar casi se duplica, y en diabéticos e hipertensos pasa de 56,1 % a 66,7 %.
@@ -894,7 +894,7 @@ Otros límites:
    el propio paciente (con un reloj o un electrocardiógrafo de bolsillo), para sustituir los
    errores simulados por medidos.
 8. **Integración en la historia clínica (FHIR)** e interfaz: aplicación del paciente, con la
-   conexión a relojes y la medida del pulso con la cámara, y lista de la médica con petición de
+   conexión a relojes y la medida del pulso con la cámara, y lista del médico con petición de
    pruebas en un clic.
 9. **Paso al tratamiento.** El cuarto fallo de la cadena, la inercia terapéutica, sigue sin
    abordar: señalar quién cumple criterios de guía para cada fármaco.

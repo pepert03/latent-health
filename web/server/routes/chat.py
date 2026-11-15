@@ -47,7 +47,7 @@ algo que no está ahí, dilo con naturalidad.
 
 Límites, y por qué existen: esto es un prototipo de apoyo, no un médico. No diagnostiques, no recomiendes ni \
 ajustes medicación y no interpretes síntomas. Si la persona pregunta por tratamiento, describe síntomas o quiere \
-una opinión clínica, dile que eso lo valora su médica y que puede escribirle desde la pestaña «Mi médica» de la \
+una opinión clínica, dile que eso lo valora su médico y que puede escribirle desde la pestaña «Mi médico» de la \
 aplicación. Si describe algo que suena a urgencia (dolor en el pecho, falta de aire intensa, pérdida de fuerza o \
 del habla), dile que llame al 112.
 
@@ -165,9 +165,9 @@ def _guided(body: ChatIn, step: home.StepOut) -> str:
         return any(re.search(rf"\b{w}", q) for w in words)
 
     if has("pecho", "ahogo", "falta de aire", "urgen", "desmay"):
-        return "Si lo que notas puede ser una urgencia, llama al 112. Para cualquier otra duda sobre síntomas, escribe a tu médica desde la pestaña «Mi médica»."
-    if has("medica", "tratamiento", "pastilla", "farmaco", "dolor", "sintoma", "dieta", "tomar"):
-        return "Eso tiene que valorarlo tu médica: yo solo puedo explicarte tus pruebas de casa. Puedes escribirle desde la pestaña «Mi médica»."
+        return "Si lo que notas puede ser una urgencia, llama al 112. Para cualquier otra duda sobre síntomas, escribe a tu médico desde la pestaña «Mi médico»."
+    if has("medic", "tratamiento", "pastilla", "farmaco", "dolor", "sintoma", "dieta", "tomar"):
+        return "Eso tiene que valorarlo tu médico: yo solo puedo explicarte tus pruebas de casa. Puedes escribirle desde la pestaña «Mi médico»."
     if has("cuando", "proxim", "toca", "recordatorio", "siguiente", "fecha"):
         return f"{nxt} {step.patient_message}"
     if has("repet", "otra vez", "por que", "porque"):

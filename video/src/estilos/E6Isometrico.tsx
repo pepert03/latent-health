@@ -1,4 +1,4 @@
-/** Estilo 6, isométrico de línea: el circuito casa, farmacia, centro de salud y la lista de la médica. */
+/** Estilo 6, isométrico de línea: el circuito casa, farmacia, centro de salud y la lista del médico. */
 import React from "react";
 import { AbsoluteFill } from "remotion";
 import { F } from "./comun";
@@ -133,7 +133,7 @@ export const E6Isometrico: React.FC = () => {
           <polygon key={i} points={pts([2.0, y, 0.28], [2.4, y, 0.28], [2.4, y + 0.3, 0.28], [2.0, y + 0.3, 0.28])} fill={i === 1 ? "#0f8f7e" : "#d8d8d8"} stroke={TINTA} strokeWidth={1.5} />
         ))}
 
-        {/* Portátil de la médica */}
+        {/* Portátil del médico */}
         <g {...L}>
           <polygon points={pts([15, 9, 0], [19, 9, 0], [19, 11.5, 0], [15, 11.5, 0])} fill="#ececec" />
           <polygon points={pts([15, 9, 0], [19, 9, 0], [19, 9, 2.6], [15, 9, 2.6])} fill="#ffffff" />
@@ -154,7 +154,7 @@ export const E6Isometrico: React.FC = () => {
       <div style={{ position: "absolute", right: 100, top: 78, background: TINTA, color: "#fff", borderRadius: 999, padding: "12px 26px", fontSize: 22, fontWeight: 600 }}>Ver la demo</div>
       <div style={{ position: "absolute", left: 100, top: 330, width: 740, fontFamily: F.serif, fontSize: 84, lineHeight: 1.02, color: TINTA, letterSpacing: -1 }}>
         El paciente se mide en casa.
-        <span style={{ color: "#9a9a96" }}> La médica recibe la lista ya ordenada.</span>
+        <span style={{ color: "#9a9a96" }}> El médico recibe la lista ya ordenada.</span>
       </div>
       <div style={{ position: "absolute", left: 100, top: 640, width: 600, fontSize: 28, color: "#555", lineHeight: 1.4 }}>
         Tiras de orina, tensión y pulso desde casa. Un modelo que sabe cuánto fiarse de cada medida.

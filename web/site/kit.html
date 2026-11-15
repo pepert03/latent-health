@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Kit 3D · prueba</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <style>
+      @font-face {
+        font-family: 'Chivo Mono';
+        font-weight: 100 900;
+        src: url('fonts/chivo-mono-latin-wght-normal.woff2') format('woff2');
+      }
+      :root {
+        --ink: #0d2226;
+        --teal: #0b7774;
+        --line: #c9d3cf;
+        --plastic: #eef2f1;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: var(--plastic);
+        color: var(--ink);
+        font: 500 14px/1.4 'Chivo Mono', Consolas, monospace;
+      }
+      #stage {
+        position: fixed;
+        inset: 0;
+      }
+      .fixed #stage {
+        inset: auto;
+        left: 0;
+        top: 0;
+      }
+      .transparent,
+      .transparent body {
+        background: transparent;
+      }
+      .controls {
+        position: fixed;
+        left: 50%;
+        bottom: 18px;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 10px 16px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.86);
+        backdrop-filter: blur(6px);
+      }
+      .controls input {
+        width: min(52vw, 520px);
+        accent-color: var(--teal);
+      }
+      .controls output {
+        min-width: 3.6em;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .hide-ui .controls {
+        display: none;
+      }
+      #err {
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        margin: 0;
+        max-width: 90vw;
+        white-space: pre-wrap;
+        color: #8f4a70;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="stage"
+      role="img"
+      aria-label="El kit de LatentHealth en 3D: una caja pequeña de farmacia que se abre; salen tres sobres de aluminio, un vaso plegable, la plantilla de color y dos tubos. La tira sale de su sobre, pasa por el vaso y queda en la plantilla. Después entran el reloj y el tensiómetro."
+    ></div>
+    <label class="controls">
+      <span>p</span>
+      <input id="p" type="range" min="0" max="1" step="0.001" value="0" />
+      <output id="pv" for="p">0,000</output>
+    </label>
+    <pre id="err" aria-live="polite"></pre>
+    <script type="module">
+      // ?p=0,48 fija el avance · ?ui=0 sin control · ?parallax=0 · ?w=1600&h=1400 escenario fijo (capturas)
+      // ?dpr=2 densidad máxima · ?bg=transparent fondo transparente de página
+      // ?foto=tira la «foto» de la cámara (&blanca=1 almohadillas en blanco, &n= muestras)
+      const q = new URLSearchParams(location.search)
+      const root = document.documentElement
+      const stage = document.getElementById('stage')
+      const fail = (err) => (document.getElementById('err').textContent = String(err && err.stack ? err.stack : err))
+      window.addEventListener('error', (e) => (document.getElementById('err').textContent += ` ${e.message}`))
+      if (q.get('ui') === '0') root.classList.add('hide-ui')
+      if (q.get('bg') === 'transparent') root.classList.add('transparent')
+      if (q.has('w') && q.has('h')) {
+        root.classList.add('fixed')
+        stage.style.width = `${Number(q.get('w'))}px`
+        stage.style.height = `${Number(q.get('h'))}px`
+      }
+
+      async function photo() {
+        root.classList.add('hide-ui')
+        stage.setAttribute('aria-label', 'La tira mojada sobre la plantilla de color, encima de una mesa de cocina, vista con la cámara del móvil.')
+        const { renderStripPhoto } = await import('./js/tira-foto.js')
+        window.foto = await renderStripPhoto(stage, {
+          samples: Number(q.get('n')) || 128,
+          blanca: q.get('blanca') === '1',
+          width: Number(q.get('w')) || 900,
+          height: Number(q.get('h')) || 1200,
+        })
+        root.dataset.listo = '1'
+      }
+
+      async function kit() {
+        const { mountKit } = await import('./js/kit3d.js')
+        const fixed = q.has('p')
+        const p0 = fixed ? Math.min(1, Math.max(0, parseFloat(q.get('p').replace(',', '.')) || 0)) : 0
+        const slider = document.getElementById('p')
+        const out = document.getElementById('pv')
+        const show = (v) => (out.value = v.toFixed(3).replace('.', ','))
+        slider.value = p0
+        show(p0)
+        const t0 = performance.now()
+        const k = await mountKit(stage, {
+          progress: p0,
+          parallax: q.get('parallax') !== '0',
+          smoothing: fixed ? 0 : 0.14,
+          maxPixelRatio: Number(q.get('dpr')) || 2,
+        })
+        window.kitMs = Math.round(performance.now() - t0)
+        slider.addEventListener('input', () => {
+          const v = Number(slider.value)
+          k.setProgress(v)
+          show(v)
+        })
+        window.kit = k
+        await k.ready
+        requestAnimationFrame(() => requestAnimationFrame(() => (root.dataset.listo = '1')))
+      }
+
+      ;(q.has('foto') ? photo() : kit()).catch(fail)
+    </script>
+  </body>
+</html>

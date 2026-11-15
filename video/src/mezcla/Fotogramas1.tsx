@@ -67,7 +67,7 @@ export const M0Julian: React.FC = () => (
     <div style={{ position: "absolute", left: 1040, top: 560, width: 760 }}>
       <Fila icono={<IconoPulso />}>Tensión alta desde hace años.</Fila>
       <Fila icono={<IconoPastilla />}>Se toma su pastilla.</Fila>
-      <Fila icono={<IconoCalendario />}>Va a su médica una vez al año.</Fila>
+      <Fila icono={<IconoCalendario />}>Va a su médico una vez al año.</Fila>
     </div>
     <div style={{ position: "absolute", left: 1040, top: 820, width: 800, fontFamily: F.serif, fontStyle: "italic", fontWeight: 300, fontSize: 58, color: P.tinta }}>
       Nadie le ha mirado nunca la <Marca>orina</Marca>.

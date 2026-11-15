@@ -42,7 +42,7 @@ def test_summary_uses_the_model_estimate(client):
 
 def test_treatment_questions_go_to_the_doctor(client):
     reply = ask(client, "¿Qué pastilla tengo que tomar?").json()["reply"]
-    assert "médica" in reply
+    assert "médico" in reply
 
 
 def test_emergencies_point_to_112(client):

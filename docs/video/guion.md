@@ -8,13 +8,13 @@ sabe cuánto fiarse de cada medida lo arregla.
 no hay que explicarles qué es una arteria, sí lo que hemos hecho.
 
 **Protagonista:** Julián, 62 años, hipertenso (personaje inventado, se dice en pantalla). El héroe
-es él y su médica; LatentHealth es el guía.
+es él y su médico; LatentHealth es el guía.
 
 **Duración:** unos 7 minutos y medio (≈1.080 palabras a 145 por minuto). Si el hackathon pide
 menos, hay una versión de 3 minutos al final.
 
 **Arco:** gancho (Julián no sabe nada) → por qué importa → qué se mide → dónde falla hoy → la idea
-→ la app con Julián → la médica → cómo se ha hecho y qué sale → lo que salvaría → vuelta a Julián.
+→ la app con Julián → el médico → cómo se ha hecho y qué sale → lo que salvaría → vuelta a Julián.
 
 **Ritmo:** algo cambia en pantalla cada 3-5 segundos. Cada 60-90 segundos, un "re-gancho": una
 pregunta o una cifra que abre el siguiente bloque.
@@ -29,7 +29,7 @@ Etiquetas: **[VO]** voz en off · **[TXT]** texto en pantalla · **[GRAF]** grá
 | Audio | Visual |
 |---|---|
 | [VO] Este es Julián. Tiene sesenta y dos años y se encuentra bien. | [GRAF] Silueta de Julián dibujándose en línea fina. [TXT] "Julián, 62 · personaje inventado" (pequeño, abajo). |
-| [VO] Tiene la tensión alta desde hace años. Se toma su pastilla. Va a su médica una vez al año. | [GRAF] Tres iconos aparecen: pastilla, calendario, consulta. Todo en verde. |
+| [VO] Tiene la tensión alta desde hace años. Se toma su pastilla. Va a su médico una vez al año. | [GRAF] Tres iconos aparecen: pastilla, calendario, consulta. Todo en verde. |
 | [VO] Lo que nadie le ha mirado nunca es la orina. | [GRAF] El riñón de la silueta se ilumina. Una gota cae. |
 | [VO] Y en su orina hay albúmina: la primera señal de que el riñón, y con él el corazón, empiezan a dañarse. | [GRAF] La gota se vuelve ámbar. Línea de pulso que se va aplanando. |
 | [VO] A noventa y seis de cada cien hipertensos no se les pide nunca esa prueba. | [GRAF] Rejilla de 100 personas; 96 se quedan en gris, 4 se encienden. [TXT] "96 de cada 100" · fuente pequeña: Shin et al., *Hypertension* 2021. |
@@ -67,7 +67,7 @@ Etiquetas: **[VO]** voz en off · **[TXT]** texto en pantalla · **[GRAF]** grá
 | [VO] Tres: lo que sale en la analítica no se convierte en diagnóstico. Más del ochenta por ciento de quienes tienen el riñón dañado no lo tiene apuntado en su historia. | [GRAF] Eslabón 3. Una ficha clínica en blanco. [TXT] "> 80 % · REVEAL-CKD". |
 | [VO] Y cuatro: aunque se diagnostique, solo entre uno y tres de cada diez reciben el tratamiento que protege el riñón y el corazón. | [GRAF] Eslabón 4. [TXT] "10-33 % con iSGLT2". |
 | [VO] Para la diabetes, se criba con un cuestionario. Encuentra la mitad. | [GRAF] FINDRISC: una hoja de preguntas. [TXT] "52 %". |
-| [VO] Y todo esto cae sobre una médica que tiene mil quinientos pacientes y diez minutos para cada uno. | [GRAF] Un reloj de 10 minutos sobre una pila de fichas. |
+| [VO] Y todo esto cae sobre un médico que tiene mil quinientos pacientes y diez minutos para cada uno. | [GRAF] Un reloj de 10 minutos sobre una pila de fichas. |
 
 ## 4. La idea (3:05-3:30)
 
@@ -75,7 +75,7 @@ Etiquetas: **[VO]** voz en off · **[TXT]** texto en pantalla · **[GRAF]** grá
 |---|---|
 | [VO] Así que le dimos la vuelta. | [SFX] corte. Fondo limpio. |
 | [VO] El paciente se mide en casa, fácil, y las veces que haga falta. | [GRAF] Casa → móvil → tira. |
-| [VO] La médica recibe una lista ya ordenada: a quién mirar primero y qué pedirle. | [GRAF] Lista con tres grupos. |
+| [VO] El médico recibe una lista ya ordenada: a quién mirar primero y qué pedirle. | [GRAF] Lista con tres grupos. |
 | [VO] Y en medio, un modelo que sabe cuánto fiarse de cada medida. | [GRAF] Entre los dos, una curva de probabilidad que se estrecha con cada medida. [TXT] "LatentHealth". |
 
 ## 5. La app, con Julián (3:30-5:00)
@@ -94,11 +94,11 @@ Etiquetas: **[VO]** voz en off · **[TXT]** texto en pantalla · **[GRAF]** grá
 | [VO] Y si el sistema sospecha diabetes, una sola glucosa en ayunas, en la farmacia de la esquina. | [APP] Tarjeta "Pásate por la farmacia antes de desayunar". |
 | [VO] Al final, Julián recibe un mensaje: hemos visto albúmina en tu orina de forma repetida. Tu centro te llamará. | [APP] Pantalla final con check. |
 
-## 6. La médica (5:00-5:40)
+## 6. El médico (5:00-5:40)
 
 | Audio | Visual |
 |---|---|
-| [VO] Al otro lado está su médica. No recibe cien alertas. Recibe una lista. | [APP] Pantalla de escritorio: "Mi cupo · 1.500 pacientes". |
+| [VO] Al otro lado está su médico. No recibe cien alertas. Recibe una lista. | [APP] Pantalla de escritorio: "Mi cupo · 1.500 pacientes". |
 | [VO] Arriba, lo que ya está claro y no consta: Julián, albuminuria repetida sin diagnóstico. | [APP] Grupo "Actuar" con Julián resaltado. |
 | [VO] Después, a quién le falta una prueba, ordenados por la probabilidad de encontrar algo nuevo, y cuál pedir primero. | [APP] Grupo "Medir" con barras de probabilidad y botón "pedir". |
 | [VO] Y abajo, los que están bien estudiados. Ocupan una línea. | [APP] "Sin pendientes: 3 de 11". |

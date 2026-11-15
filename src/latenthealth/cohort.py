@@ -1,7 +1,7 @@
 """Pacientes de prueba a partir de NHANES: una fila del panel convertida en historia clínica.
 
 Sirve para validar la evaluación completa y la lista del cupo con personas reales: se le da
-al sistema solo lo que tendría la médica (historia, y si se quiere una orina o parte de la
+al sistema solo lo que tendríal médico (historia, y si se quiere una orina o parte de la
 analítica) y se compara con lo que de verdad midió NHANES.
 """
 

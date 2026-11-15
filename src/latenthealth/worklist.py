@@ -1,6 +1,6 @@
 """Lista de trabajo del cupo: a quién mirar primero y qué prueba pedirle.
 
-Es lo que ve la médica. No ordena por "quién está peor" (eso ya lo sabe), sino por **lo que
+Es lo que ve el médico. No ordena por "quién está peor" (eso ya lo sabe), sino por **lo que
 cambiaría**:
 
 1. **Actuar.** Pacientes con un hallazgo ya claro que no está recogido en la historia

@@ -2,7 +2,7 @@
 
 Detección precoz del riesgo cardio-renal-metabólico en atención primaria (Reto 1 del hackathon de
 Boehringer: *automatizar lo repetitivo*). El paciente se mide en casa, las veces que haga falta, y
-la médica recibe una lista ya ordenada de a quién mirar y qué pedirle.
+el médico recibe una lista ya ordenada de a quién mirar y qué pedirle.
 
 **En casa (el paciente)**
 
@@ -28,7 +28,7 @@ la médica recibe una lista ya ordenada de a quién mirar y qué pedirle.
   detecta la fracción de eyección baja con AUC 0,88 frente al ecocardiograma; con el sonido del
   corazón, 0,91. El pulso solo no basta (0,68).
 
-**En la consulta (la médica)**
+**En la consulta (el médico)**
 
 - **Lista del cupo.** Primero los hallazgos claros que no constan en la historia; después, los
   pacientes ordenados por la probabilidad de que completar las pruebas dé un hallazgo nuevo, con
@@ -93,7 +93,7 @@ uv run python scripts/demo.py
 uv run pytest
 ```
 
-`demo_casa.py` enseña el circuito completo (el paciente en casa y la lista de la médica);
+`demo_casa.py` enseña el circuito completo (el paciente en casa y la lista del médico);
 `demo.py`, la ficha de cinco pacientes. Para rehacer los modelos y los informes desde los datos
 públicos de NHANES, sigue la sección 4 de [docs/solucion.md](docs/solucion.md).
 
@@ -107,7 +107,7 @@ Abre <http://127.0.0.1:8000>. Un solo proceso sirve la web (`web/site`: HTML, CS
 sin compilar) y las rutas `/api` que llaman a los modelos de `src/latenthealth` en tiempo real
 (documentadas en <http://127.0.0.1:8000/api/docs>). La página cuenta el porqué del proyecto, deja
 probar el filtro de albuminuria en vivo y trae la app del paciente dentro de un teléfono:
-recordatorio, tira, registro, asistente y mensaje a la médica. Todo con datos sintéticos.
+recordatorio, tira, registro, asistente y mensaje al médico. Todo con datos sintéticos.
 
 - El asistente de la app usa Claude si existe la variable `ANTHROPIC_API_KEY`; sin ella contesta en
   modo guiado con los mismos datos del modelo, y lo indica.

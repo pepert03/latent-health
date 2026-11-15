@@ -28,6 +28,13 @@ const title = () => document.querySelector('#app-view h3')?.textContent ?? '?'
 async function test(kind, a, b) {
   await click('[data-act="advance"]')
   await click('[data-act="begin"]')
+  // El asistente pregunta una cosa cada vez: a todo, «No».
+  for (let i = 0; i < 6; i++) {
+    const next = await find('[data-act="qa"][data-v="no"]:not([disabled]), [data-act="answers"]')
+    if (next.dataset.act === 'answers') break
+    next.click()
+    await sleep(950)
+  }
   await click('[data-act="answers"]')
   if (kind === 'tira') {
     await click(`#app-pick-a button[data-v="${a}"]`)
@@ -42,7 +49,7 @@ async function test(kind, a, b) {
 }
 
 async function run() {
-  await find('[data-act="advance"]')
+  await find('#app-view h3') // la app ya ha hablado con el modelo
   log.push(`inicio -> ${title()}`)
   await test('tira', 30, 100)
   await test('tira', 30, 50)
@@ -53,8 +60,8 @@ async function run() {
   await click('[data-act="idea"]')
   for (let i = 0; i < 400 && document.querySelector('.msg.wait'); i++) await sleep(100)
   log.push(`chat -> ${document.querySelector('.chat-log .msg:last-child')?.textContent.slice(0, 90)}`)
-  if (finalTab === 'medica') {
-    await click('#app-tabs [data-tab="medica"]')
+  if (finalTab === 'medico') {
+    await click('#app-tabs [data-tab="medico"]')
     await click('[data-act="callme"]')
   } else if (finalTab !== 'chat') {
     await click(`#app-tabs [data-tab="${finalTab}"]`)
