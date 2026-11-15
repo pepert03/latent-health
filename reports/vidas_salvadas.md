@@ -10,8 +10,8 @@ Generado por `scripts/vidas_salvadas.py`. **No es un resultado medido**: es una 
 | Eslabón | Prudente | Central | Optimista | De dónde sale |
 |---|---|---|---|---|
 | Adultos de 40+ con diabetes o hipertensión | 12.000.000 | 12.000.000 | 12.000.000 | **Supuesto** (orden de magnitud con la prevalencia de di@bet.es) |
-| Con albuminuria | 15 % | 20 % | 25 % | **Supuesto** apoyado en ONDAAS (14 % en todos los adultos con analítica) |
-| Sin medir ni diagnosticar | 70 % | 75 % | 80 % | UACR a ~50 % de diabéticos y ~4 % de hipertensos (Shin 2021) |
+| Con albuminuria | 15 % | 20 % | 25 % | Por debajo de lo medido: 22 % en hipertensos y 32 % en diabéticos (Shin 2021); 14 % en todos los adultos (ONDAAS) |
+| Sin medir ni diagnosticar | 70 % | 75 % | 80 % | UACR en dos años al 35 % de los diabéticos y al 4 % de los hipertensos (Shin 2021) |
 | Albuminurias ocultas | 1.260.000 | 1.800.000 | 2.400.000 | |
 | Participan en el cribado en casa | 30 % | 50 % | 60 % | THOMAS: 44 % con aplicación, 59 % con tubo |
 | El circuito la confirma | 85 % | 90 % | 95 % | Filtro de albuminuria (validacion_albuminuria.md) |

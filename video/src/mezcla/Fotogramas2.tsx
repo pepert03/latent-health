@@ -39,7 +39,7 @@ const iconos = [
 ];
 
 const fallos = [
-  { cifra: "4 %", titulo: "No se pide", texto: "de los hipertensos se mira la orina. De los diabéticos, la mitad.", fuente: "Shin et al., Hypertension 2021" },
+  { cifra: "4 %", titulo: "No se pide", texto: "de los hipertensos se mira la orina en dos años. De los diabéticos, el 35 %.", fuente: "Shin et al., Hypertension 2021" },
   { cifra: "1 de 2", titulo: "Una muestra engaña", texto: "positivos no se repite en la muestra siguiente.", fuente: "NHANES 2009-2010" },
   { cifra: "> 80 %", titulo: "No se apunta", texto: "de quienes tienen el riñón dañado según su analítica no lo tienen en su historia.", fuente: "REVEAL-CKD" },
   { cifra: "10-33 %", titulo: "No se trata", texto: "de los candidatos toma el fármaco que protege el riñón y el corazón.", fuente: "iSGLT2 · docs/solucion.md" },

@@ -62,7 +62,7 @@ Etiquetas: **[VO]** voz en off · **[TXT]** texto en pantalla · **[GRAF]** grá
 | Audio | Visual |
 |---|---|
 | [VO] Hoy el circuito depende de que alguien se acuerde de pedir la prueba. Y se rompe en cuatro sitios. | [GRAF] Una cadena de cuatro eslabones. |
-| [VO] Uno: no se pide. La orina se mira a la mitad de los diabéticos y a cuatro de cada cien hipertensos. | [GRAF] Eslabón 1 se rompe. Dos barras: 50 % y 4 %. |
+| [VO] Uno: no se pide. En dos años, la orina se mira a uno de cada tres diabéticos y a cuatro de cada cien hipertensos. | [GRAF] Eslabón 1 se rompe. Dos barras: 35 % y 4 %. |
 | [VO] Dos: cuando se pide, una sola muestra engaña. La mitad de los positivos no se repiten en la siguiente. | [GRAF] Eslabón 2. Dos tubos: uno rojo, el siguiente verde. [TXT] "1 de cada 2". |
 | [VO] Tres: lo que sale en la analítica no se convierte en diagnóstico. Más del ochenta por ciento de quienes tienen el riñón dañado no lo tiene apuntado en su historia. | [GRAF] Eslabón 3. Una ficha clínica en blanco. [TXT] "> 80 % · REVEAL-CKD". |
 | [VO] Y cuatro: aunque se diagnostique, solo entre uno y tres de cada diez reciben el tratamiento que protege el riñón y el corazón. | [GRAF] Eslabón 4. [TXT] "10-33 % con iSGLT2". |
@@ -131,7 +131,8 @@ Etiquetas: **[VO]** voz en off · **[TXT]** texto en pantalla · **[GRAF]** grá
 
 ## Fuentes que salen en pantalla
 
-- 96 de cada 100 hipertensos y 50 % de diabéticos sin UACR: Shin et al., *Hypertension* 2021.
+- UACR en dos años al 4,1 % de los hipertensos (96 de cada 100 sin ella) y al 35,1 % de los
+  diabéticos: Shin et al., *Hypertension* 2021 (3,7 millones de adultos de 24 cohortes).
 - 113.620 muertes por enfermedades del sistema circulatorio: INE, 2024.
 - 15,1 % de ERC: estudio ENRICA (Gorostidi et al., *Nefrología* 2018).
 - Diabetes 13,8 %, 6,0 % sin saberlo: di@bet.es (Soriguer et al., *Diabetologia* 2012).

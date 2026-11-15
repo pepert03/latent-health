@@ -13,8 +13,10 @@ La diabetes, la hipertensión, la enfermedad renal crónica (ERC) y la insuficie
 se alimentan entre sí. Los pacientes de más riesgo no se escapan porque no se hagan analíticas,
 sino por cuatro fallos en la cadena:
 
-1. **No se pide la orina.** El cociente albúmina/creatinina (UACR) se hace a ~50 % de los
-   diabéticos y a ~4 % de los hipertensos (metaanálisis de Shin et al., *Hypertension* 2021).
+1. **No se pide la orina.** En dos años, el cociente albúmina/creatinina (UACR) se hace al 35 % de
+   los diabéticos y al 4 % de los hipertensos, aunque la albuminuria es casi igual de frecuente en
+   unos (32 %) que en otros (22 %) (metaanálisis de Shin et al., *Hypertension* 2021, con 3,7
+   millones de adultos).
 2. **Un UACR aislado engaña y no se confirma.** En NHANES 2009-2010, la mitad de los positivos de
    una muestra aleatoria no se repiten en la primera orina de la mañana, y solo el 40 % de los
    A2 siguen siendo A2.

@@ -45,8 +45,8 @@ def main() -> None:
 
     # Escenarios: (prudente, central, optimista)
     target = 12_000_000  # SUPUESTO: adultos de 40+ con diabetes o hipertensión diagnosticadas en España
-    prevalence = (0.15, 0.20, 0.25)  # SUPUESTO apoyado en ONDAAS (14 % en adultos con analítica en primaria)
-    unknown = (0.70, 0.75, 0.80)  # UACR pedido a ~50 % de diabéticos y ~4 % de hipertensos (Shin 2021)
+    prevalence = (0.15, 0.20, 0.25)  # Shin 2021: 22 % en hipertensos y 32 % en diabéticos (mediana de cohortes); ONDAAS: 14 % en todos
+    unknown = (0.70, 0.75, 0.80)  # UACR en dos años al 35 % de los diabéticos y al 4 % de los hipertensos (Shin 2021)
     participation = (0.30, 0.50, 0.60)  # THOMAS: 44 % con aplicación, 59 % con tubo por correo
     found = (0.85, 0.90, 0.95)  # el filtro confirma casi todas las albuminurias reales (validacion_albuminuria.md)
     treated = (0.30, 0.50, 0.70)  # SUPUESTO: hoy solo 10-33 % de los candidatos toma iSGLT2
@@ -78,8 +78,8 @@ def main() -> None:
         "| Eslabón | Prudente | Central | Optimista | De dónde sale |",
         "|---|---|---|---|---|",
         f"| Adultos de 40+ con diabetes o hipertensión | {miles(target)} | {miles(target)} | {miles(target)} | **Supuesto** (orden de magnitud con la prevalencia de di@bet.es) |",
-        f"| Con albuminuria | {pct(prevalence[0], 0)} | {pct(prevalence[1], 0)} | {pct(prevalence[2], 0)} | **Supuesto** apoyado en ONDAAS (14 % en todos los adultos con analítica) |",
-        f"| Sin medir ni diagnosticar | {pct(unknown[0], 0)} | {pct(unknown[1], 0)} | {pct(unknown[2], 0)} | UACR a ~50 % de diabéticos y ~4 % de hipertensos (Shin 2021) |",
+        f"| Con albuminuria | {pct(prevalence[0], 0)} | {pct(prevalence[1], 0)} | {pct(prevalence[2], 0)} | Por debajo de lo medido: 22 % en hipertensos y 32 % en diabéticos (Shin 2021); 14 % en todos los adultos (ONDAAS) |",
+        f"| Sin medir ni diagnosticar | {pct(unknown[0], 0)} | {pct(unknown[1], 0)} | {pct(unknown[2], 0)} | UACR en dos años al 35 % de los diabéticos y al 4 % de los hipertensos (Shin 2021) |",
         f"| Albuminurias ocultas | {miles(scenarios[0][0])} | {miles(scenarios[1][0])} | {miles(scenarios[2][0])} | |",
         f"| Participan en el cribado en casa | {pct(participation[0], 0)} | {pct(participation[1], 0)} | {pct(participation[2], 0)} | THOMAS: 44 % con aplicación, 59 % con tubo |",
         f"| El circuito la confirma | {pct(found[0], 0)} | {pct(found[1], 0)} | {pct(found[2], 0)} | Filtro de albuminuria (validacion_albuminuria.md) |",
